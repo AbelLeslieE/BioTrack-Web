@@ -17,7 +17,7 @@ const adminMenu = `
     <span>Dashboard</span>
 </a>
 
-<a href="#" class="nav-item" data-page="maintenance">
+<a href="#" class="nav-item" data-page="callManagement">
     <i data-lucide="clipboard-list"></i>
     <span>Call Management</span>
 </a>

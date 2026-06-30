@@ -27,6 +27,8 @@ const Pages = {
     // Biomedical Engineer
     engineerDashboard: renderEngineerDashboard,
     callManagement: renderMaintenance,
+    // Admin
+    callAssignment: renderMaintenance,
 
     maintenance: renderMaintenanceModule,
     assets: renderAssets,
