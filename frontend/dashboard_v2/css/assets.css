@@ -1,0 +1,646 @@
+/* ==========================================
+   ASSET PAGE
+========================================== */
+
+.asset-page{
+    display:flex;
+    flex-direction:column;
+    gap:28px;
+}
+
+/* ==========================================
+   HEADER
+========================================== */
+
+.page-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:20px;
+    flex-wrap:wrap;
+}
+
+.page-header h1{
+    font-size:36px;
+    font-weight:700;
+    color:#111827;
+}
+
+.page-header p{
+    margin-top:8px;
+    color:#64748b;
+    font-size:15px;
+}
+
+/* ==========================================
+   ACTION BUTTONS
+========================================== */
+
+.asset-actions{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+}
+
+.btn-primary,
+.btn-secondary{
+
+    border:none;
+    cursor:pointer;
+
+    padding:14px 22px;
+
+    border-radius:14px;
+
+    font-size:15px;
+
+    font-weight:600;
+
+    transition:.25s;
+}
+
+.btn-primary{
+
+    background:#2563EB;
+
+    color:white;
+
+}
+
+.btn-primary:hover{
+
+    background:#1d4ed8;
+
+}
+
+.btn-secondary{
+
+    background:white;
+
+    border:1px solid #E2E8F0;
+
+}
+
+.btn-secondary:hover{
+
+    background:#F8FAFC;
+
+}
+
+/* ==========================================
+   KPI GRID
+========================================== */
+
+.asset-kpis{
+
+    display:grid;
+
+    grid-template-columns:repeat(3, minmax(320px, 1fr));
+
+    gap:24px;
+
+    margin-top:10px;
+
+}
+
+
+
+/* ==========================================
+   TOOLBAR
+========================================== */
+
+.asset-toolbar{
+
+    display:flex;
+
+    gap:16px;
+
+    align-items:center;
+
+    flex-wrap:wrap;
+
+}
+
+.asset-search{
+
+    flex:1;
+
+    min-width:320px;
+
+    padding:14px 18px;
+
+    border-radius:14px;
+
+    border:1px solid #E2E8F0;
+
+    outline:none;
+
+    font-size:15px;
+
+}
+
+.asset-toolbar select{
+
+    padding:14px 18px;
+
+    border-radius:14px;
+
+    border:1px solid #E2E8F0;
+
+    background:white;
+
+    min-width:170px;
+
+}
+
+/* ==========================================
+   TABLE
+========================================== */
+
+.asset-table-container{
+
+    background:white;
+
+    border-radius:18px;
+
+    border:1px solid #E2E8F0;
+
+    overflow:hidden;
+
+    box-shadow:0 8px 24px rgba(15,23,42,.05);
+
+}
+
+.asset-table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+}
+
+.asset-table thead{
+
+    background:#F8FAFC;
+
+}
+
+.asset-table th{
+
+    text-align:left;
+
+    padding:18px;
+
+    color:#64748b;
+
+    font-size:14px;
+
+    font-weight:600;
+
+}
+
+.asset-table td{
+
+    padding:18px;
+
+    border-top:1px solid #F1F5F9;
+
+    font-size:14px;
+
+    color:#111827;
+
+}
+
+.asset-table tr:hover{
+
+    background:#F8FAFC;
+
+}
+
+.empty-table{
+
+    text-align:center;
+
+    padding:80px;
+
+    color:#94A3B8;
+
+}
+/*==================================================
+PREMIUM HERO
+==================================================*/
+
+.asset-hero{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:flex-start;
+
+    gap:40px;
+
+    padding:40px;
+
+    background:linear-gradient(
+        135deg,
+        #ffffff 0%,
+        #f8fbff 100%
+    );
+
+    border:1px solid #e7edf7;
+
+    border-radius:28px;
+
+    box-shadow:
+        0 20px 45px rgba(15,23,42,.06);
+
+}
+
+.asset-hero-left{
+
+    max-width:760px;
+
+}
+
+.asset-badge{
+
+    display:inline-flex;
+
+    align-items:center;
+
+    gap:8px;
+
+    padding:8px 16px;
+
+    border-radius:999px;
+
+    background:#eef6ff;
+
+    color:#2563eb;
+
+    font-size:13px;
+
+    font-weight:700;
+
+    letter-spacing:.5px;
+
+    margin-bottom:18px;
+
+}
+
+.asset-hero h1{
+
+    font-size:48px;
+
+    font-weight:800;
+
+    line-height:1.1;
+
+    color:#0f172a;
+
+    margin-bottom:18px;
+
+}
+
+.asset-hero p{
+
+    max-width:700px;
+
+    font-size:17px;
+
+    line-height:1.8;
+
+    color:#64748b;
+
+}
+
+.asset-actions{
+
+    display:flex;
+
+    gap:14px;
+
+    align-items:center;
+
+    flex-wrap:wrap;
+
+}
+/*==================================================
+HERO ACTION PANEL
+==================================================*/
+
+.asset-hero-right{
+
+    width:340px;
+
+    flex-shrink:0;
+
+}
+
+.quick-actions-card{
+
+    background:#ffffff;
+
+    border:1px solid #e8edf5;
+
+    border-radius:24px;
+
+    padding:26px;
+
+    box-shadow:0 16px 35px rgba(15,23,42,.06);
+
+}
+
+.quick-actions-header h3{
+
+    margin:0;
+
+    font-size:20px;
+
+    font-weight:700;
+
+    color:#0f172a;
+
+}
+
+.quick-actions-header p{
+
+    margin-top:6px;
+
+    margin-bottom:22px;
+
+    color:#64748b;
+
+    font-size:14px;
+
+}
+
+.asset-actions{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:14px;
+
+}
+
+.hero-btn{
+
+    width:100%;
+
+    justify-content:center;
+
+}
+/*==============================
+NEW KPI DESIGN
+==============================*/
+
+.asset-card{
+
+    position:relative;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:24px;
+
+    padding:30px;
+
+    border-radius:22px;
+
+    overflow:hidden;
+    
+    min-height:150px;
+
+    border:1px solid #E5EDF8;
+
+    background:linear-gradient(
+        180deg,
+        #ffffff,
+        #fbfdff
+    );
+
+    box-shadow:
+        0 14px 35px rgba(15,23,42,.06);
+
+    transition:.3s;
+
+}
+.asset-card:hover{
+
+    transform:translateY(-6px);
+
+    box-shadow:
+        0 22px 45px rgba(37,99,235,.12);
+
+}
+.asset-card::before{
+
+    content:"";
+
+    position:absolute;
+
+    top:0;
+
+    left:0;
+
+    width:6px;
+
+    height:100%;
+
+}
+
+.total-card::before{
+
+    background:#3B82F6;
+
+}
+
+.active-card::before{
+
+    background:#22C55E;
+
+}
+
+.pm-card::before{
+
+    background:#F59E0B;
+
+}
+
+.asset-card-icon{
+
+    width:72px;
+
+    height:72px;
+
+    border-radius:20px;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    font-size:30px;
+
+    flex-shrink:0;
+
+    box-shadow:
+        inset 0 1px 1px rgba(255,255,255,.5);
+
+}
+
+.total-card .asset-card-icon{
+
+    background:#DBEAFE;
+
+}
+
+.active-card .asset-card-icon{
+
+    background:#DCFCE7;
+
+}
+
+.pm-card .asset-card-icon{
+
+    background:#FEF3C7;
+
+}
+
+.asset-card-content h4{
+
+    margin:0;
+
+}
+
+.asset-card-content h2{
+
+    margin:8px 0;
+
+    font-size:42px;
+
+    font-weight:800;
+
+    color:#0F172A;
+
+}
+
+.asset-card-content p{
+
+    color:#64748B;
+
+    font-size:13px;
+
+}
+/*==============================
+VIEW BUTTON
+==============================*/
+
+.btn-open-asset{
+
+    display:inline-flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    gap:8px;
+
+    padding:11px 18px;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:linear-gradient(
+        135deg,
+        #2563EB,
+        #3B82F6
+    );
+
+    color:white;
+
+    font-weight:600;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+    box-shadow:
+        0 10px 25px rgba(37,99,235,.25);
+
+}
+
+.btn-open-asset:hover{
+
+    transform:translateY(-3px);
+
+    box-shadow:
+        0 18px 35px rgba(37,99,235,.35);
+
+}
+.total-card{
+
+    background:linear-gradient(
+        135deg,
+        #ffffff,
+        #eff6ff
+    );
+
+}
+
+.active-card{
+
+    background:linear-gradient(
+        135deg,
+        #ffffff,
+        #f0fdf4
+    );
+
+}
+
+.pm-card{
+
+    background:linear-gradient(
+        135deg,
+        #ffffff,
+        #fff7ed
+    );
+
+}
+
+.calibration-card{
+
+    background:linear-gradient(
+        135deg,
+        #ffffff,
+        #faf5ff
+    );
+
+}
+
+.warranty-card{
+
+    background:linear-gradient(
+        135deg,
+        #ffffff,
+        #ecfeff
+    );
+
+}
+
+.critical-card{
+
+    background:linear-gradient(
+        135deg,
+        #ffffff,
+        #fef2f2
+    );
+
+}
+ 

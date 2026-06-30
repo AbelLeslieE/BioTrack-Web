@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    
+    <!-- ==========================================
+         META
+    =========================================== -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>BioTrack Dashboard V2</title>
+
+    <!-- ==========================================
+         GOOGLE FONT
+    =========================================== -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- ==========================================
+         LUCIDE ICONS
+    =========================================== -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- ==========================================
+         CSS
+    =========================================== -->
+
+    <link rel="stylesheet" href="/static/dashboard_v2/css/theme.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/layout.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/sidebar.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/topbar.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/cards.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/charts.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/tables.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/responsive.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/maintenance.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/qr.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/qr_modal.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/assets.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/asset_details.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/asset_profile.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/asset_form.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/user_dashboard.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/engineer_dashboard.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/ticket.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/new_request.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/my_requests.css">
+      
+
+
+
+
+
+</head>
+
+<body>
+
+<div class="dashboard">
+
+
+
+    <!-- ==========================================
+        SIDEBAR
+    ========================================== -->
+
+    <aside class="sidebar">
+
+        <!-- Logo -->
+
+        <div class="sidebar-logo">
+
+            <div class="logo-icon">
+
+                <i data-lucide="shield-plus"></i>
+
+            </div>
+
+            <div class="logo-text">
+
+                <h2>BioTrack</h2>
+
+                <p>Biomedical Maintenance</p>
+
+            </div>
+
+        </div>
+
+        <!-- Navigation -->
+
+        <nav class="sidebar-nav" id="sidebar-nav">
+
+            <!-- Sidebar generated dynamically -->
+
+        </nav>
+
+        <!-- Footer -->
+
+        <div class="sidebar-footer">
+
+            <div class="profile-card">
+
+            <div class="profile-avatar" id="sidebarAvatar">
+                A
+            </div>
+
+            <div>
+
+                <strong id="sidebarRole">Loading...</strong>
+
+                <small>Online</small>
+
+            </div>
+
+        </div>
+
+            <button class="logout-btn">
+
+                <i data-lucide="log-out"></i>
+
+                Logout
+
+            </button>
+
+        </div>
+
+    </aside>
+
+    <!-- ==========================================
+         MAIN CONTENT
+    =========================================== -->
+
+    <main class="main-content">
+
+        <!-- Topbar -->
+
+        <header class="topbar">
+
+            <!-- Left Section -->
+            <div class="topbar-left">
+
+                <button class="menu-toggle">
+                    <i data-lucide="menu"></i>
+                </button>
+
+                <div class="search-box">
+
+                    <i data-lucide="search"></i>
+
+                    <input
+                        type="text"
+                        placeholder="Search devices, requests, users..."
+                    >
+
+                </div>
+
+            </div>
+
+            <!-- Right Section -->
+            <div class="topbar-right">
+
+                <button class="notification-btn">
+
+                    <i data-lucide="bell"></i>
+
+                    <span class="notification-badge">5</span>
+
+                </button>
+
+                <div class="date-time">
+
+                    <div id="currentDate">
+                        Loading...
+                    </div>
+
+                    <div id="currentTime">
+                        Loading...
+                    </div>
+
+                </div>
+
+                <div class="profile-button">
+
+                    <div class="profile-avatar" id="topAvatar">
+                        A
+                    </div>
+
+                    <div class="profile-info">
+
+                        <strong id="topUsername">Loading...</strong>
+
+                        <small id="topRole">Loading...</small>
+
+                    </div>
+
+                    <i data-lucide="chevron-down"></i>
+
+                </div>
+
+            </div>
+
+        </header>
+
+        <!-- Dashboard -->
+
+        <!-- ==========================================
+            DASHBOARD MAIN
+        ========================================== -->
+
+        <!-- ==========================================
+            PAGE CONTENT
+        ========================================== -->
+
+        <div id="page-content"></div>
+
+         
+
+    </main>
+
+
+
+<link rel="stylesheet" href="/static/dashboard_v2/css/users.css">
+<script src="/static/dashboard_v2/js/api.js"></script>
+<script src="/static/dashboard_v2/js/logout.js"></script>
+<script src="/static/dashboard_v2/js/dashboard.js"></script>
+<script src="/static/dashboard_v2/js/sidebar.js"></script>
+<script src="/static/dashboard_v2/views/engineerDashboardView.js"></script>
+<script src="/static/dashboard_v2/views/dashboardView.js"></script>
+<script src="/static/dashboard_v2/views/userDashboardView.js"></script>
+<script src="/static/dashboard_v2/views/newRequestView.js"></script>
+<script src="/static/dashboard_v2/views/maintenanceView.js"></script>
+<script src="/static/dashboard_v2/views/ticketView.js"></script>
+<script src="/static/dashboard_v2/views/assetsView.js"></script>
+<script src="/static/dashboard_v2/views/assetFormView.js"></script>
+<script src="/static/dashboard_v2/views/assetProfileView.js"></script>
+<script src="/static/dashboard_v2/views/assetDetailsView.js"></script>
+<script src="/static/dashboard_v2/views/maintenanceModuleView.js"></script>
+<script src="/static/dashboard_v2/views/inventoryView.js"></script>
+<script src="/static/dashboard_v2/views/pmView.js"></script>
+<script src="/static/dashboard_v2/views/reportsView.js"></script>
+<script src="/static/dashboard_v2/views/usersView.js"></script>
+<script src="/static/dashboard_v2/views/departmentsView.js"></script>
+<script src="/static/dashboard_v2/views/myRequestsView.js"></script>
+<script src="/static/dashboard_v2/views/qrView.js"></script>
+<script src="/static/dashboard_v2/views/settingsView.js"></script>
+<script src="/static/dashboard_v2/views/aiView.js"></script>
+<script src="/static/dashboard_v2/js/asset_profile.js"></script>
+<script src="/static/dashboard_v2/js/router.js"></script>
+<script src="/static/dashboard_v2/js/new_request.js"></script>
+<script src="/static/dashboard_v2/js/clock.js"></script>
+<script src="/static/dashboard_v2/js/assets_details.js"></script>
+ <script src="https://unpkg.com/html5-qrcode"></script>
+<script src="/static/dashboard_v2/js/qr_scanner.js"></script>
+
+
+<script>
+    lucide.createIcons();
+</script>
+<script>
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    const role = localStorage.getItem("role") || "";
+    const username = localStorage.getItem("username") || "User";
+
+    let roleText = role;
+
+    switch(role.toLowerCase()){
+
+        case "admin":
+        case "manager":
+            roleText = "Administrator";
+            break;
+
+        case "engineer":
+        case "bme":
+            roleText = "Biomedical Engineer";
+            break;
+
+        case "user":
+            roleText = "Department User";
+            break;
+    }
+
+    document.getElementById("topUsername").textContent = username;
+
+    document.getElementById("topRole").textContent = roleText;
+
+    document.getElementById("sidebarRole").textContent = roleText;
+
+    document.getElementById("topAvatar").textContent =
+        username.charAt(0).toUpperCase();
+
+    document.getElementById("sidebarAvatar").textContent =
+        username.charAt(0).toUpperCase();
+
+});
+
+</script>
+</body>
+</html>
+
+
+

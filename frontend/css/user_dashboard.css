@@ -1,0 +1,338 @@
+body {
+
+    margin: 0;
+
+    padding: 30px;
+
+    background: #f3f5f9;
+
+    font-family: "Segoe UI", sans-serif;
+}
+
+.page-container {
+
+    max-width: 1400px;
+
+    margin: auto;
+}
+
+.page-header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin-bottom: 30px;
+}
+
+.page-header h1 {
+
+    margin: 0;
+
+    font-size: 36px;
+
+    color: #111827;
+}
+
+.page-header p {
+
+    color: #6b7280;
+}
+
+.header-info {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 20px;
+}
+
+.logout-btn {
+
+    border: none;
+
+    padding: 12px 18px;
+
+    border-radius: 12px;
+
+    cursor: pointer;
+
+    background: white;
+
+    box-shadow:
+        0 8px 20px rgba(0,0,0,0.06);
+}
+
+.new-request-card,
+.requests-card {
+
+    background: white;
+
+    border-radius: 20px;
+
+    padding: 25px;
+
+    margin-bottom: 25px;
+
+    box-shadow:
+        0 10px 30px rgba(15,23,42,0.06);
+}
+
+.new-request-card {
+
+    min-height: 90px;
+}
+
+#newRequestBtn {
+
+    margin-top: 15px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #2563eb,
+            #1d4ed8
+        );
+
+    color: white;
+
+    border: none;
+
+    padding: 15px 24px;
+
+    border-radius: 12px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+#newRequestBtn:hover {
+
+    transform: translateY(-2px);
+}
+
+#emptyState {
+
+    text-align: center;
+
+    padding: 40px 20px;
+
+    min-height: 220px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: center;
+
+    align-items: center;
+
+    cursor: pointer;
+
+    transition:
+        all 0.3s ease;
+}
+/* ==========================================
+   NEW REQUEST CARD
+========================================== */
+
+.new-request-card {
+
+    background: white;
+
+    border-radius: 20px;
+
+    padding: 30px;
+
+    margin-bottom: 25px;
+
+    box-shadow:
+        0 10px 30px rgba(15,23,42,0.06);
+
+    cursor: pointer;
+
+    position: relative;
+
+    overflow: hidden;
+}
+
+.new-request-card:hover {
+
+    transform: translateY(-4px);
+
+    box-shadow:
+        0 18px 40px rgba(37,99,235,0.12);
+}
+
+
+.empty-icon {
+
+    font-size: 50px;
+
+    margin-bottom: 15px;
+}
+
+table {
+
+    width: 100%;
+
+    border-collapse: collapse;
+
+    display: none;
+}
+
+th {
+
+    text-align: left;
+
+    padding: 15px;
+
+    background: #f8fafc;
+}
+
+td {
+
+    padding: 15px;
+
+    border-top: 1px solid #e5e7eb;
+}
+
+.status {
+
+    padding: 6px 12px;
+
+    border-radius: 20px;
+
+    font-size: 12px;
+
+    font-weight: 600;
+}
+
+.status-open {
+
+    background: #dbeafe;
+
+    color: #2563eb;
+}
+
+.status-progress {
+
+    background: #fef3c7;
+
+    color: #d97706;
+}
+
+.status-closed {
+
+    background: #dcfce7;
+
+    color: #16a34a;
+}
+/* ==========================================
+   DATE & TIME
+========================================== */
+
+.datetime-container {
+
+    text-align: right;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 3px;
+}
+
+#currentDate {
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    color: #64748b;
+}
+
+#currentTime {
+
+    font-size: 18px;
+
+    font-weight: 700;
+
+    color: #111827;
+
+    letter-spacing: 0.5px;
+}
+/* ==========================================
+   EMPTY STATE ACTION
+========================================== */
+
+#emptyState:hover {
+
+    transform: translateY(-4px);
+
+    background: #f8fbff;
+}
+
+.click-message {
+
+    margin-top: 10px;
+
+    font-weight: 600;
+
+    color: #2563eb;
+}
+#newRequestBtn {
+
+    margin-top: 15px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #2563eb,
+            #1d4ed8
+        );
+
+    color: white;
+
+    border: none;
+
+    padding: 15px 24px;
+
+    border-radius: 12px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+#newRequestBtn:hover {
+
+    transform: translateY(-2px);
+}
+.view-btn {
+
+    border: none;
+
+    background: #2563eb;
+
+    color: white;
+
+    padding: 8px 14px;
+
+    border-radius: 8px;
+
+    cursor: pointer;
+
+    font-size: 12px;
+
+    font-weight: 600;
+}
+
+.view-btn:hover {
+
+    opacity: 0.9;
+}

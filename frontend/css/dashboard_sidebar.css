@@ -1,0 +1,239 @@
+/* ==========================================
+   BioTrack Sidebar V2
+========================================== */
+
+.sidebar{
+
+    width:280px;
+
+    min-width:280px;
+
+    height:100vh;
+
+    position:sticky;
+
+    top:0;
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:space-between;
+
+    background:var(--sidebar);
+
+    color:white;
+
+    padding:24px;
+
+    box-shadow:var(--shadow);
+
+}
+
+/* ==========================================
+   Logo
+========================================== */
+
+.sidebar-logo{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:16px;
+
+    margin-bottom:40px;
+
+}
+
+.sidebar-logo img{
+
+    width:56px;
+
+    height:56px;
+
+    border-radius:14px;
+
+    background:white;
+
+    padding:6px;
+
+}
+
+.sidebar-logo h2{
+
+    font-size:26px;
+
+    font-weight:700;
+
+}
+
+.sidebar-logo span{
+
+    font-size:13px;
+
+    color:#cbd5e1;
+
+}
+
+/* ==========================================
+   Menu
+========================================== */
+
+.sidebar-menu{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:8px;
+
+    flex:1;
+
+}
+
+.nav-item{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:14px;
+
+    text-decoration:none;
+
+    color:#cbd5e1;
+
+    padding:14px 16px;
+
+    border-radius:14px;
+
+    transition:var(--transition);
+
+    font-weight:500;
+
+}
+
+.nav-item i{
+
+    width:20px;
+
+    height:20px;
+
+}
+
+.nav-item:hover{
+
+    background:var(--sidebar-hover);
+
+    color:white;
+
+}
+
+.nav-item.active{
+
+    background:var(--primary);
+
+    color:white;
+
+    box-shadow:0 8px 20px rgba(37,99,235,.25);
+
+}
+
+/* ==========================================
+   Footer
+========================================== */
+
+.sidebar-footer{
+
+    margin-top:20px;
+
+}
+
+/* ==========================================
+   Admin Card
+========================================== */
+
+.admin-card{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+    padding:16px;
+
+    border-radius:16px;
+
+    background:rgba(255,255,255,.06);
+
+    margin-bottom:18px;
+
+}
+
+.admin-avatar{
+
+    width:44px;
+
+    height:44px;
+
+    border-radius:50%;
+
+    background:var(--primary);
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    font-weight:700;
+
+    color:white;
+
+}
+
+.admin-card strong{
+
+    display:block;
+
+    color:white;
+
+}
+
+.admin-card small{
+
+    color:#cbd5e1;
+
+}
+
+/* ==========================================
+   Logout
+========================================== */
+
+.logout-btn{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+    text-decoration:none;
+
+    color:#f87171;
+
+    padding:14px 16px;
+
+    border-radius:14px;
+
+    transition:var(--transition);
+
+}
+
+.logout-btn:hover{
+
+    background:rgba(239,68,68,.15);
+
+}

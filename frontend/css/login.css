@@ -1,0 +1,317 @@
+/* ==========================================
+   LOGIN PAGE
+========================================== */
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", sans-serif;
+    background: #f5f7fb;
+}
+
+.login-container {
+    display: flex;
+    height: 100vh;
+}
+
+/* ==========================================
+   LEFT SIDE
+========================================== */
+
+.branding-panel {
+    flex: 1;
+    background: linear-gradient(
+        135deg,
+        #1f3b73,
+        #4b5fd6
+    );
+
+    color: white;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    padding: 50px;
+    text-align: center;
+}
+
+.hospital-logo {
+    width: 150px;
+    margin-bottom: 25px;
+}
+
+.branding-panel h1 {
+    font-size: 48px;
+    margin: 10px 0;
+    font-weight: 700;
+}
+
+.branding-panel h2 {
+    font-size: 20px;
+    font-weight: 400;
+    margin-bottom: 20px;
+}
+
+.branding-panel p {
+    font-size: 16px;
+    opacity: 0.9;
+}
+
+/* ==========================================
+   RIGHT SIDE
+========================================== */
+
+.login-panel {
+    flex: 1;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background: #f8fafc;
+}
+
+.login-card {
+    width: 420px;
+    background: white;
+
+    padding: 40px;
+
+    border-radius: 18px;
+
+    box-shadow:
+        0 8px 30px rgba(0,0,0,0.08);
+}
+
+.login-card h2 {
+    margin: 0;
+    color: #1f2937;
+}
+
+.subtitle {
+    color: #6b7280;
+    margin-bottom: 30px;
+}
+
+/* ==========================================
+   INPUTS
+========================================== */
+
+.input-group {
+    margin-bottom: 20px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.input-group input {
+    width: 100%;
+    box-sizing: border-box;
+
+    padding: 14px;
+
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+
+    font-size: 15px;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #4b5fd6;
+}
+
+/* ==========================================
+   BUTTON
+========================================== */
+
+.login-btn {
+    width: 100%;
+
+    padding: 14px;
+
+    border: none;
+    border-radius: 10px;
+
+    background: #4b5fd6;
+    color: white;
+
+    font-size: 16px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: 0.3s;
+}
+
+.login-btn:hover {
+    background: #3547c8;
+}
+
+#message {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 14px;
+}
+
+/* ==========================================
+   MOBILE
+========================================== */
+
+@media(max-width: 900px)
+{
+    .branding-panel {
+        display: none;
+    }
+
+    .login-panel {
+        flex: 1;
+    }
+
+    .login-card {
+        width: 90%;
+    }
+}
+.branding-panel {
+    flex: 1;
+    background: linear-gradient(
+        135deg,
+        #8b1e8d 0%,
+        #1f75d8 100%
+    );
+
+    color: white;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    text-align: center;
+
+    padding: 40px;
+}
+.hospital-logo {
+    width: 220px;
+    height: auto;
+    margin-bottom: 35px;
+}
+.brand-title {
+    font-size: 72px;
+    font-weight: 700;
+    margin: 0;
+}
+.brand-subtitle {
+    font-size: 24px;
+    line-height: 1.5;
+    margin-top: 15px;
+    opacity: 0.95;
+}
+.brand-divider {
+    width: 70%;
+    height: 1px;
+    background: rgba(255,255,255,0.5);
+
+    margin: 40px 0;
+}
+.hospital-name {
+    font-size: 20px;
+    line-height: 1.6;
+}
+.tagline {
+    margin-top: 25px;
+
+    color: #2fe3d3;
+
+    font-size: 20px;
+    letter-spacing: 3px;
+    font-weight: 600;
+}
+.version-info {
+    position: absolute;
+
+    bottom: 40px;
+
+    display: flex;
+    gap: 15px;
+
+    font-size: 14px;
+
+    opacity: 0.85;
+}
+.login-panel {
+    flex: 1;
+
+    background: #f3f4f6;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.login-card {
+    width: 500px;
+
+    background: white;
+
+    border-radius: 22px;
+
+    padding: 50px;
+
+    box-shadow:
+        0 20px 50px rgba(0,0,0,0.08);
+}
+.login-card h2 {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+.subtitle {
+    color: #6b7280;
+    margin-bottom: 35px;
+}
+.password-wrapper {
+    position: relative;
+}
+
+.eye-btn {
+    position: absolute;
+
+    right: 12px;
+    top: 50%;
+
+    transform: translateY(-50%);
+
+    border: none;
+    background: none;
+
+    cursor: pointer;
+
+    font-size: 18px;
+}
+.login-btn {
+    width: 100%;
+
+    margin-top: 15px;
+
+    padding: 16px;
+
+    border: none;
+
+    border-radius: 12px;
+
+    background: linear-gradient(
+        90deg,
+        #4f46e5,
+        #4361ee
+    );
+
+    color: white;
+
+    font-size: 18px;
+    font-weight: 600;
+
+    cursor: pointer;
+}

@@ -1,0 +1,369 @@
+/* ==========================================
+   BIOTRACK V2
+   TOPBAR
+========================================== */
+
+.topbar{
+
+    height:var(--topbar-height);
+
+    background:#ffffff;
+
+    border-bottom:1px solid var(--border);
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    padding:0 var(--page-padding);
+
+    gap:20px;
+
+    flex-wrap:nowrap;
+
+}
+
+/* ==========================
+   LEFT
+========================== */
+
+.topbar-left{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:20px;
+
+}
+
+.menu-toggle{
+
+    width:45px;
+    display:none;
+    height:45px;
+
+    border:none;
+
+    background:transparent;
+
+    cursor:pointer;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    border-radius:12px;
+
+    transition:.25s;
+
+}
+
+.menu-toggle:hover{
+
+    background:#f1f5f9;
+
+}
+
+.menu-toggle svg{
+
+    width:24px;
+
+    height:24px;
+
+}
+
+/* ==========================
+   SEARCH
+========================== */
+
+.search-box{
+
+    width:min(480px,100%);
+
+    flex:1;
+
+    min-width:180px;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+    background:#f8fafc;
+
+    border:1px solid #e2e8f0;
+
+    border-radius:14px;
+
+    padding:0 18px;
+
+    height:50px;
+
+}
+
+.search-box svg{
+
+    color:#64748b;
+
+}
+
+.search-box input{
+
+    flex:1;
+
+    border:none;
+
+    background:transparent;
+
+    outline:none;
+
+    font-size:15px;
+
+}
+
+/* ==========================
+   RIGHT
+========================== */
+
+.topbar-right{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:20px;
+
+}
+
+/* Notification */
+
+.notification-btn{
+
+    width:46px;
+
+    height:46px;
+
+    border:none;
+
+    background:#ffffff;
+
+    border-radius:12px;
+
+    position:relative;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+}
+
+.notification-btn:hover{
+
+    background:#f8fafc;
+
+}
+
+.notification-badge{
+
+    position:absolute;
+
+    top:6px;
+
+    right:6px;
+
+    width:18px;
+
+    height:18px;
+
+    background:#ef4444;
+
+    color:white;
+
+    font-size:11px;
+
+    border-radius:50%;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+}
+
+/* Date */
+
+.date-time{
+
+    display:flex;
+
+    flex-direction:column;
+
+    text-align:right;
+
+}
+
+#currentDate{
+
+    font-weight:600;
+
+}
+
+#currentTime{
+
+    color:#64748b;
+
+    font-size:13px;
+
+}
+
+/* Profile */
+
+.profile-button{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+    padding:8px 14px;
+
+    border:1px solid #e2e8f0;
+
+    border-radius:14px;
+
+    cursor:pointer;
+
+    flex-shrink:0;
+
+    transition:.25s ease;
+
+}
+.profile-button:hover{
+
+    background:#F8FAFC;
+
+    border-color:#CBD5E1;
+
+}
+.profile-avatar{
+
+    width:42px;
+
+    height:42px;
+
+    border-radius:50%;
+
+    background:#2563eb;
+
+    color:white;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    font-weight:700;
+
+}
+
+.profile-info{
+
+    display:flex;
+
+    flex-direction:column;
+
+}
+
+.profile-info small{
+
+    color:#64748b;
+
+}
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+/* Laptop */
+@media (max-width:1200px){
+
+    .search-box{
+
+        width:320px;
+
+    }
+
+}
+
+/* Tablet */
+@media (max-width:992px){
+
+    .date-time{
+
+        display:none;
+
+    }
+
+    .search-box{
+
+        width:260px;
+
+    }
+
+}
+
+/* Mobile */
+@media (max-width:768px){
+
+    .topbar{
+
+        padding:0 18px;
+
+    }
+
+    .search-box{
+
+        display:none;
+
+    }
+
+    .profile-info{
+
+        display:none;
+
+    }
+
+    .profile-button{
+
+        padding:6px;
+
+    }
+
+}
+
+/* Small Mobile */
+@media (max-width:480px){
+
+    .topbar-right{
+
+        gap:10px;
+
+    }
+
+    .notification-btn{
+
+        width:42px;
+
+        height:42px;
+
+    }
+
+}

@@ -1,0 +1,417 @@
+/* ==========================================
+   MY REQUESTS PAGE
+========================================== */
+
+.my-requests-page{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:24px;
+
+    animation:fadeIn .25s ease;
+
+}
+
+/* ==========================================
+   PAGE HEADER
+========================================== */
+
+.my-requests-header{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+}
+
+.my-requests-title h1{
+
+    font-size:34px;
+
+    font-weight:700;
+
+    color:#16213E;
+
+    margin-bottom:6px;
+
+}
+
+.my-requests-title p{
+
+    color:#6B7280;
+
+    font-size:15px;
+
+}
+
+/* ==========================================
+   KPI GRID
+========================================== */
+
+.myrequest-kpis{
+
+    display:grid;
+
+    grid-template-columns:repeat(4,1fr);
+
+    gap:20px;
+
+}
+
+.myrequest-card{
+
+    background:#ffffff;
+
+    border-radius:18px;
+
+    padding:22px;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:18px;
+
+    border:1px solid #E5E7EB;
+
+    box-shadow:0 8px 22px rgba(15,23,42,.05);
+
+    transition:.25s;
+
+}
+
+.myrequest-card:hover{
+
+    transform:translateY(-4px);
+
+    box-shadow:0 15px 35px rgba(0,0,0,.08);
+
+}
+
+.myrequest-icon{
+
+    width:62px;
+
+    height:62px;
+
+    border-radius:16px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    color:#fff;
+
+    font-size:26px;
+
+}
+
+.icon-total{
+
+    background:#2563EB;
+
+}
+
+.icon-open{
+
+    background:#F59E0B;
+
+}
+
+.icon-progress{
+
+    background:#0EA5E9;
+
+}
+
+.icon-completed{
+
+    background:#16A34A;
+
+}
+
+.myrequest-info h2{
+
+    font-size:34px;
+
+    margin:0;
+
+    color:#111827;
+
+}
+
+.myrequest-info span{
+
+    color:#6B7280;
+
+    font-size:14px;
+
+}
+
+/* ==========================================
+   FILTER BAR
+========================================== */
+
+.myrequest-toolbar{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    gap:20px;
+
+    flex-wrap:wrap;
+
+}
+
+.myrequest-search{
+
+    flex:1;
+
+    min-width:320px;
+
+    position:relative;
+
+}
+
+.myrequest-search input{
+
+    width:100%;
+
+    padding:14px 18px;
+
+    border-radius:14px;
+
+    border:1px solid #E5E7EB;
+
+    font-size:15px;
+
+    outline:none;
+
+    transition:.25s;
+
+}
+
+.myrequest-search input:focus{
+
+    border-color:#2563EB;
+
+    box-shadow:0 0 0 4px rgba(37,99,235,.08);
+
+}
+
+.myrequest-filters{
+
+    display:flex;
+
+    gap:12px;
+
+}
+
+.myrequest-filters select{
+
+    padding:12px 18px;
+
+    border-radius:12px;
+
+    border:1px solid #E5E7EB;
+
+    background:white;
+
+}
+
+/* ==========================================
+   TABLE
+========================================== */
+
+.myrequest-table-card{
+
+    background:#fff;
+
+    border-radius:18px;
+
+    border:1px solid #E5E7EB;
+
+    overflow:hidden;
+
+    box-shadow:0 8px 25px rgba(0,0,0,.05);
+
+}
+
+.myrequest-table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+}
+
+.myrequest-table thead{
+
+    background:#F8FAFC;
+
+}
+
+.myrequest-table th{
+
+    padding:18px;
+
+    text-align:left;
+
+    font-weight:600;
+
+    color:#475569;
+
+    font-size:14px;
+
+}
+
+.myrequest-table td{
+
+    padding:18px;
+
+    border-top:1px solid #EEF2F7;
+
+}
+
+.myrequest-table tbody tr{
+
+    transition:.25s;
+
+}
+
+.myrequest-table tbody tr:hover{
+
+    background:#F9FBFF;
+
+}
+
+/* ==========================================
+   BUTTON
+========================================== */
+
+.open-ticket-btn{
+
+    border:none;
+
+    background:#2563EB;
+
+    color:#fff;
+
+    padding:10px 18px;
+
+    border-radius:10px;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+}
+
+.open-ticket-btn:hover{
+
+    background:#1D4ED8;
+
+}
+
+/* ==========================================
+   STATUS BADGES
+========================================== */
+
+.status-badge{
+
+    display:inline-flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    padding:8px 16px;
+
+    border-radius:30px;
+
+    font-size:13px;
+
+    font-weight:600;
+
+}
+
+.status-badge.open{
+
+    background:#DCFCE7;
+
+    color:#166534;
+
+}
+
+.status-badge.assigned{
+
+    background:#FEF3C7;
+
+    color:#92400E;
+
+}
+
+.status-badge.in-progress{
+
+    background:#DBEAFE;
+
+    color:#1D4ED8;
+
+}
+
+.status-badge.completed{
+
+    background:#DCFCE7;
+
+    color:#166534;
+
+}
+
+.status-badge.closed{
+
+    background:#E5E7EB;
+
+    color:#374151;
+
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media(max-width:1100px){
+
+.myrequest-kpis{
+
+grid-template-columns:repeat(2,1fr);
+
+}
+
+}
+
+@media(max-width:700px){
+
+.myrequest-kpis{
+
+grid-template-columns:1fr;
+
+}
+
+.myrequest-toolbar{
+
+flex-direction:column;
+
+align-items:stretch;
+
+}
+
+}

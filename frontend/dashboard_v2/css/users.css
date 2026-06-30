@@ -1,0 +1,71 @@
+
+.users-page{padding:30px}
+.add-btn{background:#2563eb;color:white;border:0;padding:12px 20px;border-radius:10px}
+.controls{display:flex;gap:15px;margin:25px 0}
+.controls input,.controls select{padding:10px;border-radius:8px}
+.users-table{width:100%;background:white;border-collapse:collapse}
+.users-table th{background:#111827;color:white;padding:14px}
+.users-table td{padding:14px;border-bottom:1px solid #eee}
+.modal{position:fixed;right:40px;top:100px;background:white;padding:25px;border-radius:12px;box-shadow:0 5px 20px #999}
+.modal input{display:block;padding:10px;margin:8px;width:250px}
+
+
+.modal{
+ width:320px;
+ background:#fff;
+ border-radius:16px;
+ padding:30px;
+ box-shadow:0 10px 30px rgba(0,0,0,.2);
+}
+
+.modal input,.modal select{
+ width:100%;
+ box-sizing:border-box;
+ margin:8px 0;
+ padding:12px;
+ border:1px solid #ddd;
+ border-radius:8px;
+ font-size:14px;
+}
+
+.modal button{
+ width:100%;
+ padding:12px;
+ background:#2563eb;
+ color:white;
+ border:0;
+ border-radius:8px;
+ margin-top:10px;
+}
+
+.actions button{
+ margin-right:5px;
+ padding:6px 10px;
+ border:0;
+ border-radius:6px;
+ color:white;
+}
+
+.edit-btn{background:#f59e0b}
+.delete-btn{background:#dc2626}
+
+.form-error{
+ color:#dc2626;
+}
+.form-actions{
+    display:flex;
+    gap:10px;
+}
+
+.form-actions button{
+    width:50%;
+}
+
+.cancel-btn{
+    background:#6b7280 !important;
+}
+
+.actions{
+    white-space:nowrap;
+    text-align:center;
+}

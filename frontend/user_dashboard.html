@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>User Dashboard - BioTrack</title>
+
+    <link rel="stylesheet" href="/static/css/user_dashboard.css">
+
+</head>
+
+<body>
+
+<div class="page-container">
+
+    <!-- Header -->
+
+    <div class="page-header">
+
+        <div>
+
+            <h1 id="departmentTitle">
+                Welcome to FAICU Maintenance Portal
+            </h1>
+
+            <p>
+                Biomedical Maintenance Management System
+            </p>
+
+        </div>
+
+        <div class="header-info">
+
+            <div class="datetime-container">
+
+                <div id="currentDate"></div>
+
+                <div id="currentTime"></div>
+
+            </div>
+
+            <button class="logout-btn">
+                Logout
+            </button>
+
+        </div>
+
+        </div>
+
+    </div>
+
+    <!-- New Request Card -->
+
+    <div class="new-request-card">
+
+        <h2>
+            Department Maintenance Portal
+        </h2>
+
+        <p>
+            Create, track and manage biomedical maintenance requests
+            submitted by your department.
+        </p>
+
+        <button
+    id="newRequestBtn"
+        class="modal-btn">
+
+        Create Another Request
+
+    </button>
+
+    
+
+    </div>
+
+    <!-- Requests Section -->
+
+    <div class="requests-card">
+
+        <h2>
+            My Maintenance Requests
+        </h2>
+
+        <!-- Empty State -->
+
+        <div id="emptyState">
+
+            <div class="empty-icon">
+                📋
+            </div>
+
+            <h3>
+                No Maintenance Requests Found
+            </h3>
+
+            <p>
+    No maintenance requests have been submitted yet.
+        </p>
+
+        <p class="click-message">
+
+            Click anywhere to create your first
+            maintenance request.
+
+        </p>
+
+        </div>
+
+        <!-- Request Table -->
+
+        <table id="requestTable">
+
+            <thead>
+
+                <tr>
+
+                    <th>Ticket</th>
+
+                    <th>Equipment</th>
+
+                    <th>Status</th>
+
+                    <th>Date</th>
+
+                    <th>Action</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody id="requestBody">
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<script src="/static/js/user_dashboard.js"></script>
+
+</body>
+</html>

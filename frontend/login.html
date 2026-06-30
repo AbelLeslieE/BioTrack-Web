@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioTrack Login</title>
+
+    <link rel="stylesheet" href="/static/css/global.css">
+    <link rel="stylesheet" href="/static/css/login.css">
+</head>
+
+<body>
+
+    <div class="login-container">
+
+        <!-- LEFT PANEL -->
+        <div class="branding-panel">
+
+        <img
+            src="/static/assets/lf_logo.png"
+            alt="Little Flower Hospital"
+            class="hospital-logo"
+        >
+
+        <h1 class="brand-title">
+            BioTrack
+        </h1>
+
+        <h2 class="brand-subtitle">
+            Biomedical Maintenance<br>
+            Management System
+        </h2>
+
+        <div class="brand-divider"></div>
+
+        <p class="hospital-name">
+            Little Flower Hospital & Research Centre<br>
+            Angamaly
+        </p>
+
+        <p class="tagline">
+            FRAGRANCE OF COMPASSION
+        </p>
+
+        <div class="version-info">
+            <span>Version 1.0.0</span>
+            <span>|</span>
+            <span>© Little Flower Hospital</span>
+        </div>
+
+    </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="login-panel">
+
+            <div class="login-card">
+
+            <h2>Welcome Back</h2>
+
+            <p class="subtitle">
+                Sign in to continue to BioTrack
+            </p>
+
+            <form id="loginForm">
+
+                <div class="input-group">
+
+                    <label>Username</label>
+
+                    <input
+                        type="text"
+                        id="username"
+                        placeholder="Enter your username"
+                        required
+                    >
+
+                </div>
+
+                <div class="input-group">
+
+                    <label>Password</label>
+
+                    <div class="password-wrapper">
+
+                        <input
+                            type="password"
+                            id="password"
+                            placeholder="Enter your password"
+                            required
+                        >
+
+                        <button
+                            type="button"
+                            id="togglePassword"
+                            class="eye-btn"
+                        >
+                            👁
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <button
+                    type="submit"
+                    class="login-btn"
+                >
+                    Login
+                </button>
+
+            </form>
+
+            <div id="message"></div>
+
+        </div>
+
+        </div>
+
+    </div>
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/login.js"></script>
+</body>
+
+</html>

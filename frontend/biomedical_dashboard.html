@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Biomedical Dashboard - BioTrack</title>
+
+    <link rel="stylesheet" href="/static/css/biomedical_dashboard.css">
+
+</head>
+
+<body>
+
+<div class="page-container">
+
+    <!-- Header -->
+
+    <div class="page-header">
+
+        <div>
+
+            <h1>
+                Biomedical Engineering Dashboard
+            </h1>
+
+            <p>
+                Manage and track maintenance requests across all departments
+            </p>
+
+        </div>
+
+        <div class="header-info">
+
+            <div class="datetime-container">
+
+                <div id="currentDate"></div>
+
+                <div id="currentTime"></div>
+
+            </div>
+
+            <button class="logout-btn">
+                Logout
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- KPI Cards -->
+
+    <div class="kpi-grid">
+
+        <div class="kpi-card">
+
+            <h3>Open Calls</h3>
+
+            <div
+                id="openCalls"
+                class="kpi-value">
+
+                0
+
+            </div>
+
+        </div>
+
+        <div class="kpi-card">
+
+            <h3>In Progress</h3>
+
+            <div
+                id="inProgress"
+                class="kpi-value">
+
+                0
+
+            </div>
+
+        </div>
+
+        <div class="kpi-card">
+
+            <h3>Awaiting Parts</h3>
+
+            <div
+                id="awaitingParts"
+                class="kpi-value">
+
+                0
+
+            </div>
+
+        </div>
+
+        <div class="kpi-card">
+
+            <h3>Closed Today</h3>
+
+            <div
+                id="closedToday"
+                class="kpi-value">
+
+                0
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Request Queue -->
+
+    <div class="requests-card">
+
+        <h2>
+            Maintenance Request Queue
+        </h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>Ticket</th>
+
+                    <th>Department</th>
+
+                    <th>Equipment</th>
+
+                    <th>Priority</th>
+
+                    <th>Status</th>
+
+                    <th>Action</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody id="requestBody">
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+<!-- =========================================
+     REQUEST DETAILS MODAL
+========================================= -->
+
+<div id="requestModal"
+     class="modal-overlay">
+
+    <div class="modal-content">
+
+        <h2>
+            Request Details
+        </h2>
+
+        <div id="modalDetails">
+
+        </div>
+        <!-- Engineer Notes -->
+
+        <div class="form-section">
+
+            <label>
+                Engineer Notes
+            </label>
+
+            <textarea
+                id="engineerNotes"
+                rows="4"
+                placeholder="Enter inspection notes..."
+            ></textarea>
+
+        </div>
+
+        <!-- Work Done -->
+
+        <div class="form-section">
+
+            <label>
+                Work Done
+            </label>
+
+            <textarea
+                id="workDone"
+                rows="4"
+                placeholder="Describe maintenance work..."
+            ></textarea>
+
+        </div>
+
+            
+                <div class="timeline-grid">
+
+    <div class="timeline-card">
+
+            <h4>
+                📞 Call Received
+            </h4>
+
+            <p id="callReceivedTime">
+                -
+            </p>
+
+        </div>
+
+        <div class="timeline-card">
+
+            <h4>
+                👨‍🔧 Engineer Started
+            </h4>
+
+            <p id="engineerStartTime">
+                -
+            </p>
+
+        </div>
+
+        <div class="timeline-card">
+
+            <h4>
+                🔧 Fixed Time
+            </h4>
+
+            <p id="fixedTime">
+                -
+            </p>
+
+        </div>
+
+        <div class="timeline-card">
+
+            <h4>
+                ⏱ Downtime
+            </h4>
+
+            <p id="downtimeHours">
+                -
+            </p>
+
+        </div>
+                <!-- Spare Parts -->
+
+            <div class="form-section">
+
+                <label>
+                    Spare Parts Used
+                </label>
+    </div>
+            <textarea
+                id="spareParts"
+                rows="3"
+                placeholder="List spare parts used..."
+            ></textarea>
+
+        </div>
+
+        <div class="modal-actions">
+
+            <button id="startWorkBtn"
+                    class="modal-btn">
+
+                Start Work
+
+            </button>
+
+            <button id="awaitingBtn"
+                    class="modal-btn warning-btn">
+
+                Awaiting Parts
+
+            </button>
+
+            <button id="closeCallBtn"
+                    class="modal-btn success-btn">
+
+                Close Call
+
+            </button>
+            <button id="reopenBtn"
+                    class="modal-btn reopen-btn">
+
+                Reopen Call
+
+            </button>
+
+            <button id="closeModalBtn"
+                    class="modal-btn secondary-btn">
+
+                Close
+
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+<script src="/static/js/biomedical_dashboard.js"></script>
+<div id="toast" class="toast"></div>
+</body>
+</html>

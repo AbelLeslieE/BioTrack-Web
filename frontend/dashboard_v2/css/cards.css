@@ -1,0 +1,212 @@
+/* ==========================================
+   DASHBOARD MAIN
+========================================== */
+
+.dashboard-main{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:28px;
+
+}
+
+/* ==========================================
+   HERO
+========================================== */
+
+.dashboard-hero{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:8px;
+
+}
+.maintenance-grid{
+
+    display:grid;
+
+    grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+
+    gap:24px;
+
+}
+.asset-grid{
+
+    display:grid;
+
+    grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+
+    gap:24px;
+
+}
+.dashboard-hero h1{
+
+    font-size:clamp(26px,3vw,38px);
+
+    font-weight:700;
+
+    color:#111827;
+
+}
+
+.dashboard-hero p{
+
+    color:#64748b;
+
+    font-size:clamp(14px,1.5vw,17px);
+
+}
+/* ==========================================
+   KPI GRID
+========================================== */
+
+.dashboard-kpi{
+
+    display:grid;
+
+    grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+
+    gap:24px;
+
+}
+/* ==========================================
+   KPI CARD
+========================================== */
+
+.kpi-card{
+
+    background:#ffffff;
+
+    border-radius:18px;
+
+    padding:clamp(18px,2vw,24px);
+
+    display:flex;
+
+    align-items:center;
+
+    gap:20px;
+
+    border:1px solid #e5e7eb;
+
+    transition:0.25s ease;
+
+    box-shadow:0 8px 24px rgba(15,23,42,0.04);
+
+}
+
+.kpi-card:hover{
+
+    transform:translateY(-4px);
+
+    box-shadow:0 16px 32px rgba(15,23,42,0.08);
+
+}
+
+/* ==========================================
+   ICON
+========================================== */
+
+.kpi-icon{
+
+    width:clamp(56px,6vw,68px);
+
+    height:clamp(56px,6vw,68px);
+
+    border-radius:18px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    color:#ffffff;
+
+    flex-shrink:0;
+
+}
+
+.kpi-icon svg{
+
+    width:30px;
+
+    height:30px;
+
+}
+
+/* ==========================================
+   COLORS
+========================================== */
+
+.blue{
+
+    background:#2563eb;
+
+}
+
+.green{
+
+    background:#16a34a;
+
+}
+
+.orange{
+
+    background:#ea580c;
+
+}
+
+.red{
+
+    background:#dc2626;
+
+}
+
+.teal{
+
+    background:#0d9488;
+
+}
+
+.purple{
+
+    background:#7c3aed;
+
+}
+
+/* ==========================================
+   CONTENT
+========================================== */
+
+.kpi-content{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:4px;
+
+}
+
+.kpi-content h2{
+
+    font-size:clamp(26px,3vw,34px);
+
+    font-weight:700;
+
+    color:#111827;
+
+}
+
+.kpi-content p{
+
+    font-size:clamp(13px,1vw,15px);
+
+    color:#64748b;
+
+}

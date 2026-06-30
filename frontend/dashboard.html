@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioTrack Dashboard</title>
+
+    <link rel="stylesheet" href="/static/css/global.css">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+
+<body>
+
+    <div class="dashboard-container">
+
+        <!-- Sidebar -->
+
+        <aside class="sidebar">
+
+    <!-- Brand -->
+
+    <div class="sidebar-header">
+
+        <h1>BioTrack</h1>
+
+        <p>
+            Biomedical Maintenance<br>
+            Management System
+        </p>
+
+    </div>
+
+    <!-- Navigation -->
+
+    <nav class="sidebar-menu">
+
+        <a href="#" class="active">
+            Dashboard
+        </a>
+
+        <a href="#">
+            New Log
+        </a>
+
+        <a href="#">
+            Open Logs
+        </a>
+
+        <a href="#">
+            Closed Logs
+        </a>
+
+        <a href="#">
+            All Logs
+        </a>
+
+        <a href="#">
+            Reports
+        </a>
+
+        <a href="#">
+            Settings
+        </a>
+
+        <a href="#" id="registerUserBtn">Register User</a>
+
+        <a href="#" id="uploadBtn">
+            Upload
+        </a>
+
+        <a href="#" id="readQrBtn">
+            Read QR
+        </a>
+
+<a href="#" id="generateQrBtn">Generate QR</a>
+
+
+    </nav>
+
+    <!-- Footer -->
+
+        <div class="sidebar-footer">
+
+            <a href="#" id="logoutLink" class="logout-link">
+                Logout
+            </a>
+
+            <div class="hospital-info">
+
+                LITTLE FLOWER HOSPITAL<br>
+                & RESEARCH CENTRE<br>
+                ANGAMALY
+
+            </div>
+
+            <div class="version-info">
+
+                Version 1.0.0
+
+            </div>
+
+        </div>
+
+    </aside>
+
+        <!-- Main Content -->
+
+        <main class="main-content">
+
+            <header class="topbar">
+
+    <div class="header-left">
+
+            <h1>Dashboard</h1>
+
+            <p>
+                Welcome back, Admin!
+            </p>
+
+        </div>
+
+        <div class="header-right">
+
+            
+
+            <div class="user-card">
+                Biomedical
+            </div>
+
+            <div class="user-card">
+                Admin
+            </div>
+
+            <div class="date-card">
+
+                <div id="currentDate"></div>
+
+                <div id="currentDay"></div>
+
+            </div>
+
+        </div>
+
+    </header>
+            <!-- System Status -->
+
+    <section class="status-grid">
+
+        <div class="status-card">
+
+            <span class="status-dot"></span>
+
+            Database Connected
+
+        </div>
+
+        <div class="status-card">
+
+            <span class="status-dot"></span>
+
+            Server Active
+
+        </div>
+
+        <div class="status-card">
+
+            Last Backup: Today
+
+        </div>
+
+        <div class="status-card">
+
+            Last Sync: 09:40 AM
+
+        </div>
+
+    </section>
+            <!-- Statistics -->
+
+            <section class="stats-grid">
+
+            <div class="stat-card">
+
+                <div
+                    id="openCalls"
+                    class="stat-value open-value">
+                    0
+                </div>
+
+                <div class="stat-label">
+                    Open Calls
+                </div>
+
+            </div>
+
+            <div class="stat-card">
+
+                <div
+                    id="closedCalls"
+                    class="stat-value closed-value">
+                    0
+                </div>
+
+                <div class="stat-label">
+                    Closed Calls
+                </div>
+
+            </div>
+
+            <div class="stat-card">
+
+                <div
+                    id="todayCalls"
+                    class="stat-value today-value">
+                    0
+                </div>
+
+                <div class="stat-label">
+                    Today's Calls
+                </div>
+
+            </div>
+
+            <div class="stat-card">
+
+                <div
+                    id="avgDowntime"
+                    class="stat-value downtime-value">
+                    0 hrs
+                </div>
+
+                <div class="stat-label">
+                    Avg. Downtime
+                </div>
+
+            </div>
+
+        </section>
+
+            <!-- Dynamic Device / QR Panel -->
+<section id="devicePanel" class="device-panel" style="display:none;">
+<h2 id="panelTitle">Register Device</h2>
+
+<div id="deviceForm">
+<input id="device_name" placeholder="Device Name">
+<input id="device_type" placeholder="Type">
+<input id="model" placeholder="Model">
+<input id="serial_number" placeholder="Serial Number">
+<input id="purchased_year" placeholder="Purchased Year" type="number">
+<button id="saveDevice" class="action-btn">Save Device</button>
+<hr>
+<input id="excelFile" type="file" accept=".xlsx,.xls">
+<button id="uploadExcel" class="action-btn secondary">Upload Excel</button>
+</div>
+
+<div id="qrArea" style="display:none;">
+<video id="qrVideo" autoplay playsinline></video>
+<button id="startQR" class="action-btn">Start Camera</button>
+<p id="qrResult"></p>
+</div>
+</section>
+
+<!-- Charts -->
+
+            <section class="dashboard-grid">
+
+            <!-- Trend Chart -->
+
+            <div class="chart-card">
+
+                <h2>Maintenance Trend</h2>
+
+                <canvas id="maintenanceChart"></canvas>
+
+            </div>
+
+            <!-- Problem Categories -->
+
+            <div class="pie-card">
+
+                <h2>Problem Categories</h2>
+
+                <canvas id="problemChart"></canvas>
+
+            </div>
+
+            <!-- Quick Actions -->
+
+            <div class="actions-card">
+
+                <h2>Quick Actions</h2>
+
+                <button class="action-btn">
+                    + New Log
+                </button>
+
+                <button class="action-btn secondary">
+                    Export Report
+                </button>
+
+                <button class="action-btn secondary">
+                    Print Dashboard
+                </button>
+
+                <div class="activity-section">
+
+                    <h3>Recent Activity</h3>
+
+                    <ul>
+
+                        <li>MRI maintenance created</li>
+
+                        <li>Ventilator repaired</li>
+
+                        <li>Database backup completed</li>
+
+                        <li>ECG calibration finished</li>
+
+                    </ul>
+
+                </div>
+
+            </div>
+
+        </section>
+
+            <section class="bottom-grid">
+
+            <!-- Recent Logs -->
+
+                <div class="table-card">
+                    <div class="table-header">
+
+            <h2>
+                Recent Maintenance Logs
+            </h2>
+
+            <input
+                type="text"
+                id="logSearch"
+                placeholder="Search Ticket..."
+            >
+
+        </div>
+            
+
+            <table>
+
+                <thead>
+
+                <tr>
+
+                <th>Ticket</th>
+                <th>Equipment</th>
+                <th>Department</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Downtime</th>
+                <th>Created</th>
+                <th>Action</th>
+
+                </tr>
+
+                </thead>
+
+                <tbody id="recentLogsBody">
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <!-- Equipment Summary -->
+
+        <div class="equipment-card">
+
+            <h2>Equipment Summary</h2>
+
+            <div class="equipment-stat">
+                <span>Total Equipment</span>
+                <strong>1248</strong>
+            </div>
+
+            <div class="equipment-stat">
+                <span>Under Contract</span>
+                <strong>856</strong>
+            </div>
+
+            <div class="equipment-stat">
+                <span>In-House</span>
+                <strong>392</strong>
+            </div>
+
+            <div class="equipment-stat">
+                <span>Active Calls</span>
+                <strong>12</strong>
+            </div>
+
+        </div>
+
+    </section>
+
+        </main>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="/static/js/device_upload.js"></script>
+
+
+
+<!-- =========================================
+     ADMIN LOG MODAL
+========================================= -->
+
+<div id="logModal" class="modal-overlay">
+
+    <div class="log-modal">
+
+        <h2>
+            Maintenance Log Details
+        </h2>
+
+        <input
+            type="hidden"
+            id="editTicket"
+        >
+
+        <div class="modal-grid">
+
+            <div>
+
+                <label>Ticket</label>
+
+                <input
+                    id="modalTicket"
+                    readonly
+                >
+
+            </div>
+
+            <div>
+
+                <label>Department</label>
+
+                <input
+                    id="modalDepartment"
+                    readonly
+                >
+
+            </div>
+
+            <div>
+
+                <label>Equipment</label>
+
+                <input
+                    id="modalEquipment"
+                    readonly
+                >
+
+            </div>
+
+            <div>
+
+                <label>Priority</label>
+
+                <input
+                    id="modalPriority"
+                    readonly
+                >
+
+            </div>
+
+            <div>
+
+                <label>Call Received</label>
+
+                <input
+                    type="datetime-local"
+                    id="modalCallReceived"
+                >
+
+            </div>
+
+            <div>
+
+                <label>Engineer Started</label>
+
+                <input
+                    type="datetime-local"
+                    id="modalEngineerStart"
+                >
+
+            </div>
+
+            <div>
+
+                <label>Fixed Time</label>
+
+                <input
+                    type="datetime-local"
+                    id="modalFixedTime"
+                >
+
+            </div>
+
+            <div>
+
+                <label>Downtime (Hours)</label>
+
+                <input
+                    id="modalDowntime"
+                    readonly
+                >
+
+            </div>
+
+        </div>
+
+        <div class="modal-buttons">
+
+            <button
+                id="saveLogBtn"
+                class="action-btn"
+            >
+                Save Changes
+            </button>
+
+            <button
+                id="deleteLogBtn"
+                class="delete-btn"
+            >
+                Delete Log
+            </button>
+
+            <button
+                id="closeLogModal"
+                class="secondary-btn"
+            >
+                Close
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div id="deviceModal" style="display:none">
+<h2>Register Device</h2>
+<input id="device_name" placeholder="Device Name">
+<input id="device_type" placeholder="Type">
+<input id="model" placeholder="Model">
+<input id="serial_number" placeholder="Serial Number">
+<input id="purchased_year" placeholder="Purchased Year">
+<button id="saveDevice">Save</button>
+<hr>
+<input type="file" id="excelFile" accept=".csv,.xlsx">
+<button id="uploadExcel">Upload Excel</button>
+<video id="qrVideo" autoplay style="width:300px"></video>
+<button id="startQR">Start Camera</button>
+</div>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="/static/js/device_upload.js"></script>
+<script src="/static/js/user_register.js"></script>
+
+<div id="qrModal" class="modal-overlay">
+<div class="modal-card">
+<h3>Generate QR</h3>
+<select id="deviceSelect"></select>
+<div class="action-row">
+<button id="generatePdfBtn">Generate</button>
+<button id="closeQrModal">Close</button>
+</div>
+</div></div>
+<script src="/static/js/qr_generate.js"></script>
+</body>
+
+</html>
