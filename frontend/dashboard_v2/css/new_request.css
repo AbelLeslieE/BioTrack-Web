@@ -598,13 +598,13 @@ textarea{
    SUCCESS MODAL
 ========================================== */
 
-.success-modal{
+.modal-overlay{
 
     position: fixed;
 
     inset: 0;
 
-    display: flex;
+    display: none;
 
     justify-content: center;
 
@@ -616,15 +616,19 @@ textarea{
 
     z-index: 99999;
 
-    animation: modalFade .25s ease;
+}
+
+.modal-overlay.show{
+
+    display: flex;
 
 }
 
-.success-box{
+.success-modal{
 
-    width: 460px;
+    width: 520px;
 
-    max-width: 90vw;
+    max-width: 92vw;
 
     background: #ffffff;
 
@@ -634,8 +638,7 @@ textarea{
 
     text-align: center;
 
-    box-shadow:
-        0 30px 80px rgba(15,23,42,.25);
+    box-shadow: 0 30px 80px rgba(15,23,42,.25);
 
     animation: modalScale .3s ease;
 
@@ -665,36 +668,69 @@ textarea{
 
     font-weight:700;
 
-    box-shadow:
-        0 15px 35px rgba(34,197,94,.35);
+    box-shadow:0 15px 35px rgba(34,197,94,.35);
 
 }
 
-.success-box h2{
+.success-modal h2{
 
-    margin:0 0 12px;
+    margin:0 0 14px;
 
-    font-size:34px;
-
-    font-weight:700;
+    font-size:32px;
 
     color:#111827;
 
 }
 
-.success-box p{
-
-    margin-bottom:28px;
-
-    font-size:17px;
+.success-message{
 
     color:#64748b;
 
     line-height:1.6;
 
+    margin-bottom:28px;
+
 }
 
-.success-box button{
+.ticket-number{
+
+    margin:20px auto;
+
+    padding:18px;
+
+    background:#eff6ff;
+
+    border-radius:14px;
+
+    font-size:24px;
+
+    font-weight:700;
+
+    color:#2563eb;
+
+}
+
+.submission-info{
+
+    background:#f8fafc;
+
+    border-radius:14px;
+
+    padding:18px;
+
+    margin:24px 0;
+
+    text-align:left;
+
+}
+
+.submission-info p{
+
+    margin:10px 0;
+
+}
+
+.modal-btn{
 
     width:100%;
 
@@ -704,42 +740,31 @@ textarea{
 
     border-radius:14px;
 
-    background:linear-gradient(135deg,#2563eb,#1d4ed8);
+    background:#2563eb;
 
-    color:#ffffff;
+    color:#fff;
 
     font-size:16px;
 
-    font-weight:700;
+    font-weight:600;
 
     cursor:pointer;
 
-    transition:.25s;
+    margin-top:12px;
 
 }
 
-.success-box button:hover{
+.secondary-btn{
+
+    background:#e2e8f0;
+
+    color:#1e293b;
+
+}
+
+.modal-btn:hover{
 
     transform:translateY(-2px);
-
-    box-shadow:
-        0 12px 30px rgba(37,99,235,.35);
-
-}
-
-@keyframes modalFade{
-
-    from{
-
-        opacity:0;
-
-    }
-
-    to{
-
-        opacity:1;
-
-    }
 
 }
 
@@ -749,7 +774,7 @@ textarea{
 
         opacity:0;
 
-        transform:scale(.92);
+        transform:scale(.9);
 
     }
 
