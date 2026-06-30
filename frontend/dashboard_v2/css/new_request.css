@@ -598,41 +598,35 @@ textarea{
    SUCCESS MODAL
 ========================================== */
 
-.modal-overlay {
+.success-modal{
 
     position: fixed;
 
     inset: 0;
 
-    background:
-        rgba(15,23,42,0.45);
-
-    backdrop-filter: blur(8px);
-
-    display: none;
+    display: flex;
 
     justify-content: center;
 
     align-items: center;
 
-    z-index: 10000;
+    background: rgba(15,23,42,.45);
+
+    backdrop-filter: blur(6px);
+
+    z-index: 99999;
+
+    animation: modalFade .25s ease;
+
 }
 
-.modal-overlay.show {
+.success-box{
 
-    display: flex;
+    width: 460px;
 
-    animation:
-        modalFade 0.25s ease;
-}
+    max-width: 90vw;
 
-.success-modal {
-
-    width: 450px;
-
-    max-width: 90%;
-
-    background: white;
+    background: #ffffff;
 
     border-radius: 24px;
 
@@ -641,145 +635,132 @@ textarea{
     text-align: center;
 
     box-shadow:
-        0 25px 60px rgba(15,23,42,0.18);
+        0 30px 80px rgba(15,23,42,.25);
 
-    animation:
-        modalScale 0.3s ease;
+    animation: modalScale .3s ease;
+
 }
 
-.success-icon {
+.success-icon{
 
-    width: 90px;
+    width:90px;
 
-    height: 90px;
+    height:90px;
 
-    margin: auto;
+    margin:0 auto 24px;
 
-    margin-bottom: 20px;
+    border-radius:50%;
 
-    border-radius: 50%;
+    display:flex;
 
-    background:
-        linear-gradient(
-            135deg,
-            #22c55e,
-            #16a34a
-        );
+    align-items:center;
 
-    color: white;
+    justify-content:center;
 
-    display: flex;
+    background:linear-gradient(135deg,#22c55e,#16a34a);
 
-    align-items: center;
+    color:#ffffff;
 
-    justify-content: center;
+    font-size:42px;
 
-    font-size: 42px;
-
-    font-weight: 700;
+    font-weight:700;
 
     box-shadow:
-        0 15px 35px rgba(34,197,94,0.30);
+        0 15px 35px rgba(34,197,94,.35);
+
 }
 
-.success-modal h2 {
+.success-box h2{
 
-    margin-bottom: 10px;
+    margin:0 0 12px;
 
-    color: #111827;
+    font-size:34px;
+
+    font-weight:700;
+
+    color:#111827;
+
 }
 
-.success-modal p {
+.success-box p{
 
-    color: #6b7280;
+    margin-bottom:28px;
 
-    margin-bottom: 15px;
+    font-size:17px;
+
+    color:#64748b;
+
+    line-height:1.6;
+
 }
 
-.ticket-number {
+.success-box button{
 
-    background: #f8fafc;
+    width:100%;
 
-    border: 1px solid #e2e8f0;
+    height:56px;
 
-    border-radius: 14px;
+    border:none;
 
-    padding: 15px;
+    border-radius:14px;
 
-    font-size: 18px;
+    background:linear-gradient(135deg,#2563eb,#1d4ed8);
 
-    font-weight: 700;
+    color:#ffffff;
 
-    color: #2563eb;
+    font-size:16px;
 
-    margin-bottom: 25px;
+    font-weight:700;
+
+    cursor:pointer;
+
+    transition:.25s;
+
 }
 
-.modal-btn {
+.success-box button:hover{
 
-    width: 100%;
-
-    height: 52px;
-
-    border: none;
-
-    border-radius: 14px;
-
-    cursor: pointer;
-
-    font-size: 15px;
-
-    font-weight: 700;
-
-    color: white;
-
-    background:
-        linear-gradient(
-            135deg,
-            #2563eb,
-            #1d4ed8
-        );
-
-    transition:
-        all 0.3s ease;
-}
-
-.modal-btn:hover {
-
-    transform: translateY(-2px);
+    transform:translateY(-2px);
 
     box-shadow:
-        0 12px 30px rgba(37,99,235,0.30);
+        0 12px 30px rgba(37,99,235,.35);
+
 }
 
-@keyframes modalFade {
+@keyframes modalFade{
 
-    from {
+    from{
 
-        opacity: 0;
+        opacity:0;
+
     }
 
-    to {
+    to{
 
-        opacity: 1;
+        opacity:1;
+
     }
+
 }
 
-@keyframes modalScale {
+@keyframes modalScale{
 
-    from {
+    from{
 
-        opacity: 0;
+        opacity:0;
 
-        transform: scale(0.9);
+        transform:scale(.92);
+
     }
 
-    to {
+    to{
 
-        opacity: 1;
+        opacity:1;
 
-        transform: scale(1);
+        transform:scale(1);
+
     }
+
 }
 /* ==========================================
    VALIDATION
