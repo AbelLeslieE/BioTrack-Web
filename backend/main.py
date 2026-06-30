@@ -17,11 +17,12 @@ from backend.routes.user_routes import router as user_router
 from backend.routes.asset_routes import router as asset_router
 from backend.routes.qr_routes import router as qr_router
 from backend.routes.engineer_routes import router as engineer_router
+from backend.create_default_admin import create_default_admin
 # ==========================================
 # APPLICATION
 # ==========================================
 Base.metadata.create_all(bind=engine)
-
+create_default_admin()
 # Fix users role constraint for BME/User/Manager roles
 def fix_users_role_constraint():
     with engine.begin() as conn:
