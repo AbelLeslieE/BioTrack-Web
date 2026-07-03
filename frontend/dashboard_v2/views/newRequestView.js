@@ -1,43 +1,30 @@
-// ==========================================
-// NEW REQUEST VIEW
-// ==========================================
-
 async function renderNewRequest() {
 
-    try {
+    const response = await fetch(
+        "/static/dashboard_v2/partials/new_request.html"
+    );
 
-        const response = await fetch(
-            "/static/dashboard_v2/partials/new_request.html"
-        );
+    pageContent.innerHTML = await response.text();
 
-        pageContent.innerHTML = await response.text();
+    const modal = document.getElementById("successModal");
 
-        // Initialize page
-        if (typeof initializeNewRequest === "function") {
+    console.log("Initial class:", modal.className);
 
-            initializeNewRequest();
+    // Watch for any class changes
+    const observer = new MutationObserver(() => {
 
-        }
+        console.log("Modal class changed:", modal.className);
 
-        // Refresh icons
-        lucide.createIcons();
+        console.trace("Who changed it?");
 
-    }
+    });
 
-    catch (error) {
+    observer.observe(modal, {
+        attributes: true,
+        attributeFilter: ["class"]
+    });
 
-        console.error(error);
+    initializeNewRequest();
 
-        pageContent.innerHTML = `
-
-            <div class="content">
-
-                <h2>Unable to load New Request page.</h2>
-
-            </div>
-
-        `;
-
-    }
-
+    lucide.createIcons();
 }

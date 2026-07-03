@@ -39,7 +39,7 @@ const Pages = {
     reports: renderReports,
     ai: renderAI,
     users: renderUsers,
-    departments: renderDepartments,
+     
     qr: renderQR,
     settings: renderSettings
 

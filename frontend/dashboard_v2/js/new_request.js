@@ -200,11 +200,17 @@ function validateForm() {
 function initializeSubmitButton() {
 
     const submitButton =
-    document.querySelector(".save-btn");
+        document.getElementById("submitRequestBtn");
 
     if (!submitButton) return;
 
-    submitButton.addEventListener("click", submitRequest);
+    // Prevent duplicate event listeners
+    submitButton.replaceWith(submitButton.cloneNode(true));
+
+    const newButton =
+        document.getElementById("submitRequestBtn");
+
+    newButton.addEventListener("click", submitRequest);
 
 }
 
@@ -298,6 +304,9 @@ async function submitRequest() {
             new Date().toLocaleString("en-IN");
 
         document
+            console.trace("Opening success modal");
+
+        document
             .getElementById("successModal")
             .classList.add("show");
 
@@ -361,6 +370,10 @@ function initializeNavigation() {
     if (viewRequests) {
 
         viewRequests.addEventListener("click", () => {
+
+            document
+                .getElementById("successModal")
+                ?.classList.remove("show");
 
             navigate("myRequests");
 

@@ -18,6 +18,8 @@ from backend.routes.asset_routes import router as asset_router
 from backend.routes.qr_routes import router as qr_router
 from backend.routes.engineer_routes import router as engineer_router
 from backend.create_default_admin import create_default_admin
+from backend.routes.pm_routes import router as pm_router
+from backend.routes.inventory_routes import router as inventory_router
 # ==========================================
 # APPLICATION
 # ==========================================
@@ -81,8 +83,8 @@ app.include_router(user_router)
 app.include_router(asset_router)
 app.include_router(qr_router)
 app.include_router(engineer_router)
-
-
+app.include_router(pm_router)
+app.include_router(inventory_router)
 
 # ==========================================
 # ROUTES

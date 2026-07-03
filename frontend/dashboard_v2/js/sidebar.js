@@ -42,10 +42,7 @@ const adminMenu = `
     <span>Users</span>
 </a>
 
-<a href="#" class="nav-item" data-page="departments">
-    <i data-lucide="building-2"></i>
-    <span>Departments</span>
-</a>
+ 
 
 <a href="#" class="nav-item" data-page="qr">
     <i data-lucide="scan-line"></i>
