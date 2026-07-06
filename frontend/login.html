@@ -2,125 +2,364 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BioTrack Login</title>
 
-    <link rel="stylesheet" href="/static/css/global.css">
-    <link rel="stylesheet" href="/static/css/login.css">
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>BioTrack | Login</title>
+
+    <!-- Google Font -->
+
+    <link rel="preconnect"
+          href="https://fonts.googleapis.com">
+
+    <link rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+          rel="stylesheet">
+
+    <!-- Font Awesome -->
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+    <!-- Login CSS -->
+
+    <link rel="stylesheet"
+          href="/static/css/login.css">
+
 </head>
 
 <body>
 
-    <div class="login-container">
+    <!-- ==========================================
+         MAIN CONTAINER
+    =========================================== -->
 
-        <!-- LEFT PANEL -->
-        <div class="branding-panel">
+    <main class="login-container">
 
-        <img
-            src="/static/assets/lf_logo.png"
-            alt="Little Flower Hospital"
-            class="hospital-logo"
-        >
+        <!-- ======================================
+             LEFT SECTION
+        ======================================= -->
 
-        <h1 class="brand-title">
-            BioTrack
-        </h1>
+        <section class="left-section">
 
-        <h2 class="brand-subtitle">
-            Biomedical Maintenance<br>
-            Management System
-        </h2>
+            <!-- Brand -->
 
-        <div class="brand-divider"></div>
+            <div class="brand">
 
-        <p class="hospital-name">
-            Little Flower Hospital & Research Centre<br>
-            Angamaly
-        </p>
+                <img src="/static/assets/lf_logo.png"
+                     alt="Little Flower Hospital"
+                     class="brand-logo">
 
-        <p class="tagline">
-            FRAGRANCE OF COMPASSION
-        </p>
+                <div class="brand-text">
 
-        <div class="version-info">
-            <span>Version 1.0.0</span>
-            <span>|</span>
-            <span>© Little Flower Hospital</span>
-        </div>
+                    <h1>
 
-    </div>
+                        Bio<span>Track</span>
 
-        <!-- RIGHT PANEL -->
-        <div class="login-panel">
+                    </h1>
 
-            <div class="login-card">
+                    <p>
 
-            <h2>Welcome Back</h2>
+                        Biomedical Maintenance System
 
-            <p class="subtitle">
-                Sign in to continue to BioTrack
-            </p>
-
-            <form id="loginForm">
-
-                <div class="input-group">
-
-                    <label>Username</label>
-
-                    <input
-                        type="text"
-                        id="username"
-                        placeholder="Enter your username"
-                        required
-                    >
+                    </p>
 
                 </div>
 
-                <div class="input-group">
+            </div>
 
-                    <label>Password</label>
+            <!-- Hero -->
 
-                    <div class="password-wrapper">
+            <div class="hero">
 
-                        <input
-                            type="password"
-                            id="password"
-                            placeholder="Enter your password"
-                            required
-                        >
+                <h2>
 
-                        <button
-                            type="button"
-                            id="togglePassword"
-                            class="eye-btn"
-                        >
-                            👁
-                        </button>
+                    Smart Maintenance.<br>
+
+                    <span>Stronger Healthcare.</span>
+
+                </h2>
+
+                <p>
+
+                    Manage biomedical equipment,
+                    maintenance requests,
+                    preventive maintenance,
+                    assets and inventory
+                    from one centralized system.
+
+                </p>
+
+            </div>
+
+            <div class="hero-line"></div>
+
+            <!-- Features -->
+
+            <div class="feature-list">
+
+                <div class="feature">
+
+                    <div class="feature-icon">
+
+                        <i class="fa-solid fa-clipboard-list"></i>
+
+                    </div>
+
+                    <div class="feature-content">
+
+                        <h3>Maintenance Requests</h3>
+
+                        <p>Create and track maintenance requests</p>
 
                     </div>
 
                 </div>
 
-                <button
-                    type="submit"
-                    class="login-btn"
-                >
-                    Login
-                </button>
+                <div class="feature">
 
-            </form>
+                    <div class="feature-icon">
 
-            <div id="message"></div>
+                        <i class="fa-solid fa-shield-heart"></i>
 
-        </div>
+                    </div>
 
-        </div>
+                    <div>
 
-    </div>
+                        <h3>Asset Management</h3>
 
-    <script src="/static/js/api.js"></script>
+                        <p>Track and manage biomedical assets</p>
+
+                    </div>
+
+                </div>
+
+                <div class="feature">
+
+                    <div class="feature-icon">
+
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+
+                    </div>
+
+                    <div>
+
+                        <h3>Preventive Maintenance</h3>
+
+                        <p>Schedule preventive maintenance</p>
+
+                    </div>
+
+                </div>
+
+                <div class="feature">
+
+                    <div class="feature-icon">
+
+                        <i class="fa-solid fa-boxes-stacked"></i>
+
+                    </div>
+
+                    <div>
+
+                        <h3>Inventory Management</h3>
+
+                        <p>Manage biomedical inventory</p>
+
+                    </div>
+
+                </div>
+
+                <div class="feature">
+
+                    <div class="feature-icon">
+
+                        <i class="fa-solid fa-qrcode"></i>
+
+                    </div>
+
+                    <div>
+
+                        <h3>QR Code Integration</h3>
+
+                        <p>Scan equipment details instantly</p>
+
+                    </div>
+
+                </div>
+
+                <div class="feature">
+
+                    <div class="feature-icon">
+
+                        <i class="fa-solid fa-chart-line"></i>
+
+                    </div>
+
+                    <div>
+
+                        <h3>Analytics Dashboard</h3>
+
+                        <p>Hospital insights and reports</p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- ======================================
+             LOGIN CARD
+        ======================================= -->
+
+        <section class="login-section">
+
+            <div class="login-card">
+
+                <!-- Avatar -->
+
+                <div class="avatar">
+
+                    <i class="fa-regular fa-user"></i>
+
+                </div>
+
+                <!-- Title -->
+
+                <h2>
+
+                    Welcome Back
+
+                </h2>
+
+                <p class="subtitle">
+
+                    Sign in to continue to BioTrack
+
+                </p>
+
+                <!-- Login Form -->
+
+                <form id="loginForm">
+
+                <h3 class="sr-only">
+                    Login Form
+                </h3>
+
+                    <!-- Username -->
+
+                    <label for="username">
+
+                        Username
+
+                    </label>
+
+                    <div class="input-group">
+
+                        <i class="fa-regular fa-user"></i>
+
+                        <input
+
+                            id="username"
+
+                            type="text"
+
+                            placeholder="Enter your username"
+
+                            required>
+
+                    </div>
+
+                    <!-- Password -->
+
+                    <label for="password">
+
+                        Password
+
+                    </label>
+
+                    <div class="input-group">
+
+                        <i class="fa-solid fa-lock"></i>
+
+                        <input
+
+                            id="password"
+
+                            type="password"
+
+                            placeholder="Enter your password"
+
+                            required>
+
+                        <button
+
+                            type="button"
+
+                            id="togglePassword"
+
+                            class="toggle-password">
+
+                            <i class="fa-regular fa-eye"></i>
+
+                        </button>
+
+                    </div>
+
+                    <!-- Message -->
+
+                    <div
+
+                        id="message"
+
+                        class="message">
+
+                    </div>
+
+                    <!-- Login Button -->
+
+                    <button
+
+                        class="login-btn"
+
+                        type="submit">
+
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i>
+
+                        LOGIN
+
+                    </button>
+
+                </form>
+
+                <!-- Footer -->
+
+                <footer class="footer">
+
+                <p>© 2026 BioTrack</p>
+
+                <p>Developed for Little Flower Hospital & Research Centre</p>
+
+                <span>Version 2.0</span>
+
+            </footer>
+
+            </div>
+
+        </section>
+
+    </main>
+
     <script src="/static/js/login.js"></script>
+
 </body>
 
 </html>

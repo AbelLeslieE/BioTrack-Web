@@ -1,23 +1,37 @@
 // ==========================================
-// LOGIN
+// LOGIN ELEMENTS
 // ==========================================
 
 const form = document.getElementById("loginForm");
 const msg = document.getElementById("message");
 
+const usernameInput = document.getElementById("username");
+const passwordInput = document.getElementById("password");
+const togglePassword = document.getElementById("togglePassword");
+
 // ==========================================
 // SHOW / HIDE PASSWORD
 // ==========================================
 
-document.getElementById("togglePassword").onclick = () => {
+togglePassword.addEventListener("click", () => {
 
-    const p = document.getElementById("password");
+    if (passwordInput.type === "password") {
 
-    p.type = p.type === "password"
-        ? "text"
-        : "password";
+        passwordInput.type = "text";
 
-};
+        togglePassword.innerHTML =
+            '<i class="fa-regular fa-eye-slash"></i>';
+
+    } else {
+
+        passwordInput.type = "password";
+
+        togglePassword.innerHTML =
+            '<i class="fa-regular fa-eye"></i>';
+
+    }
+
+});
 
 // ==========================================
 // LOGIN
@@ -27,61 +41,65 @@ form.addEventListener("submit", async (e) => {
 
     e.preventDefault();
 
+    msg.innerHTML = "";
+
     const body = {
 
-        username: username.value.trim().toLowerCase(),
-        password: password.value
+        username: usernameInput.value.trim().toLowerCase(),
+        password: passwordInput.value
 
     };
 
-    const res = await fetch("/api/auth/login", {
+    try {
 
-        method: "POST",
+        const res = await fetch("/api/auth/login", {
 
-        headers: {
+            method: "POST",
 
-            "Content-Type": "application/json"
+            headers: {
+                "Content-Type": "application/json"
+            },
 
-        },
+            body: JSON.stringify(body)
 
-        body: JSON.stringify(body)
+        });
 
-    });
+        const data = await res.json().catch(() => ({}));
 
-    const data = await res.json().catch(() => ({}));
+        if (res.ok) {
 
-    if (res.ok) {
+            let role = (data.role || "").toLowerCase();
 
-        // ======================================
-        // Convert old database roles to new roles
-        // ======================================
+            if (role === "manager") {
+                role = "admin";
+            }
+            else if (role === "bme") {
+                role = "engineer";
+            }
+            else if (role === "user") {
+                role = "user";
+            }
 
-        let role = (data.role || "").toLowerCase();
+            localStorage.setItem("role", role);
+            localStorage.setItem("department", data.department);
+            localStorage.setItem("username", data.username || body.username);
+            localStorage.setItem("name", data.name || body.username);
 
-        if (role === "manager") {
-            role = "admin";
+            window.location.href = "/dashboard_v2";
+
+        } else {
+
+            msg.style.color = "#dc2626";
+            msg.innerHTML = data.detail || "Invalid username or password.";
+
         }
-        else if (role === "bme") {
-            role = "engineer";
-        }
-        else if (role === "user") {
-            role = "user";
-        }
 
-        localStorage.setItem("role", role);
+    } catch (err) {
 
-        localStorage.setItem("department", data.department);
+        msg.style.color = "#dc2626";
+        msg.innerHTML = "Unable to connect to the server.";
 
-        // Save user information
-        localStorage.setItem("username", data.username || body.username);
-        localStorage.setItem("name", data.name || body.username);
-
-        window.location.href = "/dashboard_v2";
-    }
-
-    else {
-
-        msg.innerHTML = data.detail || "Login failed";
+        console.error(err);
 
     }
 

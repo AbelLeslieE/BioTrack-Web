@@ -369,43 +369,54 @@ async function saveTicketChanges(){
 // SUCCESS MODAL
 // ==========================================
 
+// ==========================================
+// SUCCESS MODAL
+// ==========================================
+
 function showSuccessModal(title, message, completed = false){
 
-    const modal = document.createElement("div");
+    const overlay = document.getElementById("successModal");
 
-    modal.className = "success-modal";
+    if(!overlay){
+        console.error("successModal not found.");
+        return;
+    }
 
-    modal.innerHTML = `
+    // Update content
+    document.getElementById("successTitle").textContent = title;
+    document.getElementById("successMessage").textContent = message;
 
-        <div class="success-box">
+    const primaryBtn = document.getElementById("modalPrimaryBtn");
+    const secondaryBtn = document.getElementById("modalSecondaryBtn");
 
-            <div class="success-icon">
+    // Remove previous events
+    primaryBtn.onclick = null;
+    secondaryBtn.onclick = null;
 
-                ✔
+    // Show modal
+    overlay.classList.add("show");
 
-            </div>
+    // Primary button
+    primaryBtn.textContent = completed
+        ? "Return Dashboard"
+        : "Continue";
 
-            <h2>${title}</h2>
+    primaryBtn.onclick = () => {
 
-            <p>${message}</p>
+        overlay.classList.remove("show");
 
-            <button id="successOK">
+        if(completed){
+            navigate("engineerDashboard");
+        }
 
-                Return Dashboard
+    };
 
-            </button>
+    // Secondary button
+    secondaryBtn.textContent = "Close";
 
-        </div>
+    secondaryBtn.onclick = () => {
 
-    `;
-
-    document.body.appendChild(modal);
-
-    document.getElementById("successOK").onclick = () => {
-
-        modal.remove();
-
-        navigate("engineerDashboard");
+        overlay.classList.remove("show");
 
     };
 
@@ -497,12 +508,10 @@ async function updateTicket(start=false, complete=false){
         if(complete){
 
             showSuccessModal(
-
-                "Maintenance Completed",
-
-                "The department has been notified."
-
-            );
+            "Maintenance Completed",
+            "The department has been notified.",
+            true
+        );
 
             return;
 
