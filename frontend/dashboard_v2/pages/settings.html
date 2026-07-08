@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>BioTrack | Settings</title>
+
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="../css/settings.css">
+</head>
+
+<body>
+
+    <main class="settings-page">
+
+        <!-- ==========================
+             SETTINGS SIDEBAR
+        =========================== -->
+
+        <aside class="settings-sidebar">
+
+            <div class="sidebar-title">
+
+                <div class="sidebar-icon">
+                    <i class="fa-solid fa-gear"></i>
+                </div>
+
+                <div>
+                    <h2>Settings</h2>
+                    <p>Manage your account & system preferences</p>
+                </div>
+
+            </div>
+
+            <nav class="settings-nav">
+
+                <button class="nav-item active" data-target="profile">
+
+                    <i class="fa-regular fa-user"></i>
+
+                    <span>Profile Settings</span>
+
+                </button>
+
+                <button class="nav-item" data-target="notifications">
+
+                    <i class="fa-regular fa-bell"></i>
+
+                    <span>Notifications</span>
+
+                </button>
+
+                <button class="nav-item" data-target="security">
+
+                    <i class="fa-solid fa-shield-halved"></i>
+
+                    <span>Security</span>
+
+                </button>
+
+                <button class="nav-item" data-target="preferences">
+
+                    <i class="fa-solid fa-sliders"></i>
+
+                    <span>System Preferences</span>
+
+                </button>
+
+                <button class="nav-item" data-target="backup">
+
+                    <i class="fa-regular fa-hard-drive"></i>
+
+                    <span>Backup & Data</span>
+
+                </button>
+
+                <button class="nav-item" data-target="about">
+
+                    <i class="fa-solid fa-circle-info"></i>
+
+                    <span>About System</span>
+
+                </button>
+
+            </nav>
+
+            <!-- Help Card -->
+
+            <div class="support-card">
+
+                <div class="support-icon">
+                    <i class="fa-solid fa-headset"></i>
+                </div>
+
+                <h3>Need Help?</h3>
+
+                <p>
+                    If you face any issue with BioTrack,
+                    our Biomedical Support Team is ready to help.
+                </p>
+
+                <button class="support-btn">
+
+                    Contact Support
+
+                    <i class="fa-solid fa-arrow-right"></i>
+
+                </button>
+
+            </div>
+
+        </aside>
+
+        <!-- ==========================
+             CONTENT
+        =========================== -->
+
+        <section class="settings-content">
+
+            <!-- Page Header -->
+
+            <header class="page-header">
+
+                <div>
+
+                    <h1>Settings</h1>
+
+                    <p>
+                        Manage your profile, notifications,
+                        security and system preferences.
+                    </p>
+
+                </div>
+
+                <div class="header-image">
+
+                    <img src="assets/settings-banner.png"
+                        alt="Settings Illustration">
+
+                </div>
+
+            </header>
+
+            <!-- Settings Grid -->
+
+            <div class="settings-grid">
+
+                <!-- ====================================
+                     PROFILE SETTINGS
+                ===================================== -->
+
+                <section class="settings-card profile-card"
+                    id="profile">
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <h2>Profile Settings</h2>
+
+                            <p>
+                                Update your personal information
+                                and account profile.
+                            </p>
+
+                        </div>
+
+                        <i class="fa-regular fa-user card-icon"></i>
+
+                    </div>
+
+                    <div class="profile-content">
+
+                        <div class="profile-avatar">
+
+                            <img src="/static/dashboard_v2/assets/settings/profile.png"
+                                id="profilePreview"
+                                alt="Profile">
+
+                            <button
+                                class="camera-btn"
+                                id="changePhoto">
+
+                                <i class="fa-solid fa-camera"></i>
+
+                            </button>
+
+                            <input
+                                type="file"
+                                id="profileUpload"
+                                accept="image/*"
+                                hidden>
+
+                        </div>
+
+                        <div class="profile-details">
+
+                            <div class="detail-row">
+
+                                <label>Full Name</label>
+
+                                <span id="fullName">
+                                    John Doe
+                                </span>
+
+                            </div>
+
+                            <div class="detail-row">
+
+                                <label>Email Address</label>
+
+                                <span id="email">
+                                    john.doe@lfh.com
+                                </span>
+
+                            </div>
+
+                            <div class="detail-row">
+
+                                <label>Employee ID</label>
+
+                                <span>
+                                    BME-001
+                                </span>
+
+                            </div>
+
+                            <div class="detail-row">
+
+                                <label>Role</label>
+
+                                <span>
+                                    Biomedical Engineer
+                                </span>
+
+                            </div>
+
+                            <button class="primary-btn edit-profile">
+
+                                <i class="fa-regular fa-pen-to-square"></i>
+
+                                Edit Profile
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </section>
+                <!-- ====================================
+                     NOTIFICATIONS
+                ===================================== -->
+
+                <section class="settings-card notifications-card"
+                    id="notifications">
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <h2>Notifications</h2>
+
+                            <p>
+                                Manage how you receive updates and alerts.
+                            </p>
+
+                        </div>
+
+                        <i class="fa-regular fa-bell card-icon"></i>
+
+                    </div>
+
+                    <div class="notification-list">
+
+                        <!-- Email Notifications -->
+
+                        <div class="notification-item">
+
+                            <div class="notification-info">
+
+                                <div class="notification-icon">
+
+                                    <i class="fa-regular fa-envelope"></i>
+
+                                </div>
+
+                                <div>
+
+                                    <h4>Email Notifications</h4>
+
+                                    <p>
+                                        Receive maintenance updates through
+                                        your registered email.
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                            <label class="switch">
+
+                                <input
+                                    type="checkbox"
+                                    id="emailNotification"
+                                    checked>
+
+                                <span class="slider"></span>
+
+                            </label>
+
+                        </div>
+
+                        <!-- Desktop Notifications -->
+
+                        <div class="notification-item">
+
+                            <div class="notification-info">
+
+                                <div class="notification-icon">
+
+                                    <i class="fa-solid fa-desktop"></i>
+
+                                </div>
+
+                                <div>
+
+                                    <h4>Desktop Notifications</h4>
+
+                                    <p>
+                                        Show alerts directly on your desktop.
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                            <label class="switch">
+
+                                <input
+                                    type="checkbox"
+                                    id="desktopNotification"
+                                    checked>
+
+                                <span class="slider"></span>
+
+                            </label>
+
+                        </div>
+
+                        <!-- Request Updates -->
+
+                        <div class="notification-item">
+
+                            <div class="notification-info">
+
+                                <div class="notification-icon">
+
+                                    <i class="fa-regular fa-paper-plane"></i>
+
+                                </div>
+
+                                <div>
+
+                                    <h4>Request Updates</h4>
+
+                                    <p>
+                                        Notify me whenever a service request
+                                        changes status.
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                            <label class="switch">
+
+                                <input
+                                    type="checkbox"
+                                    id="requestUpdates"
+                                    checked>
+
+                                <span class="slider"></span>
+
+                            </label>
+
+                        </div>
+
+                        <!-- Preventive Maintenance Reminder -->
+
+                        <div class="notification-item">
+
+                            <div class="notification-info">
+
+                                <div class="notification-icon">
+
+                                    <i class="fa-regular fa-calendar-check"></i>
+
+                                </div>
+
+                                <div>
+
+                                    <h4>Preventive Maintenance Reminder</h4>
+
+                                    <p>
+                                        Receive reminders before scheduled
+                                        preventive maintenance.
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                            <label class="switch">
+
+                                <input
+                                    type="checkbox"
+                                    id="pmReminder">
+
+                                <span class="slider"></span>
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+                    <div class="card-footer">
+
+                        <button class="primary-btn">
+
+                            <i data-lucide="shield-plus"></i>
+
+                            Configure Notifications
+
+                        </button>
+
+                    </div>
+
+                </section>
+                                <!-- ====================================
+                     SECURITY
+                ===================================== -->
+
+                <section class="settings-card security-card"
+                    id="security">
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <h2>Security</h2>
+
+                            <p>
+                                Manage your password and security preferences.
+                            </p>
+
+                        </div>
+
+                        <i class="fa-solid fa-shield-halved card-icon"></i>
+
+                    </div>
+
+                    <div class="security-list">
+
+                        <!-- Password -->
+
+                        <div class="security-item">
+
+                            <div>
+
+                                <h4>Password</h4>
+
+                                <p>••••••••••••</p>
+
+                            </div>
+
+                            <button class="secondary-btn"
+                                id="changePassword">
+
+                                Change
+
+                                <i class="fa-solid fa-chevron-right"></i>
+
+                            </button>
+
+                        </div>
+
+                        <!-- Two Factor -->
+
+                        <div class="security-item">
+
+                            <div>
+
+                                <h4>Two-Factor Authentication</h4>
+
+                                <p>
+                                    Add an additional layer of account security.
+                                </p>
+
+                            </div>
+
+                            <label class="switch">
+
+                                <input
+                                    type="checkbox"
+                                    id="twoFactor">
+
+                                <span class="slider"></span>
+
+                            </label>
+
+                        </div>
+
+                        <!-- Active Sessions -->
+
+                        <div class="security-item">
+
+                            <div>
+
+                                <h4>Active Sessions</h4>
+
+                                <p>
+                                    Review devices currently signed into your account.
+                                </p>
+
+                            </div>
+
+                            <button class="secondary-btn"
+                                id="viewSessions">
+
+                                View
+
+                                <i class="fa-solid fa-chevron-right"></i>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- ====================================
+                     SYSTEM PREFERENCES
+                ===================================== -->
+
+                <section class="settings-card preferences-card"
+                    id="preferences">
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <h2>System Preferences</h2>
+
+                            <p>
+                                Customize your BioTrack experience.
+                            </p>
+
+                        </div>
+
+                        <i class="fa-solid fa-sliders card-icon"></i>
+
+                    </div>
+
+                    <div class="preference-list">
+
+                        <!-- Theme -->
+
+                        <div class="preference-item">
+
+                            <div class="preference-left">
+
+                                <i class="fa-regular fa-moon"></i>
+
+                                <span>Theme</span>
+
+                            </div>
+
+                            <select id="themeSelect">
+
+                                <option selected>Light</option>
+                                <option>Dark</option>
+                                <option>System Default</option>
+
+                            </select>
+
+                        </div>
+
+                        <!-- Language -->
+
+                        <div class="preference-item">
+
+                            <div class="preference-left">
+
+                                <i class="fa-solid fa-globe"></i>
+
+                                <span>Language</span>
+
+                            </div>
+
+                            <select id="languageSelect">
+
+                                <option selected>English</option>
+                                <option>Malayalam</option>
+                                <option>Hindi</option>
+
+                            </select>
+
+                        </div>
+
+                        <!-- Date Format -->
+
+                        <div class="preference-item">
+
+                            <div class="preference-left">
+
+                                <i class="fa-regular fa-calendar"></i>
+
+                                <span>Date Format</span>
+
+                            </div>
+
+                            <select id="dateFormat">
+
+                                <option selected>DD/MM/YYYY</option>
+                                <option>MM/DD/YYYY</option>
+                                <option>YYYY-MM-DD</option>
+
+                            </select>
+
+                        </div>
+
+                        <!-- Time Format -->
+
+                        <div class="preference-item">
+
+                            <div class="preference-left">
+
+                                <i class="fa-regular fa-clock"></i>
+
+                                <span>Time Format</span>
+
+                            </div>
+
+                            <select id="timeFormat">
+
+                                <option selected>24 Hour</option>
+                                <option>12 Hour</option>
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+                </section>
+                                <!-- ====================================
+                     BACKUP & DATA
+                ===================================== -->
+
+                <section class="settings-card backup-card"
+                    id="backup">
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <h2>Backup & Data</h2>
+
+                            <p>
+                                Secure your BioTrack information by creating
+                                backups or exporting your data.
+                            </p>
+
+                        </div>
+
+                        <i class="fa-solid fa-database card-icon"></i>
+
+                    </div>
+
+                    <div class="backup-actions">
+
+                        <div class="backup-box">
+
+                            <div class="backup-icon">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                            </div>
+
+                            <h4>Create Backup</h4>
+
+                            <p>
+                                Generate a secure backup of the complete
+                                BioTrack database and settings.
+                            </p>
+
+                            <button class="primary-btn"
+                                id="backupNow">
+
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+
+                                Backup Now
+
+                            </button>
+
+                        </div>
+
+                        <div class="backup-box">
+
+                            <div class="backup-icon">
+                                <i class="fa-solid fa-file-export"></i>
+                            </div>
+
+                            <h4>Export Data</h4>
+
+                            <p>
+                                Download reports and maintenance records
+                                for offline access.
+                            </p>
+
+                            <button class="secondary-btn"
+                                id="exportData">
+
+                                <i class="fa-solid fa-download"></i>
+
+                                Export
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+
+                <!-- ====================================
+                     ABOUT SYSTEM
+                ===================================== -->
+
+                <section class="settings-card about-card"
+                    id="about">
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <h2>About System</h2>
+
+                            <p>
+                                BioTrack Biomedical Maintenance System
+                                information.
+                            </p>
+
+                        </div>
+
+                        <i class="fa-solid fa-circle-info card-icon"></i>
+
+                    </div>
+
+                    <div class="about-grid">
+
+                        <div class="about-item">
+
+                            <label>System Name</label>
+
+                            <span>
+                                BioTrack Biomedical Maintenance System
+                            </span>
+
+                        </div>
+
+                        <div class="about-item">
+
+                            <label>Version</label>
+
+                            <span>
+                                Version 1.0.0
+                            </span>
+
+                        </div>
+
+                        <div class="about-item">
+
+                            <label>Developed By</label>
+
+                            <span>
+                                LFH Software Solutions
+                            </span>
+
+                        </div>
+
+                        <div class="about-item">
+
+                            <label>Support</label>
+
+                            <span>
+                                support@biotrack.com
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                    <div class="about-footer">
+
+                        <p>
+                            © 2025 BioTrack Biomedical Maintenance System.
+                            All Rights Reserved.
+                        </p>
+
+                    </div>
+
+                </section>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <script src="../js/settings.js"></script>
+
+</body>
+
+</html>
