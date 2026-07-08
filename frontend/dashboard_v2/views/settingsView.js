@@ -80,7 +80,7 @@ function renderSettings() {
 
         <!-- Profile Image -->
 
-        <div class="profile-avatar">
+        <div class="settings-profile-avatar">
 
         <img
             id="profilePreview"
