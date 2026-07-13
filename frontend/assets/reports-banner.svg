@@ -1,0 +1,55 @@
+<!--?xml version="1.0" encoding="UTF-8"?-->
+<svg width="700" height="420" viewBox="0 0 700 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+    <!-- Background -->
+    <rect width="700" height="420" rx="30" fill="#F8FAFC"></rect>
+
+    <!-- Decorative Circles -->
+    <circle cx="620" cy="70" r="18" fill="#DBEAFE"></circle>
+    <circle cx="650" cy="110" r="8" fill="#60A5FA"></circle>
+    <circle cx="80" cy="340" r="14" fill="#DBEAFE"></circle>
+
+    <!-- Main Dashboard Card -->
+    <rect x="120" y="70" width="420" height="260" rx="22" fill="white" stroke="#E5E7EB" stroke-width="2"></rect>
+
+    <!-- Header -->
+    <rect x="150" y="100" width="150" height="18" rx="9" fill="#2563EB"></rect>
+    <rect x="150" y="132" width="230" height="12" rx="6" fill="#CBD5E1"></rect>
+
+    <!-- Bar Chart -->
+    <rect x="165" y="240" width="28" height="55" rx="6" fill="#93C5FD"></rect>
+    <rect x="208" y="205" width="28" height="90" rx="6" fill="#60A5FA"></rect>
+    <rect x="251" y="175" width="28" height="120" rx="6" fill="#2563EB"></rect>
+    <rect x="294" y="225" width="28" height="70" rx="6" fill="#3B82F6"></rect>
+
+    <!-- Line Chart -->
+    <polyline points="360,260 395,225 430,240 470,180 510,200" fill="none" stroke="#2563EB" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+
+    <circle cx="360" cy="260" r="5" fill="#2563EB"></circle>
+    <circle cx="395" cy="225" r="5" fill="#2563EB"></circle>
+    <circle cx="430" cy="240" r="5" fill="#2563EB"></circle>
+    <circle cx="470" cy="180" r="5" fill="#2563EB"></circle>
+    <circle cx="510" cy="200" r="5" fill="#2563EB"></circle>
+
+    <!-- Clipboard -->
+    <rect x="540" y="120" width="80" height="105" rx="12" fill="white" stroke="#D1D5DB" stroke-width="2"></rect>
+    <rect x="560" y="105" width="40" height="18" rx="6" fill="#2563EB"></rect>
+
+    <rect x="555" y="145" width="48" height="8" rx="4" fill="#CBD5E1"></rect>
+    <rect x="555" y="165" width="35" height="8" rx="4" fill="#CBD5E1"></rect>
+    <rect x="555" y="185" width="52" height="8" rx="4" fill="#CBD5E1"></rect>
+
+    <!-- Check -->
+    <circle cx="580" cy="250" r="26" fill="#DCFCE7"></circle>
+    <path d="M569 250L578 259L594 241" stroke="#16A34A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+
+    <!-- Gear -->
+    <circle cx="105" cy="105" r="34" fill="#DBEAFE"></circle>
+    <circle cx="105" cy="105" r="15" fill="#2563EB"></circle>
+
+    <!-- Bottom Stats -->
+    <rect x="150" y="320" width="90" height="10" rx="5" fill="#93C5FD"></rect>
+    <rect x="260" y="320" width="120" height="10" rx="5" fill="#BFDBFE"></rect>
+    <rect x="400" y="320" width="90" height="10" rx="5" fill="#DBEAFE"></rect>
+
+</svg>

@@ -12,6 +12,7 @@ from backend.database import engine
 from sqlalchemy import text
 from backend.routes.request_routes import router as request_router
 from backend.routes.auth_routes import router as auth_router
+from backend.routes.report_routes import router as report_router
 from backend.routes.device_routes import router as device_router
 from backend.routes.user_routes import router as user_router
 from backend.routes.asset_routes import router as asset_router
@@ -85,13 +86,13 @@ app.include_router(qr_router)
 app.include_router(engineer_router)
 app.include_router(pm_router)
 app.include_router(inventory_router)
-
+app.include_router(report_router)
 # ==========================================
 # ROUTES
 # ==========================================
 
 @app.get("/")
-def root():
+def root(): 
     return FileResponse("frontend/login.html")
 
 

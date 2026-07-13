@@ -54,10 +54,7 @@ const adminMenu = `
     <span>Reports</span>
 </a>
 
-<a href="#" class="nav-item" data-page="ai">
-    <i data-lucide="brain-circuit"></i>
-    <span>AI Insights</span>
-</a>
+
 
 <a href="#" class="nav-item" data-page="settings">
     <i data-lucide="settings"></i>
