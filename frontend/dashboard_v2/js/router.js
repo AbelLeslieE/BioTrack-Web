@@ -24,6 +24,8 @@ const Pages = {
     userDashboard: renderUserDashboard,
     newRequest: renderNewRequest,
     myRequests: renderMyRequests,
+    requestDetails: renderRequestDetails,
+    
     // Biomedical Engineer
     engineerDashboard: renderEngineerDashboard,
     callManagement: renderMaintenance,
@@ -75,6 +77,10 @@ function navigate(page) {
     }
 
     // Render selected page
+    // Render selected page
+
+    console.log("Navigating to:", page);
+
     Pages[page]();
 
     // Refresh Lucide icons for dynamically rendered pages

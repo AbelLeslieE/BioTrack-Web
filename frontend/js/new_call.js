@@ -213,7 +213,13 @@ document.addEventListener("DOMContentLoaded", () => {
         document.querySelector(".save-btn");
 
     const modal =
-        document.getElementById("successModal");
+        showSuccess({
+
+            title: "Call Created",
+
+            message: "Maintenance call has been created successfully."
+
+        });
 
     const newRequestButton =
         document.getElementById("newRequestBtn");

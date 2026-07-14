@@ -5,7 +5,8 @@ from backend.database import get_db
 from backend.models.user import User
 from datetime import datetime
 import bcrypt
-
+from fastapi import HTTPException
+from backend.models import Request
 router=APIRouter(prefix="/api/users", tags=["users"])
 
 class UserCreate(BaseModel):
@@ -111,3 +112,62 @@ def delete_user(user_id:int, db:Session=Depends(get_db)):
     db.delete(user)
     db.commit()
     return {"success":True,"message":"User deleted"}
+
+# ==========================================
+# REQUEST DETAILS
+# ==========================================
+
+@router.get("/request/{ticket_number}")
+def get_request_details(
+    ticket_number: str,
+    db: Session = Depends(get_db)
+):
+
+    request = (
+        db.query(Request)
+        .filter(Request.ticket_number == ticket_number)
+        .first()
+    )
+
+    if not request:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Maintenance request not found."
+        )
+
+    return {
+
+        "ticket": request.ticket_number,
+
+        "equipment": request.equipment_name,
+
+        "equipment_id": request.equipment_identifier,
+
+        "department": request.department,
+
+        "location": request.location,
+
+        "reported_by": request.reported_by,
+
+        "priority": request.priority,
+
+        "status": request.status,
+
+        "received": request.call_received_datetime,
+
+        "started": request.engineer_start_datetime,
+
+        "completed": request.fixed_datetime,
+
+        "description": request.failure_description,
+
+        "notes": request.engineer_notes,
+
+        "work_done": request.work_done,
+
+        "spare_parts": request.spare_parts,
+
+        "downtime": request.final_downtime_hours
+
+    }

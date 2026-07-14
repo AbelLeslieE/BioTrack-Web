@@ -138,9 +138,9 @@ const userMenu = `
     <span>Scan QR</span>
 </a>
 
-<a href="#" class="nav-item" data-page="profile">
-    <i data-lucide="user"></i>
-    <span>Profile</span>
+<a href="#" class="nav-item" data-page="settings">
+    <i data-lucide="settings"></i>
+    <span>Settings</span>
 </a>
 
 `;

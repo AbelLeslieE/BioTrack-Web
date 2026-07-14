@@ -294,26 +294,37 @@ async function submitRequest() {
 
         }
 
-        document.getElementById("ticketNumber").textContent =
-            data.ticket_number;
+        // ==========================================
+        // SUCCESS MODAL
+        // ==========================================
+        console.log("showSuccess =", typeof showSuccess);
+        console.log("Submitting completed");
+        showSuccess({
 
-        document.getElementById("submittedDepartment").textContent =
-            document.getElementById("departmentSearch").value;
+            title: "Request Submitted",
 
-        document.getElementById("submittedTime").textContent =
-            new Date().toLocaleString("en-IN");
+            message: `Your maintenance request (${data.ticket_number}) has been submitted successfully.`,
 
-        document
-            console.trace("Opening success modal");
+            buttonText: "Create Another Request",
 
-        document
-            .getElementById("successModal")
-            .classList.add("show");
+            onClose() {
 
-        showToast(
-            "Maintenance Request Submitted Successfully",
-            "success"
-        );
+                clearForm();
+
+                const firstField =
+                    document.getElementById("departmentSearch");
+
+                if (firstField) {
+
+                    firstField.focus();
+
+                }
+
+            }
+
+        });
+
+        
 
     }
 
@@ -333,28 +344,12 @@ async function submitRequest() {
 
 }
 
-// ==========================================
-// SUCCESS MODAL
-// ==========================================
+
 
 function initializeModalButtons() {
 
-    const newRequestButton =
-        document.getElementById("newRequestBtn");
-
-    if (newRequestButton) {
-
-        newRequestButton.addEventListener("click", () => {
-
-            document
-                .getElementById("successModal")
-                ?.classList.remove("show");
-
-            clearForm();
-
-        });
-
-    }
+    // Global success modal handles its own closing.
+    // No page-specific modal logic is required.
 
 }
 
@@ -364,25 +359,10 @@ function initializeModalButtons() {
 
 function initializeNavigation() {
 
-    const viewRequests =
-        document.getElementById("viewRequestsBtn");
-
-    if (viewRequests) {
-
-        viewRequests.addEventListener("click", () => {
-
-            document
-                .getElementById("successModal")
-                ?.classList.remove("show");
-
-            navigate("myRequests");
-
-        });
-
-    }
+    // Navigation is now handled through callbacks passed to
+    // showSuccess() when required.
 
 }
-
 // ==========================================
 // TOAST
 // ==========================================

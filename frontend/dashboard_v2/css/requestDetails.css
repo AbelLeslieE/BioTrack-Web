@@ -1,0 +1,377 @@
+/* ==========================================
+   REQUEST DETAILS PAGE
+========================================== */
+
+.request-details-page{
+
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+
+    padding:30px;
+
+    animation:fadeIn .3s ease;
+
+}
+
+
+/* ==========================================
+   HEADER
+========================================== */
+
+.request-details-header{
+
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+
+}
+
+.request-back-btn{
+
+    width:max-content;
+
+    display:flex;
+    align-items:center;
+    gap:8px;
+
+    padding:10px 18px;
+
+    border:none;
+    border-radius:14px;
+
+    background:#ffffff;
+
+    cursor:pointer;
+
+    font-weight:600;
+
+    color:#2563EB;
+
+    box-shadow:
+        0 8px 24px rgba(15,23,42,.05);
+
+    transition:.25s;
+
+}
+
+.request-back-btn:hover{
+
+    transform:translateY(-2px);
+
+}
+
+.request-header-content{
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+
+    padding:28px 34px;
+
+    background:#ffffff;
+
+    border-radius:22px;
+
+    box-shadow:
+        0 12px 30px rgba(15,23,42,.05);
+
+}
+
+.request-header-content h1{
+
+    font-size:34px;
+    color:#17233D;
+
+    margin-bottom:8px;
+
+}
+
+.request-header-content p{
+
+    color:#64748B;
+
+}
+
+
+/* ==========================================
+   INFO GRID
+========================================== */
+
+.request-info-grid{
+
+    display:grid;
+
+    grid-template-columns:
+        2fr
+        1fr;
+
+    gap:24px;
+
+}
+
+
+/* ==========================================
+   CARDS
+========================================== */
+
+.request-card{
+
+    background:#ffffff;
+
+    border-radius:22px;
+
+    padding:28px;
+
+    box-shadow:
+        0 10px 30px rgba(15,23,42,.05);
+
+    display:flex;
+    flex-direction:column;
+
+    gap:24px;
+
+}
+
+
+/* ==========================================
+   CARD TITLE
+========================================== */
+
+.card-title{
+
+    display:flex;
+    align-items:center;
+    gap:12px;
+
+}
+
+.card-title i{
+
+    color:#2563EB;
+
+}
+
+.card-title h3{
+
+    font-size:20px;
+
+    color:#17233D;
+
+}
+
+
+/* ==========================================
+   INFO LIST
+========================================== */
+
+.info-list{
+
+    display:flex;
+    flex-direction:column;
+
+    gap:16px;
+
+}
+
+.info-row{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    padding-bottom:12px;
+
+    border-bottom:1px solid #EEF2F7;
+
+}
+
+.info-row:last-child{
+
+    border-bottom:none;
+
+}
+
+.info-row span{
+
+    color:#64748B;
+
+}
+
+.info-row strong{
+
+    color:#17233D;
+
+}
+
+
+/* ==========================================
+   ENGINEER
+========================================== */
+
+.engineer-profile{
+
+    display:flex;
+    align-items:center;
+
+    gap:18px;
+
+}
+
+.engineer-avatar{
+
+    width:70px;
+    height:70px;
+
+    border-radius:50%;
+
+    background:#EFF6FF;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+}
+
+.engineer-avatar i{
+
+    color:#2563EB;
+
+    width:32px;
+    height:32px;
+
+}
+
+.engineer-profile h4{
+
+    font-size:18px;
+
+    margin-bottom:6px;
+
+}
+
+.engineer-profile p{
+
+    color:#64748B;
+
+}
+
+
+/* ==========================================
+   NOTES
+========================================== */
+
+.notes-box{
+
+    min-height:110px;
+
+    background:#F8FAFC;
+
+    border:1px solid #E8EEF8;
+
+    border-radius:16px;
+
+    padding:18px;
+
+    color:#334155;
+
+    white-space:pre-wrap;
+
+    line-height:1.7;
+
+}
+
+
+/* ==========================================
+   TIMELINE
+========================================== */
+
+.timeline-container{
+
+    display:flex;
+    flex-direction:column;
+
+    gap:18px;
+
+}
+
+
+/* ==========================================
+   SPARE TABLE
+========================================== */
+
+.spare-table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+}
+
+.spare-table thead{
+
+    background:#F8FAFC;
+
+}
+
+.spare-table th{
+
+    text-align:left;
+
+    padding:16px;
+
+    color:#475569;
+
+    font-weight:600;
+
+}
+
+.spare-table td{
+
+    padding:16px;
+
+    border-top:1px solid #EEF2F7;
+
+}
+
+
+/* ==========================================
+   STATUS BADGE
+========================================== */
+
+#requestStatusBadge{
+
+    padding:10px 18px;
+
+    border-radius:999px;
+
+    font-size:14px;
+
+    font-weight:700;
+
+}
+
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media(max-width:1000px){
+
+    .request-info-grid{
+
+        grid-template-columns:1fr;
+
+    }
+
+    .request-header-content{
+
+        flex-direction:column;
+
+        align-items:flex-start;
+
+        gap:20px;
+
+    }
+
+}

@@ -1,344 +1,280 @@
 // ==========================================
-// BIOMEDICAL ENGINEER DASHBOARD
+// ENGINEER DASHBOARD VIEW
 // ==========================================
 
-async function renderEngineerDashboard() {
-    // ==========================================
-    // LOAD DASHBOARD DATA
-    // ==========================================
+function engineerDashboardView() {
 
-    const response = await fetch("/api/engineer/dashboard");
-    const data = await response.json();
-    pageContent.innerHTML = `
+    return `
 
-        <div class="maintenance-dashboard">
+<section class="engineer-dashboard">
 
-            <!-- ====================================== -->
-            <!-- HEADER -->
-            <!-- ====================================== -->
+    <!-- ==========================================
+    HEADER
+    =========================================== -->
 
-            <div class="maintenance-header">
+    <header class="engineer-header">
 
-                <div>
+        <div>
 
-                    <button class="back-btn"
-                        onclick="navigate('dashboard')">
+            <h1>Biomedical Engineer Dashboard</h1>
 
-                        <i data-lucide="arrow-left"></i>
+            <p>
 
-                        Back to Dashboard
+                Monitor your assigned maintenance calls and equipment activity.
 
-                    </button>
+            </p>
 
-                    <h1>
+        </div>
 
-                        Maintenance Calls
+        <button
+            class="primary-btn"
+            onclick="navigate('callManagement')">
 
-                    </h1>
+            <i data-lucide="clipboard-list"></i>
 
-                    <p>
+            Open Call Management
 
-                        All biomedical maintenance requests assigned to you.
+        </button>
 
-                    </p>
+    </header>
 
-                </div>
+    <!-- ==========================================
+    KPI CARDS
+    =========================================== -->
 
-                <div class="maintenance-tools">
+    <section class="engineer-kpis">
 
-                    <div class="search-box">
+        <div class="dashboard-card">
 
-                        <i data-lucide="search"></i>
+            <div class="card-icon blue">
 
-                        <input
-                            type="text"
-                            id="maintenanceSearch"
-                            placeholder="Search by Token / Equipment / Department">
-
-                    </div>
-
-                    <button class="filter-btn">
-
-                        <i data-lucide="filter"></i>
-
-                        Filter
-
-                    </button>
-
-                </div>
+                <i data-lucide="clipboard-list"></i>
 
             </div>
 
-            <!-- ====================================== -->
-            <!-- KPI CARDS -->
-            <!-- ====================================== -->
+            <div>
 
-            <div class="maintenance-kpis">
+                <h2 id="assignedCalls">0</h2>
 
-                <div class="kpi-card">
-
-                    <i data-lucide="clipboard-list"></i>
-
-                    <div>
-
-                        <h2 id="totalCalls">0</h2>
-
-                        <span>Total Calls</span>
-
-                    </div>
-
-                </div>
-
-                <div class="kpi-card orange">
-
-                    <i data-lucide="wrench"></i>
-
-                    <div>
-
-                        <h2 id="progressCalls">0</h2>
-
-                        <span>In Progress</span>
-
-                    </div>
-
-                </div>
-
-                <div class="kpi-card green">
-
-                    <i data-lucide="badge-check"></i>
-
-                    <div>
-
-                        <h2 id="completedCalls">0</h2>
-
-                        <span>Completed</span>
-
-                    </div>
-
-                </div>
-
-                <div class="kpi-card purple">
-
-                    <i data-lucide="clock-3"></i>
-
-                    <div>
-
-                        <h2 id="totalDowntime">
-
-                            0h
-
-                        </h2>
-
-                        <span>Total Downtime</span>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <!-- ====================================== -->
-            <!-- TABLE -->
-            <!-- ====================================== -->
-
-            <div class="maintenance-table-card">
-
-                <div class="table-header">
-
-                    <h2>
-
-                        <i data-lucide="list"></i>
-
-                        All Maintenance Calls
-
-                    </h2>
-
-                </div>
-
-                <table class="maintenance-table">
-
-                    <thead>
-
-                        <tr>
-
-                            <th>#</th>
-
-                            <th>Token</th>
-
-                            <th>Equipment</th>
-
-                            <th>Department</th>
-
-                            <th>Received</th>
-
-                            <th>Status</th>
-
-                            <th>Downtime</th>
-
-                            <th>Action</th>
-
-                        </tr>
-
-                    </thead>
-
-                    <tbody id="maintenanceTableBody">
-
-                        <tr>
-
-                            <td colspan="8">
-
-                                Loading maintenance calls...
-
-                            </td>
-
-                        </tr>
-
-                    </tbody>
-
-                </table>
+                <span>Assigned Calls</span>
 
             </div>
 
         </div>
 
-        `;
+        <div class="dashboard-card">
 
-    lucide.createIcons();
+            <div class="card-icon orange">
 
-    loadEngineerDashboard();
+                <i data-lucide="wrench"></i>
 
-}
-// ==========================================
-// LOAD ENGINEER DASHBOARD
-// ==========================================
+            </div>
 
-// ==========================================
-// LOAD ENGINEER DASHBOARD
-// ==========================================
+            <div>
 
-async function loadEngineerDashboard() {
+                <h2 id="progressCalls">0</h2>
 
-    try {
+                <span>In Progress</span>
 
-        const res = await fetch("/api/engineer/dashboard");
+            </div>
 
-        const data = await res.json();
+        </div>
 
-        // ==========================
-        // KPI CARDS
-        // ==========================
+        <div class="dashboard-card">
 
-        document.getElementById("assignedCalls").textContent =
-            data.assigned_calls;
+            <div class="card-icon red">
 
-        document.getElementById("progressCalls").textContent =
-            data.in_progress;
+                <i data-lucide="triangle-alert"></i>
 
-        document.getElementById("criticalCalls").textContent =
-            data.critical_calls;
+            </div>
 
-        document.getElementById("completedCalls").textContent =
-            data.completed_today;
+            <div>
 
-        // ==========================
-        // ASSIGNED CALLS
-        // ==========================
+                <h2 id="criticalCalls">0</h2>
 
-        const assignedList = document.getElementById("assignedList");
+                <span>Critical Calls</span>
 
-        assignedList.innerHTML = "";
+            </div>
 
-        data.assigned.forEach(call => {
+        </div>
 
-            assignedList.innerHTML += `
+        <div class="dashboard-card">
 
-            <div class="call-card ${call.priority.toLowerCase()}">
+            <div class="card-icon green">
 
-                <div class="call-header">
+                <i data-lucide="badge-check"></i>
 
-                    <div>
+            </div>
 
-                        <h3>${call.ticket}</h3>
+            <div>
 
-                        <small>${call.department}</small>
+                <h2 id="completedCalls">0</h2>
 
-                    </div>
+                <span>Completed Today</span>
 
-                    <span class="priority ${call.priority.toLowerCase()}">
+            </div>
 
-                        ${call.priority}
+        </div>
 
-                    </span>
+    </section>
+
+    <!-- ==========================================
+    MAIN GRID
+    =========================================== -->
+
+    <section class="engineer-grid">
+
+        <!-- LEFT -->
+
+        <div class="engineer-left">
+
+            <!-- Assigned Calls -->
+
+            <div class="dashboard-panel">
+
+                <div class="panel-header">
+
+                    <h2>
+
+                        <i data-lucide="list-checks"></i>
+
+                        Assigned Maintenance Calls
+
+                    </h2>
 
                 </div>
 
-                <div class="call-grid">
+                <div
+                    id="assignedList"
+                    class="assigned-calls">
 
-                    <div>
+                    <div class="loading-card">
 
-                        <label>Equipment</label>
-
-                        <strong>${call.equipment}</strong>
-
-                    </div>
-
-                    <div>
-
-                        <label>Equipment ID</label>
-
-                        <strong>${call.equipment_id}</strong>
-
-                    </div>
-
-                    <div>
-
-                        <label>Issue</label>
-
-                        <strong>${call.issue}</strong>
-
-                    </div>
-
-                    <div>
-
-                        <label>Status</label>
-
-                        <strong>${call.status}</strong>
-
-                    </div>
-
-                    <div>
-
-                        <label>Location</label>
-
-                        <strong>${call.location}</strong>
-
-                    </div>
-
-                    <div>
-
-                        <label>Reported By</label>
-
-                        <strong>${call.reported_by}</strong>
-
-                    </div>
-
-                    <div>
-
-                        <label>Received</label>
-
-                        <strong>${call.reported_time}</strong>
+                        Loading assigned calls...
 
                     </div>
 
                 </div>
 
-                <div class="call-actions">
+            </div>
 
-                    <button
-                        class="open-ticket-btn"
-                        onclick="openTicket(${call.id})">
+        </div>
 
-                        Open Ticket
+        <!-- RIGHT -->
+
+        <div class="engineer-right">
+
+            <!-- Equipment -->
+
+            <div class="dashboard-panel">
+
+                <div class="panel-header">
+
+                    <h2>
+
+                        <i data-lucide="monitor-cog"></i>
+
+                        Equipment Status
+
+                    </h2>
+
+                </div>
+
+                <div class="mini-stats">
+
+                    <div>
+
+                        <h3 id="onlineEquipment">0</h3>
+
+                        <span>Online</span>
+
+                    </div>
+
+                    <div>
+
+                        <h3 id="offlineEquipment">0</h3>
+
+                        <span>Offline</span>
+
+                    </div>
+
+                    <div>
+
+                        <h3 id="pmDueToday">0</h3>
+
+                        <span>PM Due</span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Activity -->
+
+            <div class="dashboard-panel">
+
+                <div class="panel-header">
+
+                    <h2>
+
+                        <i data-lucide="history"></i>
+
+                        Today's Activity
+
+                    </h2>
+
+                </div>
+
+                <div
+                    id="activityFeed"
+                    class="activity-feed">
+
+                    <p>No recent activity.</p>
+
+                </div>
+
+            </div>
+
+            <!-- Quick Actions -->
+
+            <div class="dashboard-panel">
+
+                <div class="panel-header">
+
+                    <h2>
+
+                        <i data-lucide="bolt"></i>
+
+                        Quick Actions
+
+                    </h2>
+
+                </div>
+
+                <div class="quick-actions">
+
+                    <button onclick="navigate('callManagement')">
+
+                        <i data-lucide="clipboard-list"></i>
+
+                        Call Management
+
+                    </button>
+
+                    <button onclick="navigate('assets')">
+
+                        <i data-lucide="boxes"></i>
+
+                        Assets
+
+                    </button>
+
+                    <button onclick="navigate('reports')">
+
+                        <i data-lucide="chart-column"></i>
+
+                        Reports
 
                     </button>
 
@@ -346,40 +282,13 @@ async function loadEngineerDashboard() {
 
             </div>
 
-            `;
+        </div>
 
-        });
+    </section>
 
-    }
+</section>
 
-    catch (err) {
-
-        console.error(err);
-
-    }
+`;
 
 }
-// ==========================================
-// AUTO REFRESH
-// ==========================================
-
-setInterval(() => {
-
-    if(document.getElementById("assignedCalls")){
-
-        loadEngineerDashboard();
-
-    }
-
-},5000);
-// ==========================================
-// OPEN TICKET
-// ==========================================
-
-function openTicket(id){
-
-    localStorage.setItem("selectedTicket", id);
-
-    navigate("ticket");
-
-}
+window.engineerDashboardView = engineerDashboardView;

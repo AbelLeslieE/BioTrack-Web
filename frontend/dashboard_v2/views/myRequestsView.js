@@ -242,7 +242,7 @@ async function loadMyRequests() {
 
             </td>
 
-            <td>${request.reported_time}</td>
+            <td>${formatDateTime(request.reported_time)}</td>
 
             <td>
 
@@ -269,11 +269,12 @@ async function loadMyRequests() {
 // OPEN REQUEST
 // ==========================================
 
-function openRequest(ticket){
+function openRequest(ticket) {
 
-    console.log(ticket);
+    // Store selected ticket
+    localStorage.setItem("selectedRequest", ticket);
 
-    // Next step:
-    // Open request details page
+    // Navigate to Request Details page
+    navigate("requestDetails");
 
 }

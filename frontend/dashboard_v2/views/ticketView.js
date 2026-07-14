@@ -16,11 +16,29 @@ function openTicket(ticketId) {
 
 }
 
-// ==========================================
-// TICKET PAGE
-// ==========================================
-
 async function renderTicket() {
+
+    // ==========================================
+    // LOAD SELECTED TICKET
+    // ==========================================
+
+    currentTicketId = localStorage.getItem("selectedTicket");
+
+    if (!currentTicketId) {
+
+        pageContent.innerHTML = `
+
+            <div class="ticket-page">
+
+                <h2>No ticket selected.</h2>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
 
     pageContent.innerHTML = `
 
@@ -340,11 +358,13 @@ async function saveTicketChanges(){
 
         if(data.success){
 
-            showSuccessModal(
-                "Changes Saved Successfully",
-                "The maintenance ticket has been updated.",
-                false
-            );
+            showSuccess({
+
+                title:"Changes Saved Successfully",
+
+                message:"The maintenance ticket has been updated."
+
+            });
 
         }
 
@@ -365,166 +385,159 @@ async function saveTicketChanges(){
     }
 
 }
-// ==========================================
-// SUCCESS MODAL
-// ==========================================
 
 // ==========================================
-// SUCCESS MODAL
+// UPDATE TICKET
 // ==========================================
 
-function showSuccessModal(title, message, completed = false){
+async function updateTicket(start = false, complete = false) {
 
-    const overlay = document.getElementById("successModal");
+    const buttons = document.querySelectorAll(".ticket-btn");
 
-    if(!overlay){
-        console.error("successModal not found.");
-        return;
-    }
+    buttons.forEach(btn => btn.disabled = true);
 
-    // Update content
-    document.getElementById("successTitle").textContent = title;
-    document.getElementById("successMessage").textContent = message;
+    try {
 
-    const primaryBtn = document.getElementById("modalPrimaryBtn");
-    const secondaryBtn = document.getElementById("modalSecondaryBtn");
+        const response = await fetch(
 
-    // Remove previous events
-    primaryBtn.onclick = null;
-    secondaryBtn.onclick = null;
+            `/api/engineer/ticket/${currentTicketId}`,
 
-    // Show modal
-    overlay.classList.add("show");
+            {
 
-    // Primary button
-    primaryBtn.textContent = completed
-        ? "Return Dashboard"
-        : "Continue";
+                method: "PUT",
 
-    primaryBtn.onclick = () => {
+                headers: {
 
-        overlay.classList.remove("show");
+                    "Content-Type": "application/json"
 
-        if(completed){
-            navigate("engineerDashboard");
+                },
+
+                body: JSON.stringify({
+
+                    status:
+                        document.getElementById("ticketStatus").value,
+
+                    engineer_notes:
+                        document.getElementById("engineerNotes").value,
+
+                    work_done:
+                        document.getElementById("workDone").value,
+
+                    spare_parts:
+                        document.getElementById("spareParts").value,
+
+                    start_work: start,
+
+                    complete_work: complete
+
+                })
+
+            }
+
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+
+            throw new Error(data.detail || "Unable to update ticket.");
+
         }
 
-    };
+        if (start) {
 
-    // Secondary button
-    secondaryBtn.textContent = "Close";
+            document.getElementById("ticketStatus").value = "In Progress";
 
-    secondaryBtn.onclick = () => {
+            showSuccess({
 
-        overlay.classList.remove("show");
+                title: "Maintenance Started",
 
-    };
+                message: "The maintenance work has started."
+
+            });
+
+            return;
+
+        }
+
+        if (complete) {
+
+            showSuccess({
+
+                title: "Maintenance Completed",
+
+                message: "The department has been notified.",
+
+                buttonText: "Return Dashboard",
+
+                onClose() {
+
+                    navigate("engineerDashboard");
+
+                }
+
+            });
+
+            return;
+
+        }
+
+        showSuccess({
+
+            title: "Changes Saved",
+
+            message: "Ticket updated successfully."
+
+        });
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        showSuccess({
+
+            title: "Operation Failed",
+
+            message: error.message || "Unable to update the maintenance ticket."
+
+        });
+
+    }
+
+    finally {
+
+        buttons.forEach(btn => btn.disabled = false);
+
+    }
 
 }
 // ==========================================
 // START WORK
 // ==========================================
 
-async function startWork(){
+function startWork(){
 
-    await updateTicket(true,false);
+    updateTicket(true, false);
+
+}
+
+// ==========================================
+// COMPLETE REPAIR
+// ==========================================
+
+function completeWork(){
+
+    updateTicket(false, true);
 
 }
 
 // ==========================================
-// COMPLETE WORK
+// GLOBAL FUNCTIONS
 // ==========================================
 
-async function completeWork(){
-
-    await updateTicket(false,true);
-
-}
-// ==========================================
-// UPDATE TICKET
-// ==========================================
-
-async function updateTicket(start=false, complete=false){
-    const buttons = document.querySelectorAll(".ticket-btn");
-
-    buttons.forEach(btn => btn.disabled = true);
-
-    const response = await fetch(
-
-        `/api/engineer/ticket/${currentTicketId}`,
-
-        {
-
-            method:"PUT",
-
-            headers:{
-                "Content-Type":"application/json"
-            },
-
-            body:JSON.stringify({
-
-                status:
-                    document.getElementById("ticketStatus").value,
-
-                engineer_notes:
-                    document.getElementById("engineerNotes").value,
-
-                work_done:
-                    document.getElementById("workDone").value,
-
-                spare_parts:
-                    document.getElementById("spareParts").value,
-
-                start_work:start,
-
-                complete_work:complete
-
-            })
-
-        }
-
-    );
-
-    const data = await response.json();
-
-    if(data.success){
-
-        if(start){
-
-            document.getElementById("ticketStatus").value = "In Progress";
-
-            showSuccessModal(
-
-                "Maintenance Started",
-
-                "The maintenance work has started."
-
-            );
-
-            return;
-
-        }
-
-        if(complete){
-
-            showSuccessModal(
-            "Maintenance Completed",
-            "The department has been notified.",
-            true
-        );
-
-            return;
-
-        }
-
-        showSuccessModal(
-
-            "Changes Saved",
-
-            "Ticket updated successfully."
-
-        );
-
-    }
-
-}
+window.startWork = startWork;
+window.completeWork = completeWork;
+window.saveTicketChanges = saveTicketChanges;
+window.openTicket = openTicket;
