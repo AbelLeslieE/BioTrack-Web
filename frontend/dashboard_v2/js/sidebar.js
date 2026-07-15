@@ -79,7 +79,7 @@ const engineerMenu = `
 </a>
 <a href="#" class="nav-item" data-page="maintenance">
     <i data-lucide="clipboard-list"></i>
-    <span>PM Maintenance</span>
+    <span>Preventive Maintenance</span>
 </a>
 
 <a href="#" class="nav-item" data-page="assets">

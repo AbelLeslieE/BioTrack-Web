@@ -1,0 +1,521 @@
+/* ==========================================
+   PM DRAWER OVERLAY
+========================================== */
+
+.pm-drawer-overlay{
+
+    position:fixed;
+
+    inset:0;
+
+    background:rgba(15,23,42,.28);
+
+    backdrop-filter:blur(10px);
+
+    -webkit-backdrop-filter:blur(10px);
+
+    display:flex;
+
+    justify-content:flex-end;
+
+    align-items:stretch;
+
+    opacity:0;
+
+    visibility:hidden;
+
+    transition:.35s ease;
+
+    z-index:5000;
+
+}
+
+
+/* ==========================================
+   DRAWER OPEN
+========================================== */
+
+.pm-drawer-overlay.active{
+
+    opacity:1;
+
+    visibility:visible;
+
+}
+
+
+/* ==========================================
+   DRAWER
+========================================== */
+
+.pm-drawer{
+
+    width:460px;
+
+    max-width:100%;
+
+    height:100%;
+
+    background:#FFFFFF;
+
+    display:flex;
+
+    flex-direction:column;
+
+    transform:translateX(100%);
+
+    transition:.35s ease;
+
+    box-shadow:
+
+        -15px 0 60px rgba(15,23,42,.18);
+
+}
+
+.pm-drawer-overlay.active .pm-drawer{
+
+    transform:translateX(0);
+
+}
+
+
+/* ==========================================
+   HEADER
+========================================== */
+
+.pm-drawer-header{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:flex-start;
+
+    gap:20px;
+
+    padding:30px;
+
+    border-bottom:1px solid #EEF2F7;
+
+}
+
+.pm-drawer-header h2{
+
+    margin:0;
+
+    font-size:26px;
+
+    font-weight:800;
+
+    color:#17233D;
+
+}
+
+.pm-drawer-header p{
+
+    margin-top:8px;
+
+    color:#64748B;
+
+    line-height:1.6;
+
+}
+
+
+/* ==========================================
+   CLOSE BUTTON
+========================================== */
+
+.pm-drawer-close{
+
+    width:44px;
+
+    height:44px;
+
+    border:none;
+
+    border-radius:14px;
+
+    background:#F8FAFC;
+
+    cursor:pointer;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    transition:.25s;
+
+}
+
+.pm-drawer-close:hover{
+
+    background:#2563EB;
+
+    color:#FFFFFF;
+
+}
+/* ==========================================
+   DRAWER BODY
+========================================== */
+
+.pm-drawer-body{
+
+    flex:1;
+
+    overflow-y:auto;
+
+    padding:28px 30px 110px;
+
+}
+
+.pm-drawer-body::-webkit-scrollbar{
+
+    width:8px;
+
+}
+
+.pm-drawer-body::-webkit-scrollbar-thumb{
+
+    background:#CBD5E1;
+
+    border-radius:999px;
+
+}
+
+.pm-drawer-body::-webkit-scrollbar-thumb:hover{
+
+    background:#94A3B8;
+
+}
+
+
+/* ==========================================
+   FORM GROUP
+========================================== */
+
+.pm-form-group{
+
+    display:flex;
+
+    flex-direction:column;
+
+    margin-bottom:24px;
+
+}
+
+.pm-form-group label{
+
+    margin-bottom:10px;
+
+    font-size:14px;
+
+    font-weight:700;
+
+    color:#334155;
+
+}
+
+
+/* ==========================================
+   INPUTS
+========================================== */
+
+.pm-form-group input,
+
+.pm-form-group select,
+
+.pm-form-group textarea{
+
+    width:100%;
+
+    border:1px solid #E2E8F0;
+
+    border-radius:16px;
+
+    padding:14px 16px;
+
+    font-size:15px;
+
+    font-family:inherit;
+
+    background:#FFFFFF;
+
+    color:#17233D;
+
+    transition:.25s;
+
+    outline:none;
+
+}
+
+.pm-form-group input:focus,
+
+.pm-form-group select:focus,
+
+.pm-form-group textarea:focus{
+
+    border-color:#2563EB;
+
+    box-shadow:
+
+        0 0 0 4px rgba(37,99,235,.12);
+
+}
+
+
+/* ==========================================
+   READONLY INPUT
+========================================== */
+
+.pm-form-group input[readonly]{
+
+    background:#F8FAFC;
+
+    cursor:default;
+
+}
+
+
+/* ==========================================
+   SELECT
+========================================== */
+
+.pm-form-group select{
+
+    cursor:pointer;
+
+}
+
+
+/* ==========================================
+   TEXTAREA
+========================================== */
+
+.pm-form-group textarea{
+
+    resize:vertical;
+
+    min-height:130px;
+
+    line-height:1.7;
+
+}
+
+
+/* ==========================================
+   PLACEHOLDER
+========================================== */
+
+.pm-form-group textarea::placeholder,
+
+.pm-form-group input::placeholder{
+
+    color:#94A3B8;
+
+}
+
+
+/* ==========================================
+   SECTION DIVIDER
+========================================== */
+
+.pm-divider{
+
+    height:1px;
+
+    background:#EEF2F7;
+
+    margin:28px 0;
+
+}
+/* ==========================================
+   DRAWER FOOTER
+========================================== */
+
+.pm-drawer-footer{
+
+    position:absolute;
+
+    left:0;
+
+    right:0;
+
+    bottom:0;
+
+    display:flex;
+
+    justify-content:flex-end;
+
+    align-items:center;
+
+    gap:16px;
+
+    padding:24px 30px;
+
+    background:#FFFFFF;
+
+    border-top:1px solid #EEF2F7;
+
+}
+
+
+/* ==========================================
+   BUTTONS
+========================================== */
+
+.pm-drawer-footer button{
+
+    min-width:140px;
+
+    height:48px;
+
+    border:none;
+
+    border-radius:14px;
+
+    font-size:15px;
+
+    font-weight:700;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+}
+
+
+/* ==========================================
+   CANCEL BUTTON
+========================================== */
+
+.pm-cancel-btn{
+
+    background:#F8FAFC;
+
+    color:#475569;
+
+    border:1px solid #E2E8F0;
+
+}
+
+.pm-cancel-btn:hover{
+
+    background:#EEF2F7;
+
+}
+
+
+/* ==========================================
+   SCHEDULE BUTTON
+========================================== */
+
+.pm-save-btn{
+
+    background:#2563EB;
+
+    color:#FFFFFF;
+
+    box-shadow:
+
+        0 10px 25px rgba(37,99,235,.25);
+
+}
+
+.pm-save-btn:hover{
+
+    background:#1D4ED8;
+
+    transform:translateY(-2px);
+
+    box-shadow:
+
+        0 18px 35px rgba(37,99,235,.30);
+
+}
+
+.pm-save-btn:active{
+
+    transform:scale(.98);
+
+}
+
+
+/* ==========================================
+   DRAWER ANIMATION
+========================================== */
+
+.pm-drawer{
+
+    will-change:transform;
+
+}
+
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width:768px){
+
+    .pm-drawer{
+
+        width:100%;
+
+    }
+
+    .pm-drawer-header{
+
+        padding:22px;
+
+    }
+
+    .pm-drawer-body{
+
+        padding:22px 22px 110px;
+
+    }
+
+    .pm-drawer-footer{
+
+        padding:18px 22px;
+
+    }
+
+    .pm-drawer-footer{
+
+        flex-direction:column;
+
+    }
+
+    .pm-drawer-footer button{
+
+        width:100%;
+
+    }
+
+}
+
+
+/* ==========================================
+   ACCESSIBILITY
+========================================== */
+
+.pm-drawer button:focus,
+
+.pm-form-group input:focus,
+
+.pm-form-group select:focus,
+
+.pm-form-group textarea:focus{
+
+    outline:none;
+
+}
+
+
+/* ==========================================
+   END OF FILE
+========================================== */

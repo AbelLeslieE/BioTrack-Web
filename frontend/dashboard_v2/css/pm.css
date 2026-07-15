@@ -1,0 +1,1424 @@
+/* ==========================================
+   PM PAGE
+========================================== */
+
+.pm-page{
+
+    display:flex;
+    flex-direction:column;
+
+    gap:32px;
+
+    padding:10px 4px 50px;
+
+}
+
+
+/* ==========================================
+   PM HEADER
+========================================== */
+
+.pm-header{
+
+    position:relative;
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+
+    gap:40px;
+
+    padding:42px 48px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #ffffff 0%,
+            #f8fbff 100%
+        );
+
+    border:1px solid #E8EEF8;
+
+    border-radius:28px;
+
+    overflow:hidden;
+
+    box-shadow:
+        0 12px 30px rgba(15,23,42,.05),
+        0 30px 70px rgba(37,99,235,.08);
+
+}
+
+
+/* Decorative Glow */
+
+.pm-header::before{
+
+    content:"";
+
+    position:absolute;
+
+    top:-140px;
+    right:-120px;
+
+    width:320px;
+    height:320px;
+
+    background:
+
+        radial-gradient(
+
+            circle,
+
+            rgba(37,99,235,.12),
+
+            transparent 70%
+
+        );
+
+}
+
+
+/* ==========================================
+   HEADER LEFT
+========================================== */
+
+.pm-header-left{
+
+    flex:1;
+
+    max-width:720px;
+
+    z-index:2;
+
+}
+
+.pm-header-left h1{
+
+    margin:0 0 14px;
+
+    font-size:46px;
+
+    font-weight:800;
+
+    color:#17233D;
+
+    letter-spacing:-1px;
+
+}
+
+.pm-header-left p{
+
+    margin:0;
+
+    font-size:17px;
+
+    line-height:1.8;
+
+    color:#64748B;
+
+}
+
+
+/* ==========================================
+   HEADER RIGHT
+========================================== */
+
+.pm-header-right{
+
+    flex-shrink:0;
+
+    display:flex;
+
+    justify-content:flex-end;
+
+    align-items:center;
+
+    z-index:2;
+
+}
+
+.pm-header-image{
+
+    width:145px;
+
+    height:auto;
+
+    user-select:none;
+
+    pointer-events:none;
+
+    transition:.35s;
+
+}
+
+.pm-header:hover .pm-header-image{
+
+    transform:
+
+        translateY(-4px)
+
+        scale(1.03);
+
+}
+
+
+/* ==========================================
+   CALENDAR CARD
+========================================== */
+
+.pm-calendar-card{
+
+    background:#fff;
+
+    border-radius:28px;
+
+    border:1px solid #E8EEF8;
+
+    padding:34px;
+
+    min-height:760px;
+
+    box-shadow:
+
+        0 12px 32px rgba(15,23,42,.05),
+
+        0 25px 60px rgba(37,99,235,.08);
+
+}
+
+
+/* ==========================================
+   CALENDAR TOOLBAR
+========================================== */
+
+.pm-calendar-toolbar{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin-bottom:34px;
+
+}
+
+.pm-calendar-navigation{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:22px;
+
+}
+
+.pm-calendar-navigation h2{
+
+    margin:0;
+
+    font-size:32px;
+
+    font-weight:700;
+
+    color:#17233D;
+
+}
+
+
+/* ==========================================
+   NAVIGATION BUTTONS
+========================================== */
+
+.pm-calendar-navigation button{
+
+    width:46px;
+
+    height:46px;
+
+    border:none;
+
+    border-radius:14px;
+
+    background:#F4F7FC;
+
+    color:#2563EB;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+}
+
+.pm-calendar-navigation button:hover{
+
+    background:#2563EB;
+
+    color:#fff;
+
+    transform:translateY(-2px);
+
+}
+
+
+/* ==========================================
+   TODAY BUTTON
+========================================== */
+
+.pm-today-btn{
+
+    border:none;
+
+    background:#2563EB;
+
+    color:#fff;
+
+    font-weight:600;
+
+    font-size:15px;
+
+    border-radius:14px;
+
+    padding:13px 22px;
+
+    cursor:pointer;
+
+    transition:.3s;
+
+    box-shadow:
+
+        0 10px 25px rgba(37,99,235,.25);
+
+}
+
+.pm-today-btn:hover{
+
+    transform:translateY(-2px);
+
+    background:#1E4ED8;
+
+}
+
+
+/* ==========================================
+   CALENDAR CONTAINER
+========================================== */
+
+#pmCalendar{
+
+    width:100%;
+
+    border-radius:22px;
+
+    background:
+        linear-gradient(
+            to bottom,
+            #ffffff,
+            #fbfdff
+        );
+
+    border:1px solid #EEF2F8;
+
+    padding:18px;
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:14px;
+
+}
+/* ==========================================
+   CALENDAR GRID
+========================================== */
+
+.pm-calendar-grid{
+
+    width:100%;
+
+    display:grid;
+
+    grid-template-columns:repeat(7,minmax(0,1fr));
+
+    gap:14px;
+
+}
+
+/* ==========================================
+   WEEK DAYS
+========================================== */
+
+.pm-weekday{
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    height:52px;
+
+    font-size:14px;
+
+    font-weight:700;
+
+    text-transform:uppercase;
+
+    letter-spacing:.08em;
+
+    color:#64748B;
+
+}
+
+
+/* ==========================================
+   DAY CELL
+========================================== */
+
+.pm-day{
+
+    position:relative;
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:flex-start;
+
+    align-items:flex-start;
+
+    padding:14px;
+
+    min-height:120px;
+
+    background:#FFFFFF;
+
+    border:1px solid #EEF2F8;
+
+    border-radius:20px;
+
+    cursor:pointer;
+
+    transition:
+        transform .25s,
+        box-shadow .25s,
+        border-color .25s,
+        background .25s;
+
+    overflow:hidden;
+
+}
+
+
+/* Hover */
+
+.pm-day:hover{
+
+    transform:translateY(-4px);
+
+    border-color:#2563EB;
+
+    background:#FBFDFF;
+
+    box-shadow:
+
+        0 14px 28px rgba(15,23,42,.08),
+
+        0 10px 35px rgba(37,99,235,.12);
+
+}
+
+
+/* ==========================================
+   DAY NUMBER
+========================================== */
+
+.pm-day-number{
+
+    font-size:18px;
+
+    font-weight:700;
+
+    color:#17233D;
+
+    z-index:2;
+
+}
+
+
+/* ==========================================
+   TODAY
+========================================== */
+
+.pm-day.today{
+
+    border:1.8px solid #2563EB;
+
+}
+
+.pm-day.today .pm-day-number{
+
+    color:#2563EB;
+
+}
+
+
+/* ==========================================
+   OTHER MONTH
+========================================== */
+
+.pm-day.other-month{
+
+    background:#FAFBFD;
+
+}
+
+.pm-day.other-month .pm-day-number{
+
+    color:#CBD5E1;
+
+}
+
+
+/* ==========================================
+   STATUS DOT
+========================================== */
+
+.pm-status-dot{
+
+    position:absolute;
+
+    top:12px;
+
+    right:12px;
+
+    width:12px;
+
+    height:12px;
+
+    border-radius:50%;
+
+}
+
+
+/* Scheduled */
+
+.pm-status-dot.scheduled{
+
+    background:#F59E0B;
+
+}
+
+
+/* Due */
+
+.pm-status-dot.due{
+
+    background:#3B82F6;
+
+}
+
+
+/* Overdue */
+
+.pm-status-dot.overdue{
+
+    background:#EF4444;
+
+}
+
+
+/* Completed */
+
+.pm-status-dot.completed{
+
+    background:#22C55E;
+
+}
+
+
+/* ==========================================
+   EVENT CHIP
+========================================== */
+
+.pm-event{
+
+    margin-top:auto;
+
+    width:100%;
+
+    padding:6px 8px;
+
+    border-radius:10px;
+
+    text-align:center;
+
+    font-size:11px;
+
+    font-weight:600;
+
+    white-space:nowrap;
+
+}
+
+
+/* Scheduled */
+
+.pm-event.scheduled{
+
+    background:#FEF3C7;
+
+    color:#92400E;
+
+}
+
+
+/* Due */
+
+.pm-event.due{
+
+    background:#DBEAFE;
+
+    color:#1D4ED8;
+
+}
+
+
+/* Overdue */
+
+.pm-event.overdue{
+
+    background:#FEE2E2;
+
+    color:#B91C1C;
+
+}
+
+
+/* Completed */
+
+.pm-event.completed{
+
+    background:#DCFCE7;
+
+    color:#166534;
+
+}
+
+
+/* ==========================================
+   EMPTY DAY
+========================================== */
+
+.pm-day.empty{
+
+    background:transparent;
+
+    border:none;
+
+    cursor:default;
+
+    box-shadow:none;
+
+}
+
+.pm-day.empty:hover{
+
+    transform:none;
+
+    background:transparent;
+
+}
+
+
+/* ==========================================
+   CLICK ANIMATION
+========================================== */
+
+.pm-day:active{
+
+    transform:scale(.98);
+
+}
+/* ==========================================
+   CALENDAR LEGEND
+========================================== */
+
+.pm-legend{
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    flex-wrap:wrap;
+
+    gap:28px;
+
+    padding:24px 0;
+
+}
+
+.legend-item{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
+    font-size:14px;
+
+    font-weight:600;
+
+    color:#475569;
+
+}
+
+.legend-dot{
+
+    width:14px;
+
+    height:14px;
+
+    border-radius:50%;
+
+    flex-shrink:0;
+
+    box-shadow:0 0 0 4px rgba(15,23,42,.03);
+
+}
+
+.legend-dot.scheduled{
+
+    background:#F59E0B;
+
+}
+
+.legend-dot.due{
+
+    background:#3B82F6;
+
+}
+
+.legend-dot.overdue{
+
+    background:#EF4444;
+
+}
+
+.legend-dot.completed{
+
+    background:#22C55E;
+
+}
+
+.legend-dot.empty{
+
+    background:#CBD5E1;
+
+}
+
+
+/* ==========================================
+   SHARED SECTION CARD
+========================================== */
+
+.pm-section{
+
+    background:#FFFFFF;
+
+    border:1px solid #E8EEF8;
+
+    border-radius:24px;
+
+    padding:28px;
+
+    box-shadow:
+
+        0 10px 30px rgba(15,23,42,.05),
+
+        0 25px 60px rgba(37,99,235,.08);
+
+}
+
+
+/* ==========================================
+   SECTION HEADER
+========================================== */
+
+.pm-section-header{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin-bottom:24px;
+
+}
+
+.pm-section-title{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+}
+
+.pm-section-title h2{
+
+    margin:0;
+
+    font-size:24px;
+
+    font-weight:700;
+
+    color:#17233D;
+
+}
+
+.pm-section-title i{
+
+    color:#2563EB;
+
+}
+
+
+/* ==========================================
+   KPI GRID
+========================================== */
+
+.pm-kpi-section{
+
+    display:grid;
+
+    grid-template-columns:repeat(4,1fr);
+
+    gap:22px;
+
+}
+
+.pm-kpi-card{
+
+    background:#FFFFFF;
+
+    border:1px solid #E8EEF8;
+
+    border-radius:22px;
+
+    padding:26px;
+
+    transition:.3s;
+
+    box-shadow:
+
+        0 8px 25px rgba(15,23,42,.05);
+
+}
+
+.pm-kpi-card:hover{
+
+    transform:translateY(-5px);
+
+    box-shadow:
+
+        0 18px 35px rgba(37,99,235,.12);
+
+}
+
+.pm-kpi-value{
+
+    font-size:42px;
+
+    font-weight:800;
+
+    color:#17233D;
+
+    margin-bottom:8px;
+
+}
+
+.pm-kpi-label{
+
+    color:#64748B;
+
+    font-size:15px;
+
+}
+
+
+/* ==========================================
+   PM LIST CARD
+========================================== */
+
+.pm-list{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:18px;
+
+}
+
+.pm-item{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    gap:20px;
+
+    padding:18px 20px;
+
+    border-radius:18px;
+
+    background:#F8FAFD;
+
+    transition:.3s;
+
+}
+
+.pm-item:hover{
+
+    background:#F1F6FF;
+
+    transform:translateX(4px);
+
+}
+
+.pm-item-left{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:16px;
+
+}
+
+.pm-item-icon{
+
+    width:48px;
+
+    height:48px;
+
+    border-radius:16px;
+
+    background:#2563EB;
+
+    color:#FFFFFF;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+}
+
+.pm-item-title{
+
+    font-size:16px;
+
+    font-weight:700;
+
+    color:#17233D;
+
+}
+
+.pm-item-subtitle{
+
+    font-size:14px;
+
+    color:#64748B;
+
+    margin-top:4px;
+
+}
+
+
+/* ==========================================
+   STATUS PILL
+========================================== */
+
+.pm-status{
+
+    padding:8px 16px;
+
+    border-radius:999px;
+
+    font-size:13px;
+
+    font-weight:700;
+
+}
+
+.pm-status.upcoming{
+
+    background:#DBEAFE;
+
+    color:#1D4ED8;
+
+}
+
+.pm-status.due{
+
+    background:#FEF3C7;
+
+    color:#92400E;
+
+}
+
+.pm-status.overdue{
+
+    background:#FEE2E2;
+
+    color:#B91C1C;
+
+}
+
+.pm-status.completed{
+
+    background:#DCFCE7;
+
+    color:#166534;
+
+}
+
+
+/* ==========================================
+   EMPTY STATE
+========================================== */
+
+.pm-empty{
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+    align-items:center;
+
+    gap:16px;
+
+    min-height:220px;
+
+    text-align:center;
+
+    color:#94A3B8;
+
+}
+
+.pm-empty i{
+
+    width:64px;
+
+    height:64px;
+
+    color:#CBD5E1;
+
+}
+
+.pm-empty h3{
+
+    margin:0;
+
+    font-size:20px;
+
+    color:#475569;
+
+}
+
+.pm-empty p{
+
+    margin:0;
+
+    max-width:420px;
+
+    line-height:1.7;
+
+}
+/* ==========================================
+   SMOOTH ANIMATIONS
+========================================== */
+
+.pm-header,
+.pm-calendar-card,
+.pm-section,
+.pm-kpi-card{
+
+    animation:pmFadeUp .45s ease;
+
+}
+
+@keyframes pmFadeUp{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(18px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+
+/* ==========================================
+   SCROLLBAR
+========================================== */
+
+.pm-page::-webkit-scrollbar{
+
+    width:8px;
+
+}
+
+.pm-page::-webkit-scrollbar-thumb{
+
+    background:#CBD5E1;
+
+    border-radius:999px;
+
+}
+
+.pm-page::-webkit-scrollbar-thumb:hover{
+
+    background:#94A3B8;
+
+}
+
+
+/* ==========================================
+   TABLET
+========================================== */
+
+@media (max-width:1200px){
+
+    .pm-header{
+
+        padding:36px;
+
+    }
+
+    .pm-header-image{
+
+        width:120px;
+
+    }
+
+    .pm-kpi-section{
+
+        grid-template-columns:repeat(2,1fr);
+
+    }
+
+    .pm-calendar-card{
+
+        padding:28px;
+
+    }
+
+    .pm-day{
+
+        min-height:110px;
+
+    }
+
+}
+
+
+/* ==========================================
+   SMALL TABLET
+========================================== */
+
+@media (max-width:992px){
+
+    .pm-header{
+
+        flex-direction:column;
+
+        text-align:center;
+
+    }
+
+    .pm-header-left{
+
+        max-width:none;
+
+    }
+
+    .pm-header-right{
+
+        justify-content:center;
+
+    }
+
+    .pm-calendar-toolbar{
+
+        flex-direction:column;
+
+        gap:20px;
+
+    }
+
+    .pm-calendar-navigation{
+
+        justify-content:center;
+
+    }
+
+    .pm-day{
+
+        min-height:95px;
+
+        padding:10px;
+
+    }
+
+}
+
+
+/* ==========================================
+   MOBILE
+========================================== */
+
+@media (max-width:768px){
+
+    .pm-page{
+
+        gap:24px;
+
+    }
+
+    .pm-header{
+
+        padding:26px;
+
+    }
+
+    .pm-header-left h1{
+
+        font-size:34px;
+
+    }
+
+    .pm-header-left p{
+
+        font-size:15px;
+
+    }
+
+    .pm-header-image{
+
+        width:95px;
+
+    }
+
+    .pm-calendar-card{
+
+        padding:18px;
+
+        min-height:auto;
+
+    }
+
+    .pm-calendar-navigation h2{
+
+        font-size:24px;
+
+    }
+
+    .pm-calendar-navigation{
+
+        gap:12px;
+
+    }
+
+    .pm-calendar-navigation button{
+
+        width:40px;
+
+        height:40px;
+
+    }
+
+    .pm-day{
+
+        min-height:80px;
+
+        border-radius:14px;
+
+    }
+
+    .pm-day-number{
+
+        font-size:15px;
+
+    }
+
+    .pm-event{
+
+        font-size:11px;
+
+        padding:5px 7px;
+
+    }
+
+    .pm-kpi-section{
+
+        grid-template-columns:1fr;
+
+    }
+
+    .pm-item{
+
+        flex-direction:column;
+
+        align-items:flex-start;
+
+    }
+
+    .pm-section{
+
+        padding:22px;
+
+    }
+
+}
+
+
+/* ==========================================
+   SMALL MOBILE
+========================================== */
+
+@media (max-width:480px){
+
+    .pm-header{
+
+        border-radius:20px;
+
+        padding:22px;
+
+    }
+
+    .pm-calendar-card{
+
+        border-radius:20px;
+
+    }
+
+    .pm-calendar-grid{
+
+        gap:8px;
+
+    }
+
+    .pm-weekday{
+
+        font-size:11px;
+
+    }
+
+    .pm-day{
+
+        min-height:68px;
+
+        padding:8px;
+
+    }
+
+    .pm-day-number{
+
+        font-size:14px;
+
+    }
+
+    .legend-item{
+
+        width:100%;
+
+        justify-content:center;
+
+    }
+
+}
+
+
+/* ==========================================
+   LARGE MONITORS
+========================================== */
+
+@media (min-width:1600px){
+
+    .pm-page{
+
+        max-width:1800px;
+
+        margin:auto;
+
+    }
+
+    .pm-header{
+
+        padding:48px 60px;
+
+    }
+
+    .pm-calendar-card{
+
+        min-height:820px;
+
+    }
+
+    .pm-day{
+
+        min-height:145px;
+
+    }
+
+}
+
+
+/* ==========================================
+   ACCESSIBILITY
+========================================== */
+
+.pm-day:focus,
+.pm-calendar-navigation button:focus,
+.pm-today-btn:focus{
+
+    outline:3px solid rgba(37,99,235,.25);
+
+    outline-offset:2px;
+
+}
+
+
+/* ==========================================
+   END OF FILE
+========================================== */
