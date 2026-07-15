@@ -77,8 +77,8 @@ const engineerMenu = `
     <i data-lucide="clipboard-list"></i>
     <span>Call Management</span>
 </a>
-<a href="#" class="nav-item" data-page="maintenance">
-    <i data-lucide="clipboard-list"></i>
+<a href="#" class="nav-item" data-page="pm">
+    <i data-lucide="calendar-clock"></i>
     <span>Preventive Maintenance</span>
 </a>
 
