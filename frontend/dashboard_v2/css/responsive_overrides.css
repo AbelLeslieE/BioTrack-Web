@@ -1,0 +1,152 @@
+/* Final responsive layer: shared behaviour for every dashboard module. */
+html,body{max-width:100%;overflow-x:hidden}
+img,svg,canvas,video{max-width:100%}
+button,input,select,textarea{max-width:100%}
+.sidebar-mobile-backdrop{display:none}
+
+/* Make all data-heavy modules scroll inside their own card instead of widening the page. */
+.table-wrapper,.table-container,.asset-table-container,.maintenance-table-card,.inventory-table-card,
+.department-table-card,.myrequest-table-card,.users-table,.qr-table-wrapper,.spare-table,
+.asset-summary-table{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.users-table-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+@media (max-width:1200px){
+    .asset-kpis,.inventory-kpis,.engineer-kpis,.maintenance-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .asset-hero{align-items:stretch;gap:24px;padding:30px}
+    .asset-hero-right{width:100%}
+    .asset-actions{flex-direction:row}
+    .quick-actions-card{padding:20px}
+    .asset-hero h1,.page-header h1{font-size:clamp(31px,4vw,42px)}
+    .engineer-dashboard{padding:24px}
+}
+
+@media (max-width:992px){
+    #page-content{padding:22px}
+    .asset-hero,.pm-header,.reports-header,.qr-hero,.request-details-header,
+    .asset-form-header,.asset-profile-top,.maintenance-header,.my-requests-header,
+    .page-header{flex-direction:column;align-items:stretch}
+    .page-header,.maintenance-header{gap:18px}
+    .page-actions,.maintenance-actions,.asset-actions,.header-actions{width:100%;flex-wrap:wrap}
+    .page-actions button,.maintenance-actions>*{flex:1}
+    .engineer-grid,.ticket-grid,.request-info-grid,.asset-info-grid,.asset-property-grid{grid-template-columns:1fr}
+    .engineer-header{flex-direction:column}
+    .engineer-header .primary-btn{width:100%}
+    .asset-details-page,.asset-profile-page,.settings-grid{grid-template-columns:1fr}
+    .inventory-toolbar,.maintenance-toolbar,.asset-toolbar,.myrequest-toolbar,.department-toolbar{align-items:stretch}
+    .inventory-toolbar input,.asset-search,.department-search{min-width:0}
+    .inventory-toolbar select{width:min(100%,260px)}
+}
+
+@media (max-width:768px){
+    :root{--page-padding:16px;--section-gap:22px}
+    #page-content{padding:16px}
+    .menu-toggle{display:flex}
+    .sidebar{box-shadow:18px 0 45px rgba(15,23,42,.25)}
+    .sidebar-mobile-backdrop{position:fixed;inset:0;z-index:999;background:rgba(15,23,42,.48);border:0;opacity:0;pointer-events:none;transition:opacity .25s ease}
+    .sidebar-mobile-backdrop.show{display:block;opacity:1;pointer-events:auto}
+    .sidebar{z-index:1000}
+    .topbar{gap:8px;padding:0 16px}
+    .topbar-left,.topbar-right{gap:7px}
+    .notification-btn{flex:0 0 auto}
+
+    .dashboard-hero,.admin-operations-hero,.user-home-hero,.asset-hero,.pm-header,
+    .reports-header,.department-module-header,.department-pm-header{border-radius:20px}
+    .dashboard-hero,.asset-hero{padding:23px}
+    .dashboard-hero h1,.asset-hero h1,.page-header h1,.inventory-page .page-header h1,
+    .maintenance-title h1,.pm-header h1,.reports-title h1{font-size:clamp(28px,8vw,36px)}
+    .dashboard-hero p,.asset-hero p,.page-header p{font-size:14px;line-height:1.55}
+    .asset-actions,.page-actions,.maintenance-actions,.header-actions,.department-module-actions{gap:9px}
+    .asset-actions button,.page-actions button,.maintenance-actions button,.header-actions button,
+    .department-module-actions button{min-height:44px}
+
+    .asset-kpis,.inventory-kpis,.engineer-kpis,.maintenance-kpis,.dashboard-kpi,
+    .maintenance-grid,.asset-grid,.department-summary-grid,.department-pm-summary{grid-template-columns:1fr}
+    .kpi-card,.dashboard-card,.asset-card{min-height:0;padding:18px}
+    .kpi-card h2,.dashboard-card h2{font-size:30px}
+    .inventory-toolbar,.maintenance-toolbar,.asset-toolbar,.myrequest-toolbar,.department-toolbar,
+    .controls{flex-direction:column;gap:10px}
+    .inventory-toolbar input,.inventory-toolbar select,.asset-search,.asset-toolbar select,
+    .maintenance-toolbar input,.maintenance-toolbar select,.myrequest-toolbar input,
+    .myrequest-toolbar select,.department-search,.department-toolbar select,.controls input,
+    .controls select{width:100%;min-width:0}
+
+    .asset-form-card,.dashboard-panel,.department-pm-detail,.department-pm-calendar-card{padding:18px}
+    .asset-form-grid,.form-grid,.ticket-form-grid,.request-info-grid,.info-grid,
+    .department-pm-facts,.department-pm-response-actions{grid-template-columns:1fr}
+    .form-group.full-width{grid-column:auto}
+    .asset-form-footer,.ticket-actions,.form-actions,.button-row,.pm-drawer-footer,
+    .modal-footer{flex-direction:column;align-items:stretch}
+    .asset-form-footer button,.ticket-actions button,.form-actions button,.button-row button,
+    .pm-drawer-footer button,.modal-footer button{width:100%}
+
+    table,.asset-table,.maintenance-table,.inventory-table,.department-table,.users-table,
+    .myrequest-table,.qr-select-table,.spare-table{min-width:680px}
+    thead th,tbody td,.asset-table th,.asset-table td,.maintenance-table th,.maintenance-table td,
+    .inventory-table th,.inventory-table td,.department-table th,.department-table td,
+    .users-table th,.users-table td{padding:12px;font-size:13px}
+    .users-page{padding:0}
+    .users-page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+    .table-pagination{align-items:stretch;padding-top:13px}
+    .pagination-controls,.pagination-size-label{flex-wrap:wrap}
+
+    .asset-drawer{width:100%;right:-100%}
+    .drawer-header,.drawer-body{padding:18px}
+    .drawer-header h2{font-size:21px}
+    .asset-image{height:170px}
+    .pm-drawer{width:min(100%,460px)}
+    .pm-drawer-header{padding:22px}
+    .pm-drawer-body{padding:20px 20px 105px}
+    .pm-drawer-header h2{font-size:22px}
+    .inventory-modal,.modal,.password-modal{width:calc(100vw - 24px)!important;max-width:none!important;max-height:calc(100vh - 24px);right:12px!important;left:12px!important;top:12px!important;overflow:auto}
+    .qr-modal{width:calc(100vw - 20px);max-height:calc(100vh - 20px);border-radius:20px}
+    .qr-modal-header,.qr-modal-toolbar{flex-direction:column;align-items:stretch;padding:20px}
+    .qr-header-left{gap:12px}
+    .qr-header-icon{width:48px;height:48px;flex:0 0 48px}
+    .qr-header-icon svg{width:24px;height:24px}
+    .qr-modal-header h2{font-size:25px}
+    .qr-modal-header p{font-size:14px}
+    .qr-modal-actions{flex-direction:column}
+    .qr-modal-actions button{width:100%}
+    .success-modal{width:calc(100vw - 28px);padding:24px}
+    .spare-parts-toast{right:12px;bottom:12px;left:12px;max-width:none}
+
+    .engineer-dashboard{gap:18px;padding:16px}
+    .engineer-header h1{font-size:29px}
+    .engineer-grid{gap:18px}
+    .mini-stats{grid-template-columns:1fr}
+    .quick-actions{grid-template-columns:1fr}
+    .dashboard-panel{padding:18px}
+    .panel-header{align-items:flex-start}
+    .panel-header h2{font-size:18px}
+}
+
+@media (max-width:520px){
+    #page-content{padding:12px}
+    .topbar{padding:0 12px}
+    .profile-button{padding:4px}
+    .profile-avatar{width:38px;height:38px}
+    .notification-btn{width:38px;height:38px}
+    .menu-toggle{width:40px;height:40px}
+    .dashboard-hero,.asset-hero,.department-module-header,.department-pm-header{padding:18px}
+    .page-badge,.asset-badge{padding:7px 11px;font-size:11px}
+    .asset-actions,.page-actions,.header-actions{flex-direction:column}
+    .asset-actions button,.page-actions button,.header-actions button{width:100%}
+    .users-page-header{flex-direction:column}.users-page-header .add-btn{width:100%}
+    .asset-card{align-items:flex-start;gap:13px;padding:16px}
+    .asset-card .card-icon,.kpi-icon{width:46px;height:46px}
+    .inventory-kpis .kpi-card i{width:50px;height:50px}
+    .department-pm-navigation{width:100%;justify-content:space-between;gap:6px}
+    .department-pm-calendar-toolbar{align-items:flex-start;flex-direction:column}
+    .department-pm-today{width:100%}
+    .department-pm-detail h2{font-size:20px}
+    .department-pm-response-form>div{flex-direction:column}
+    .department-pm-response-form button{width:100%}
+    .admin-summary-card{min-height:105px}
+    .admin-team-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .admin-team-metrics span{font-size:9px}
+    .admin-activity-row{grid-template-columns:1fr}
+    .admin-activity-status{text-align:left}
+    .user-home-action-grid{grid-template-columns:1fr}
+    .user-home-hero-actions{flex-direction:column}
+    .user-home-hero-actions button{width:100%}
+}

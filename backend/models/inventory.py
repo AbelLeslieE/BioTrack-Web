@@ -47,6 +47,8 @@ class Inventory(Base):
 
     remarks = Column(String)
 
+    service_team = Column(String, nullable=False, default="Biomedical", index=True)
+
     created_at = Column(
         DateTime,
         default=datetime.utcnow

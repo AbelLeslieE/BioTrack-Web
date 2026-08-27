@@ -2,20 +2,59 @@
 # IMPORTS
 # ==========================================
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
 from backend.database import get_db
 from backend.models.request import Request
+from backend.models.user import User
+from backend.auth import get_current_user, require_roles
 from datetime import datetime
+import json
 
 
 # ==========================================
 # ROUTER
 # ==========================================
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
+
+SERVICE_TEAMS = {"Biomedical", "Electrical", "IT"}
+
+
+def _user_request_details(request: Request) -> dict:
+    """Return the request detail format used by the department-user portal."""
+    spare_parts = request.spare_parts or ""
+    try:
+        parsed_parts = json.loads(spare_parts)
+        if isinstance(parsed_parts, list):
+            spare_parts = ", ".join(
+                f"Part #{part.get('inventory_id')} × {part.get('quantity', 1)}"
+                for part in parsed_parts
+                if isinstance(part, dict)
+            )
+    except (TypeError, json.JSONDecodeError):
+        pass
+
+    return {
+        "ticket": request.ticket_number,
+        "equipment": request.equipment_name,
+        "equipment_id": request.equipment_identifier,
+        "department": request.department,
+        "location": request.location,
+        "reported_by": request.reported_by,
+        "priority": request.priority,
+        "status": request.status,
+        "received": request.call_received_datetime,
+        "started": request.engineer_start_datetime,
+        "completed": request.fixed_datetime,
+        "description": request.failure_description,
+        "notes": request.engineer_notes,
+        "work_done": request.work_done,
+        "spare_parts": spare_parts,
+        "downtime": request.final_downtime_hours,
+    }
 
 
 # ==========================================
@@ -25,8 +64,13 @@ router = APIRouter()
 @router.post("/api/requests")
 def create_request(
     data: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+
+    service_team = data.get("service_team", "Biomedical").strip().title()
+    if service_team not in SERVICE_TEAMS:
+        raise HTTPException(status_code=422, detail="Select Biomedical, Electrical, or IT service.")
 
     count = db.query(Request).count() + 1
 
@@ -43,15 +87,17 @@ def create_request(
 
         location=data.get("location"),
 
-        reported_by=data.get("reported_by"),
+        reported_by=current_user.name or current_user.username,
 
         # ==========================================
         # REQUEST OWNER
         # ==========================================
 
-        created_by=data.get("created_by"),
+        created_by=current_user.username,
 
-        created_by_role=data.get("created_by_role"),
+        created_by_role=current_user.role,
+
+        service_team=service_team,
 
         equipment_identifier=data.get("equipment_identifier"),
 
@@ -83,7 +129,7 @@ def create_request(
 # GET ALL REQUESTS
 # ==========================================
 
-@router.get("/api/requests")
+@router.get("/api/requests", dependencies=[Depends(require_roles("Manager", "BME"))])
 def get_requests(
     db: Session = Depends(get_db)
 ):
@@ -150,7 +196,7 @@ def get_requests(
 # KPI COUNTS
 # ==========================================
 
-@router.get("/api/kpis")
+@router.get("/api/kpis", dependencies=[Depends(require_roles("Manager", "BME"))])
 def get_kpis(
     db: Session = Depends(get_db)
 ):
@@ -204,7 +250,10 @@ def get_kpis(
 # UPDATE REQUEST STATUS
 # ==========================================
 
-@router.put("/api/requests/{ticket}/status")
+@router.put(
+    "/api/requests/{ticket}/status",
+    dependencies=[Depends(require_roles("Manager", "BME"))],
+)
 def update_status(
     ticket: str,
     data: dict,
@@ -225,9 +274,6 @@ def update_status(
             "success": False
             
         }
-    print("TICKET =", ticket)
-    print("DATA =", data)
-    
     request.status = data.get("status")
 
     request.engineer_notes = (
@@ -303,8 +349,6 @@ def update_status(
             request.final_downtime_hours = (
                 request.calculated_downtime_hours
             )
-    print("STATUS BEFORE COMMIT =", request.status)
-    print("START TIME =", request.engineer_start_datetime)
     db.commit()
 
     return {
@@ -314,7 +358,7 @@ def update_status(
 # DELETE REQUEST
 # ==========================================
 
-@router.delete("/api/requests/{ticket}")
+@router.delete("/api/requests/{ticket}", dependencies=[Depends(require_roles("Manager"))])
 def delete_request(
     ticket: str,
     db: Session = Depends(get_db)
@@ -346,7 +390,10 @@ def delete_request(
 # EDIT REQUEST
 # ==========================================
 
-@router.put("/api/requests/{ticket}/edit")
+@router.put(
+    "/api/requests/{ticket}/edit",
+    dependencies=[Depends(require_roles("Manager", "BME"))],
+)
 def edit_request(
     ticket: str,
     data: dict,
@@ -408,15 +455,33 @@ def edit_request(
 # MY REQUESTS
 # ==========================================
 
+@router.get("/api/user/request-details/{ticket_number}", dependencies=[Depends(require_roles("User"))])
+def get_own_request_details(
+    ticket_number: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    request = (
+        db.query(Request)
+        .filter(
+            Request.ticket_number == ticket_number,
+            Request.created_by == current_user.username,
+        )
+        .first()
+    )
+    if not request:
+        raise HTTPException(status_code=404, detail="Maintenance request not found.")
+    return _user_request_details(request)
+
 @router.get("/api/user/my-requests")
 def get_my_requests(
-    username: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
 
     requests = (
         db.query(Request)
-        .filter(Request.created_by == username)
+        .filter(Request.created_by == current_user.username)
         .order_by(Request.id.desc())
         .all()
     )

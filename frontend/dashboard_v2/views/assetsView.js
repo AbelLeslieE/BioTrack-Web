@@ -1,4 +1,8 @@
 
+let assetsCache = [];
+let filteredAssets = [];
+const assetsPagination = { page: 1, pageSize: 25 };
+
 function renderAssets() {
 
     pageContent.innerHTML = `
@@ -227,24 +231,25 @@ function renderAssets() {
         <div class="asset-toolbar">
 
             <input
+                id="assetSearch"
                 type="text"
                 placeholder="🔍 Search equipment..."
                 class="asset-search"
             >
 
-            <select>
+            <select id="assetDepartmentFilter">
 
                 <option>All Departments</option>
 
             </select>
 
-            <select>
+            <select id="assetStatusFilter">
 
                 <option>All Status</option>
 
             </select>
 
-            <select>
+            <select id="assetCategoryFilter">
 
                 <option>All Categories</option>
 
@@ -307,11 +312,14 @@ function renderAssets() {
 
         </div>
 
+        <div id="assetsPagination" class="table-pagination"></div>
+
     </div>
 
     `;
     initializeAssetImport();
     initializeAddAsset();
+    initializeAssetFilters();
     loadAssets();
 }
 
@@ -413,9 +421,11 @@ async function loadAssets() {
 
         const assets = await response.json();
 
-        populateAssetTable(assets);
+        assetsCache = Array.isArray(assets) ? assets : [];
+        populateAssetFilters(assetsCache);
+        applyAssetFilters();
 
-        updateAssetKPIs(assets);
+        updateAssetKPIs(assetsCache);
 
     }
 
@@ -425,6 +435,57 @@ async function loadAssets() {
 
     }
 
+}
+
+function initializeAssetFilters() {
+    ["assetSearch", "assetDepartmentFilter", "assetStatusFilter", "assetCategoryFilter"]
+        .forEach((id) => {
+            const element = document.getElementById(id);
+            if (!element) return;
+            element.addEventListener(element.tagName === "INPUT" ? "input" : "change", applyAssetFilters);
+        });
+}
+
+function populateAssetFilters(assets) {
+    const setup = (id, values, allLabel) => {
+        const select = document.getElementById(id);
+        if (!select) return;
+        select.innerHTML = `<option value="">${allLabel}</option>${values
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b))
+            .map((value) => `<option value="${String(value).replaceAll('"', '&quot;')}">${value}</option>`)
+            .join("")}`;
+    };
+
+    setup("assetDepartmentFilter", [...new Set(assets.map(asset => asset.department))], "All Departments");
+    setup("assetStatusFilter", [...new Set(assets.map(asset => asset.status))], "All Status");
+    setup("assetCategoryFilter", [...new Set(assets.map(asset => asset.category))], "All Categories");
+}
+
+function applyAssetFilters() {
+    const search = (document.getElementById("assetSearch")?.value || "").trim().toLowerCase();
+    const department = document.getElementById("assetDepartmentFilter")?.value || "";
+    const status = document.getElementById("assetStatusFilter")?.value || "";
+    const category = document.getElementById("assetCategoryFilter")?.value || "";
+
+    filteredAssets = assetsCache.filter((asset) => {
+        const searchable = [
+            asset.equipment_no,
+            asset.equipment_name,
+            asset.department,
+            asset.manufacturer,
+            asset.model,
+            asset.category,
+        ].filter(Boolean).join(" ").toLowerCase();
+
+        return (!search || searchable.includes(search))
+            && (!department || asset.department === department)
+            && (!status || asset.status === status)
+            && (!category || asset.category === category);
+    });
+
+    assetsPagination.page = 1;
+    populateAssetTable(filteredAssets);
 }
 
 
@@ -448,13 +509,23 @@ function populateAssetTable(assets) {
             </tr>
         `;
 
+        TablePagination.render(
+            document.getElementById("assetsPagination"),
+            assetsPagination,
+            0,
+            () => populateAssetTable(filteredAssets),
+            "assets"
+        );
+
         return;
 
     }
 
     table.innerHTML = "";
 
-    assets.forEach(asset => {
+    const pageItems = TablePagination.pageItems(assets, assetsPagination);
+
+    pageItems.forEach(asset => {
 
         table.innerHTML += `
             <tr>
@@ -489,6 +560,14 @@ function populateAssetTable(assets) {
         `;
 
     });
+
+    TablePagination.render(
+        document.getElementById("assetsPagination"),
+        assetsPagination,
+        assets.length,
+        () => populateAssetTable(filteredAssets),
+        "assets"
+    );
 
 }
 

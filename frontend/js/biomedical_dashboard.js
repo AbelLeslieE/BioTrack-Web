@@ -28,6 +28,18 @@ function renderEngineerDashboard() {
     startEngineerDashboard();
 
 }
+
+function renderElectricalDashboard() {
+
+    renderEngineerDashboard();
+
+}
+
+function renderITDashboard() {
+
+    renderEngineerDashboard();
+
+}
 /* ==========================================================
    INITIALIZE
 ========================================================== */
@@ -310,6 +322,11 @@ function renderAssignedCalls(calls) {
 
                 </div>
 
+                <p class="call-description">
+                    <strong>${call.issue || "Maintenance issue"}:</strong>
+                    ${call.description || "No description provided."}
+                </p>
+
                 <div class="call-actions">
 
                     <button
@@ -429,6 +446,18 @@ function openEngineerTicket(id) {
 
 }
 
+function navigateToEngineerHome() {
+
+    navigate(
+        (localStorage.getItem("role") || "").toLowerCase() === "electrical"
+            ? "electricalDashboard"
+            : (localStorage.getItem("role") || "").toLowerCase() === "it"
+                ? "itDashboard"
+                : "engineerDashboard"
+    );
+
+}
+
 /* ==========================================================
    MODULE STARTUP
 ========================================================== */
@@ -441,3 +470,6 @@ async function startEngineerDashboard() {
 
 window.startEngineerDashboard =
     startEngineerDashboard;
+window.renderElectricalDashboard = renderElectricalDashboard;
+window.renderITDashboard = renderITDashboard;
+window.navigateToEngineerHome = navigateToEngineerHome;

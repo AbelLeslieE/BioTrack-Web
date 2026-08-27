@@ -1738,3 +1738,31 @@ select:focus-visible{
     }
 
 }
+/* Password change dialog */
+.password-modal{
+    position:fixed;
+    inset:0;
+    z-index:1000;
+    display:grid;
+    place-items:center;
+    padding:20px;
+    background:rgba(15,23,42,.48);
+}
+
+.password-modal[hidden]{ display:none; }
+
+.password-dialog{
+    position:relative;
+    width:min(440px, 100%);
+    padding:28px;
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 24px 70px rgba(15,23,42,.28);
+}
+
+.password-dialog h2{ margin:0 0 8px; }
+.password-dialog p{ margin:0 0 20px; color:#64748b; }
+.password-dialog label{ display:block; margin:14px 0 6px; font-weight:600; }
+.password-dialog input{ width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:9px; }
+.password-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
+.password-close{ position:absolute; top:12px; right:14px; border:0; background:transparent; font-size:28px; cursor:pointer; }

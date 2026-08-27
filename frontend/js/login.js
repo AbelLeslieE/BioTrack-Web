@@ -76,6 +76,12 @@ form.addEventListener("submit", async (e) => {
             else if (role === "bme") {
                 role = "engineer";
             }
+            else if (role === "electrical") {
+                role = "electrical";
+            }
+            else if (role === "it") {
+                role = "it";
+            }
             else if (role === "user") {
                 role = "user";
             }

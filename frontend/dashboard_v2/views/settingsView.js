@@ -645,6 +645,24 @@ function renderSettings() {
     </div>
 
 </section>
+
+<div class="password-modal" id="passwordModal" hidden>
+    <div class="password-dialog" role="dialog" aria-modal="true" aria-labelledby="passwordDialogTitle">
+        <button class="password-close" type="button" id="closePasswordModal" aria-label="Close">×</button>
+        <h2 id="passwordDialogTitle">Change Password</h2>
+        <p>Use a new password with at least 12 characters.</p>
+        <label for="currentPassword">Current password</label>
+        <input id="currentPassword" type="password" autocomplete="current-password">
+        <label for="newPassword">New password</label>
+        <input id="newPassword" type="password" autocomplete="new-password" minlength="12">
+        <label for="confirmPassword">Confirm new password</label>
+        <input id="confirmPassword" type="password" autocomplete="new-password" minlength="12">
+        <div class="password-actions">
+            <button class="secondary-btn" type="button" id="cancelPasswordChange">Cancel</button>
+            <button class="primary-btn" type="button" id="savePasswordChange">Update Password</button>
+        </div>
+    </div>
+</div>
 <!-- ====================================
      BACKUP & DATA
 ==================================== -->

@@ -1,0 +1,263 @@
+/* Hospital-wide administrator operations dashboard */
+.admin-operations-dashboard{
+    display:flex;
+    flex-direction:column;
+    gap:28px;
+    max-width:1600px;
+    margin:0 auto;
+}
+
+.admin-operations-hero{
+    position:relative;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:28px;
+    padding:clamp(26px,4vw,44px);
+    border-radius:28px;
+    color:#fff;
+    background:
+        radial-gradient(circle at 84% 20%,rgba(110,231,183,.26),transparent 25%),
+        radial-gradient(circle at 65% 115%,rgba(96,165,250,.3),transparent 32%),
+        linear-gradient(125deg,#0f1d3c 0%,#172f66 52%,#1d4ed8 155%);
+    box-shadow:0 22px 48px rgba(30,64,175,.2);
+}
+.admin-operations-hero::after{
+    content:"";
+    position:absolute;
+    width:300px;
+    aspect-ratio:1;
+    right:-110px;
+    top:-160px;
+    border:45px solid rgba(255,255,255,.08);
+    border-radius:50%;
+}
+.admin-operations-hero-copy,.admin-hero-actions{position:relative;z-index:1}
+.admin-operations-hero-copy{max-width:760px}
+.admin-eyebrow{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    color:#5b8cff;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+}
+.admin-operations-hero .admin-eyebrow{color:#bfdbfe}
+.admin-eyebrow svg{width:15px;height:15px}
+.admin-operations-hero h1{
+    max-width:700px;
+    margin:12px 0 10px;
+    font-size:clamp(30px,3.4vw,50px);
+    line-height:1.08;
+    letter-spacing:-.045em;
+}
+.admin-operations-hero p{
+    max-width:640px;
+    color:#dbeafe;
+    font-size:16px;
+    line-height:1.65;
+}
+.admin-hero-actions{
+    display:flex;
+    min-width:210px;
+    flex-direction:column;
+    align-items:stretch;
+    gap:12px;
+}
+.admin-live-status{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:9px;
+    padding:12px 14px;
+    border:1px solid rgba(255,255,255,.17);
+    border-radius:12px;
+    background:rgba(15,23,42,.2);
+    color:#e0f2fe;
+    font-size:13px;
+    font-weight:700;
+}
+.admin-live-status span{width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 5px rgba(74,222,128,.15)}
+.admin-primary-action,.admin-quiet-action,.admin-link-button,.admin-team-action,.admin-quick-actions button{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:9px;
+    border:0;
+    cursor:pointer;
+    font-weight:750;
+    transition:transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.admin-primary-action{
+    padding:13px 16px;
+    border-radius:12px;
+    color:#17305b;
+    background:#fff;
+    box-shadow:0 10px 20px rgba(15,23,42,.18);
+}
+.admin-primary-action:hover{transform:translateY(-2px);box-shadow:0 14px 26px rgba(15,23,42,.24)}
+.admin-primary-action svg{width:18px;height:18px;color:#2563eb}
+
+.admin-summary-grid{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:18px;
+}
+.admin-summary-card{
+    display:flex;
+    align-items:center;
+    gap:15px;
+    min-height:130px;
+    padding:20px;
+    border:1px solid #e6edf7;
+    border-radius:20px;
+    background:#fff;
+    box-shadow:0 10px 26px rgba(15,23,42,.045);
+}
+.admin-summary-icon{
+    display:grid;
+    width:48px;
+    height:48px;
+    flex:0 0 48px;
+    place-items:center;
+    border-radius:15px;
+}
+.admin-summary-icon svg{width:23px;height:23px}
+.admin-summary-card span,.admin-summary-card small{display:block;color:#64748b}
+.admin-summary-card span{font-size:13px;font-weight:700}
+.admin-summary-card strong{display:block;margin:5px 0 3px;color:#17233d;font-size:31px;line-height:1;font-weight:800;letter-spacing:-.04em}
+.admin-summary-card small{font-size:11px;line-height:1.35}
+.admin-summary-card.is-blue .admin-summary-icon{color:#2563eb;background:#eaf1ff}
+.admin-summary-card.is-red .admin-summary-icon{color:#dc2626;background:#fff0f1}
+.admin-summary-card.is-green .admin-summary-icon{color:#059669;background:#ecfdf5}
+.admin-summary-card.is-violet .admin-summary-icon{color:#7c3aed;background:#f3e8ff}
+
+.admin-team-section{padding:28px;border:1px solid #e6edf7;border-radius:24px;background:#fff;box-shadow:0 10px 28px rgba(15,23,42,.04)}
+.admin-section-heading,.admin-panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
+.admin-section-heading h2,.admin-panel-heading h2{margin-top:6px;color:#17233d;font-size:22px;letter-spacing:-.03em}
+.admin-section-heading p{margin-top:6px;color:#64748b;font-size:14px}
+.admin-quiet-action{padding:10px 13px;border:1px solid #dbe5f2;border-radius:11px;color:#315380;background:#fff;font-size:13px}
+.admin-quiet-action:hover{border-color:#93c5fd;background:#eff6ff}
+.admin-quiet-action svg{width:16px;height:16px}
+.admin-team-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:24px}
+.admin-team-card{
+    overflow:hidden;
+    padding:19px;
+    border:1px solid #e5edf7;
+    border-radius:20px;
+    background:linear-gradient(180deg,#fff,#fbfdff);
+}
+.admin-team-card.is-biomedical{border-top:4px solid #2563eb}
+.admin-team-card.is-electrical{border-top:4px solid #f59e0b}
+.admin-team-card.is-it{border-top:4px solid #8b5cf6}
+.admin-team-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.admin-team-identity{display:flex;align-items:center;gap:10px}
+.admin-team-icon{display:grid;width:37px;height:37px;place-items:center;border-radius:12px}
+.admin-team-icon svg{width:19px;height:19px}
+.is-biomedical .admin-team-icon{background:#eaf1ff;color:#2563eb}
+.is-electrical .admin-team-icon{background:#fff7df;color:#d97706}
+.is-it .admin-team-icon{background:#f3e8ff;color:#7c3aed}
+.admin-team-identity span{display:block;color:#718096;font-size:11px;font-weight:700}
+.admin-team-identity h3{margin-top:2px;color:#1e293b;font-size:15px}
+.admin-team-state{padding:6px 8px;border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap}
+.admin-team-state.is-healthy{color:#047857;background:#ecfdf5}
+.admin-team-state.is-attention{color:#b45309;background:#fff7ed}
+.admin-team-primary{display:flex;align-items:baseline;gap:9px;margin:22px 0 17px}
+.admin-team-primary strong{color:#17233d;font-size:36px;line-height:1;font-weight:800;letter-spacing:-.04em}
+.admin-team-primary span{color:#64748b;font-size:12px;font-weight:650}
+.admin-team-metrics{display:grid;grid-template-columns:repeat(3,1fr);padding:13px 0;border-top:1px solid #edf2f7;border-bottom:1px solid #edf2f7}
+.admin-team-metrics div{min-width:0;padding:0 8px;border-right:1px solid #edf2f7}
+.admin-team-metrics div:first-child{padding-left:0}
+.admin-team-metrics div:last-child{padding-right:0;border-right:0}
+.admin-team-metrics strong{display:block;color:#24324a;font-size:17px}
+.admin-team-metrics span{display:block;margin-top:3px;color:#718096;font-size:10px;line-height:1.25}
+.admin-team-footer{display:flex;flex-wrap:wrap;gap:8px;margin:15px 0;color:#64748b;font-size:11px;font-weight:650}
+.admin-team-footer span{display:inline-flex;align-items:center;gap:4px}
+.admin-team-footer svg{width:13px;height:13px;color:#94a3b8}
+.admin-team-action{width:100%;padding:10px;border-radius:11px;color:#315380;background:#f3f7fc;font-size:12px}
+.admin-team-action:hover{color:#fff;background:#2563eb}
+.admin-team-action svg{width:14px;height:14px}
+
+.admin-operations-grid{display:grid;grid-template-columns:minmax(0,1.48fr) minmax(330px,.86fr);gap:20px}
+.admin-panel{padding:24px;border:1px solid #e6edf7;border-radius:22px;background:#fff;box-shadow:0 10px 28px rgba(15,23,42,.04)}
+.admin-panel-heading{margin-bottom:18px}
+.admin-panel-heading h2{font-size:19px}
+.admin-link-button{padding:3px;color:#2563eb;background:transparent;font-size:13px}
+.admin-link-button svg{width:15px;height:15px}
+.admin-link-button:hover{color:#1d4ed8;transform:translateX(2px)}
+.admin-activity-feed{display:flex;flex-direction:column}
+.admin-activity-row{display:grid;grid-template-columns:92px minmax(0,1fr) 115px;align-items:center;gap:15px;padding:14px 0;border-bottom:1px solid #edf2f7}
+.admin-activity-row:last-child{border-bottom:0}
+.admin-activity-team{justify-self:start;padding:6px 8px;border-radius:7px;font-size:10px;font-weight:800}
+.admin-activity-team.is-biomedical{color:#1d4ed8;background:#eaf1ff}
+.admin-activity-team.is-electrical{color:#b45309;background:#fff7df}
+.admin-activity-team.is-it{color:#6d28d9;background:#f3e8ff}
+.admin-activity-copy{min-width:0}
+.admin-activity-copy strong,.admin-activity-copy span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-activity-copy strong{color:#24324a;font-size:13px}
+.admin-activity-copy span{margin-top:4px;color:#718096;font-size:11px}
+.admin-activity-status{text-align:right}
+.admin-status-pill{display:inline-block;padding:5px 7px;border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap}
+.admin-status-pill.is-open,.admin-status-pill.is-assigned{color:#1d4ed8;background:#eaf1ff}
+.admin-status-pill.is-in-progress{color:#b45309;background:#fff7df}
+.admin-status-pill.is-awaiting-parts{color:#7c3aed;background:#f3e8ff}
+.admin-status-pill.is-completed,.admin-status-pill.is-closed{color:#047857;background:#ecfdf5}
+.admin-activity-status time{display:block;margin-top:5px;color:#94a3b8;font-size:10px}
+.admin-side-stack{display:flex;flex-direction:column;gap:20px}
+.admin-attention-list{display:flex;flex-direction:column;gap:13px}
+.admin-attention-row{display:flex;align-items:flex-start;gap:10px}
+.admin-attention-row>span{display:grid;width:33px;height:33px;flex:0 0 33px;place-items:center;border-radius:10px}
+.admin-attention-row svg{width:16px;height:16px}
+.admin-attention-row strong{display:block;color:#24324a;font-size:12px}
+.admin-attention-row p{margin-top:3px;color:#718096;font-size:11px;line-height:1.45}
+.admin-attention-row.is-red>span{color:#dc2626;background:#fff0f1}
+.admin-attention-row.is-orange>span{color:#c2410c;background:#fff7ed}
+.admin-attention-row.is-blue>span{color:#2563eb;background:#eaf1ff}
+.admin-attention-row.is-violet>span{color:#7c3aed;background:#f3e8ff}
+.admin-attention-row.is-green>span{color:#059669;background:#ecfdf5}
+.admin-attention-row.is-slate>span{color:#475569;background:#f1f5f9}
+.admin-quick-panel{background:linear-gradient(145deg,#f8fbff,#fff)}
+.admin-quick-panel h2{margin:6px 0 15px;color:#24324a;font-size:18px}
+.admin-quick-actions{display:flex;flex-direction:column;gap:8px}
+.admin-quick-actions button{justify-content:flex-start;width:100%;padding:10px 11px;border-radius:11px;color:#3b4d68;background:#fff;border:1px solid #e5edf7;font-size:12px}
+.admin-quick-actions button:hover{border-color:#bfdbfe;color:#1d4ed8;background:#eff6ff}
+.admin-quick-actions button svg:first-child{width:16px;height:16px;color:#2563eb}
+.admin-quick-actions button span{flex:1;text-align:left}
+.admin-quick-actions button svg:last-child{width:14px;height:14px;color:#94a3b8}
+.admin-dashboard-loading,.admin-empty-state{display:grid;min-height:110px;place-items:center;align-content:center;gap:7px;color:#718096;text-align:center;font-size:13px}
+.admin-empty-state svg{width:26px;height:26px;color:#94a3b8}
+.admin-empty-state strong{color:#475569;font-size:14px}
+.admin-empty-state p{max-width:280px;font-size:12px;line-height:1.45}
+
+@media (max-width:1250px){
+    .admin-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .admin-team-grid{grid-template-columns:1fr}
+    .admin-team-card{display:grid;grid-template-columns:1.15fr .8fr 1.2fr;gap:14px;align-items:center}
+    .admin-team-card-header{grid-column:1}
+    .admin-team-primary{margin:0}
+    .admin-team-metrics{padding:0;border:0}
+    .admin-team-footer,.admin-team-action{grid-column:1/-1;margin:0}
+}
+@media (max-width:1000px){
+    .admin-operations-hero,.admin-operations-grid{grid-template-columns:1fr}
+    .admin-operations-hero{align-items:flex-start;flex-direction:column}
+    .admin-hero-actions{width:100%;flex-direction:row}
+    .admin-hero-actions>*{flex:1}
+    .admin-operations-grid{display:grid}
+}
+@media (max-width:680px){
+    .admin-summary-grid{grid-template-columns:1fr}
+    .admin-team-section,.admin-panel{padding:18px}
+    .admin-section-heading{flex-direction:column}
+    .admin-team-card{display:block}
+    .admin-team-primary{margin:20px 0 15px}
+    .admin-team-metrics{padding:13px 0;border-top:1px solid #edf2f7;border-bottom:1px solid #edf2f7}
+    .admin-team-footer{margin:14px 0}
+    .admin-activity-row{grid-template-columns:1fr auto;gap:8px}
+    .admin-activity-team{grid-column:1/-1}
+    .admin-activity-status{align-self:end}
+    .admin-hero-actions{flex-direction:column}
+}

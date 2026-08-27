@@ -267,12 +267,173 @@
 }
 
 /* ==========================================================
+   INVENTORY-BACKED SPARE PARTS
+========================================================== */
+
+.spare-parts-help{
+
+    margin:-8px 0 16px;
+
+    color:#64748b;
+
+}
+
+.spare-parts-picker,
+.spare-parts-rows{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:12px;
+
+}
+
+.spare-part-row{
+
+    display:grid;
+
+    grid-template-columns:minmax(0,1fr) 110px auto;
+
+    gap:10px;
+
+    align-items:center;
+
+}
+
+.spare-part-row select,
+.spare-part-row input{
+
+    width:100%;
+
+    padding:11px;
+
+    border:1px solid #dbe4f1;
+
+    border-radius:9px;
+
+    background:#fff;
+
+}
+
+.add-spare-part,
+.remove-spare-part{
+
+    border:0;
+
+    border-radius:9px;
+
+    padding:10px 14px;
+
+    font-weight:700;
+
+    cursor:pointer;
+
+}
+
+.add-spare-part{
+
+    align-self:flex-start;
+
+    background:#dbeafe;
+
+    color:#1d4ed8;
+
+}
+
+.remove-spare-part{
+
+    background:#fee2e2;
+
+    color:#b91c1c;
+
+}
+
+.spare-parts-error{
+
+    color:#b91c1c;
+
+}
+
+.spare-parts-locked{
+
+    color:#166534;
+
+    font-weight:700;
+
+}
+
+.spare-part-summary{
+
+    padding:10px 12px;
+
+    border-radius:8px;
+
+    background:#f0fdf4;
+
+    color:#166534;
+
+}
+
+.spare-parts-toast{
+
+    position:fixed;
+
+    right:28px;
+
+    bottom:28px;
+
+    z-index:1200;
+
+    max-width:420px;
+
+    padding:14px 18px;
+
+    border-radius:12px;
+
+    color:#fff;
+
+    font-weight:700;
+
+    box-shadow:0 16px 35px rgba(15,23,42,.24);
+
+    opacity:0;
+
+    transform:translateY(12px);
+
+    pointer-events:none;
+
+    transition:.2s ease;
+
+}
+
+.spare-parts-toast.error{
+
+    background:#b91c1c;
+
+}
+
+.spare-parts-toast.show{
+
+    opacity:1;
+
+    transform:translateY(0);
+
+}
+
+/* ==========================================================
    RESPONSIVE
 ========================================================== */
 
 @media(max-width:1000px){
 
 .ticket-grid{
+
+grid-template-columns:1fr;
+
+}
+
+.spare-part-row{
 
 grid-template-columns:1fr;
 

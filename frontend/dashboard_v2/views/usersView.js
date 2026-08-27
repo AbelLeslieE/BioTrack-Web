@@ -1,11 +1,13 @@
 
 let usersCache=[];
+let filteredUsers=[];
+const usersPagination = { page: 1, pageSize: 10 };
 
 function renderUsers(){
 
 pageContent.innerHTML=`
 <div class="users-page">
-<div style="display:flex;justify-content:space-between;align-items:center">
+<div class="users-page-header">
 <h2>User Management</h2>
 <button class="add-btn" onclick="showRegisterUser()">+ Register User</button>
 </div>
@@ -24,18 +26,20 @@ pageContent.innerHTML=`
 <select id="sortUsers" onchange="filterUsers()">
 <option value="">Sort</option>
 <option value="name">Name</option>
+<option value="username">Username</option>
 <option value="department">Department</option>
 <option value="role">Role</option>
 </select>
 </div>
 
-<table class="users-table">
+<div class="users-table-scroll"><table class="users-table">
 <thead><tr>
-<th>Name</th><th>Department</th><th>Role</th>
+<th>Name</th><th>Username</th><th>Department</th><th>Role</th>
 <th>Email</th><th>Phone</th><th>Actions</th>
 </tr></thead>
 <tbody id="usersBody"></tbody>
-</table>
+</table></div>
+<div id="usersPagination" class="table-pagination"></div>
 </div>
 
 <div id="userModal"></div>
@@ -57,16 +61,26 @@ let roles=[...new Set(data.map(x=>x.role))];
 deptFilter.innerHTML='<option value="">All Departments</option>'+depts.map(x=>`<option>${x}</option>`).join('');
 roleFilter.innerHTML='<option value="">All Roles</option>'+roles.map(x=>`<option>${x}</option>`).join('');
 
-displayUsers(data);
+filteredUsers=data;
+displayUsers(filteredUsers);
 });
 }
 
 
 function displayUsers(data){
 
-usersBody.innerHTML=data.map(u=>`
+if (!data.length) {
+usersBody.innerHTML='<tr><td colspan="7">No users found.</td></tr>';
+TablePagination.render(document.getElementById("usersPagination"), usersPagination, 0, () => displayUsers(filteredUsers), "users");
+return;
+}
+
+const pageItems=TablePagination.pageItems(data, usersPagination);
+
+usersBody.innerHTML=pageItems.map(u=>`
 <tr>
 <td>${u.name}</td>
+<td>${u.username}</td>
 <td>${u.department}</td>
 <td>${u.role}</td>
 <td>${u.email}</td>
@@ -78,6 +92,14 @@ usersBody.innerHTML=data.map(u=>`
 </tr>
 `).join('');
 
+TablePagination.render(
+document.getElementById("usersPagination"),
+usersPagination,
+data.length,
+() => displayUsers(filteredUsers),
+"users"
+);
+
 }
 
 
@@ -86,15 +108,18 @@ function filterUsers(){
 let text=userSearch.value.toLowerCase();
 
 let result=usersCache.filter(u=>
-u.name.toLowerCase().includes(text) &&
+((u.name || "").toLowerCase().includes(text) ||
+u.username.toLowerCase().includes(text)) &&
 (!deptFilter.value || u.department==deptFilter.value) &&
 (!roleFilter.value || u.role==roleFilter.value)
 );
 
 if(sortUsers.value)
-result.sort((a,b)=>a[sortUsers.value].localeCompare(b[sortUsers.value]));
+result.sort((a,b)=>(a[sortUsers.value] || "").localeCompare(b[sortUsers.value] || ""));
 
-displayUsers(result);
+filteredUsers=result;
+usersPagination.page=1;
+displayUsers(filteredUsers);
 
 }
 
@@ -117,13 +142,18 @@ userModal.innerHTML=`
 
     <option value="BME">Biomedical Engineer</option>
 
+    <option value="Electrical">Electrical Engineer</option>
+
+    <option value="IT">IT Department</option>
+
     <option value="User">Department User</option>
 
 </select>
 <input id="newEmail" placeholder="Email">
 <input id="newPhone" placeholder="Phone">
 <input id="newUsername" placeholder="Username">
-<input id="newPassword" type="password" placeholder="Password">
+<label for="newPassword">${editingUserId ? "New password (leave blank to keep the current password)" : "Password"}</label>
+<input id="newPassword" type="password" placeholder="${editingUserId ? "Set a new password" : "Create a password"}">
 
 <div class="form-actions">
 <button onclick="registerUser()">Save User</button>

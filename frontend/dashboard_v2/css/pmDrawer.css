@@ -218,6 +218,18 @@
 
 }
 
+.pm-form-hint{
+
+    margin:-3px 0 10px;
+
+    color:#64748B;
+
+    font-size:13px;
+
+    line-height:1.45;
+
+}
+
 
 /* ==========================================
    INPUTS

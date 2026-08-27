@@ -2,7 +2,7 @@
 // REQUEST DETAILS PAGE
 // ==========================================
 
-function renderRequestDetails() {
+async function renderRequestDetails() {
 
     pageContent.innerHTML = `
 
@@ -289,7 +289,7 @@ function renderRequestDetails() {
 
     `;
 
-initializeRequestDetails();
+await initializeRequestDetails();
 
 if (window.lucide) {
     lucide.createIcons();

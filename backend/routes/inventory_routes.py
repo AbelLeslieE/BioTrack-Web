@@ -6,7 +6,8 @@ from fastapi import (
     APIRouter,
     Depends,
     Body,
-    HTTPException
+    HTTPException,
+    Query
 )
 
 from sqlalchemy.orm import Session
@@ -17,13 +18,17 @@ from backend.models.inventory import Inventory
 from fastapi import UploadFile, File
 
 from backend.services.inventory_excel_service import import_inventory_excel
+from backend.auth import get_current_user, require_roles
+from backend.models.user import User
+from backend.services.service_team import scope_to_team, team_for_user
 # ==========================================
 # ROUTER
 # ==========================================
 
 router = APIRouter(
     prefix="/api/inventory",
-    tags=["Inventory"]
+    tags=["Inventory"],
+    dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))],
 )
 # ==========================================
 # GET INVENTORY
@@ -31,14 +36,17 @@ router = APIRouter(
 
 @router.get("/")
 def get_inventory(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    service_team: str | None = Query(default=None),
 ):
 
-    items = (
-        db.query(Inventory)
-        .order_by(Inventory.item_name)
-        .all()
-    )
+    inventory_query = scope_to_team(db.query(Inventory), Inventory, current_user)
+    if current_user.role == "Manager" and service_team:
+        inventory_query = inventory_query.filter(
+            Inventory.service_team == team_for_user(current_user, service_team)
+        )
+    items = inventory_query.order_by(Inventory.item_name).all()
 
     return [
 
@@ -74,6 +82,8 @@ def get_inventory(
 
             "remarks": item.remarks,
 
+            "service_team": item.service_team,
+
             "status": (
 
                 "Out of Stock"
@@ -106,7 +116,8 @@ def create_inventory_item(
 
     data: dict = Body(...),
 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 
 ):
 
@@ -138,7 +149,9 @@ def create_inventory_item(
 
         purchase_price=data.get("purchase_price",0),
 
-        remarks=data.get("remarks")
+        remarks=data.get("remarks"),
+
+        service_team=team_for_user(current_user, data.get("service_team"))
 
     )
 
@@ -163,11 +176,12 @@ def create_inventory_item(
 def update_inventory_item(
     item_id: int,
     data: dict = Body(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
 
     item = (
-        db.query(Inventory)
+        scope_to_team(db.query(Inventory), Inventory, current_user)
         .filter(Inventory.id == item_id)
         .first()
     )
@@ -209,11 +223,12 @@ def update_inventory_item(
 @router.delete("/{item_id}")
 def delete_inventory_item(
     item_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
 
     item = (
-        db.query(Inventory)
+        scope_to_team(db.query(Inventory), Inventory, current_user)
         .filter(Inventory.id == item_id)
         .first()
     )
@@ -240,10 +255,11 @@ def delete_inventory_item(
 
 @router.get("/stats")
 def inventory_stats(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
 
-    items = db.query(Inventory).all()
+    items = scope_to_team(db.query(Inventory), Inventory, current_user).all()
 
     total_items = len(items)
 
@@ -294,7 +310,8 @@ async def upload_inventory_excel(
 
     file: UploadFile = File(...),
 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 
 ):
 
@@ -302,7 +319,9 @@ async def upload_inventory_excel(
 
         file.file,
 
-        db
+        db,
+
+        team_for_user(current_user)
 
     )
     

@@ -4,7 +4,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String
 
 from backend.models.base import Base
 
@@ -33,6 +33,9 @@ class Request(Base):
     created_by = Column(String, index=True)
 
     created_by_role = Column(String)
+
+    # The maintenance discipline responsible for this request.
+    service_team = Column(String, nullable=False, default="Biomedical", index=True)
 
     equipment_identifier = Column(String)
 
@@ -68,4 +71,7 @@ class Request(Base):
     work_done = Column(String, default="")
 
     spare_parts = Column(String, default="")
+
+    # Prevent the same maintenance ticket from deducting stock more than once.
+    stock_deducted = Column(Boolean, nullable=False, default=False)
   

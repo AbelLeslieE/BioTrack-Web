@@ -16,6 +16,11 @@ class PMScheduleCreate(BaseModel):
 
     asset_id: int
 
+    department: str = Field(
+        min_length=1,
+        max_length=120
+    )
+
     scheduled_date: date
 
     frequency_days: int = Field(
@@ -52,6 +57,16 @@ class PMComplete(BaseModel):
     engineer_name: str
 
     remarks: Optional[str] = ""
+
+
+class PMDepartmentResponse(BaseModel):
+
+    response: str
+
+    note: Optional[str] = Field(
+        default="",
+        max_length=1000
+    )
 
 
 # ==========================================

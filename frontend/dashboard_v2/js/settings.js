@@ -388,15 +388,7 @@ function initializeSecurity() {
 
     if (changePassword) {
 
-        changePassword.addEventListener("click", () => {
-
-            showToast(
-                "Security",
-                "Redirecting to Change Password...",
-                "fa-key"
-            );
-
-        });
+        changePassword.addEventListener("click", openPasswordModal);
 
     }
 
@@ -432,6 +424,56 @@ function initializeSecurity() {
 
     }
 
+}
+
+function openPasswordModal() {
+    const modal = document.getElementById("passwordModal");
+    if (!modal) return;
+    modal.hidden = false;
+    document.getElementById("currentPassword")?.focus();
+
+    document.getElementById("closePasswordModal").onclick = closePasswordModal;
+    document.getElementById("cancelPasswordChange").onclick = closePasswordModal;
+    document.getElementById("savePasswordChange").onclick = submitPasswordChange;
+}
+
+function closePasswordModal() {
+    const modal = document.getElementById("passwordModal");
+    if (!modal) return;
+    modal.hidden = true;
+    ["currentPassword", "newPassword", "confirmPassword"].forEach(id => {
+        const field = document.getElementById(id);
+        if (field) field.value = "";
+    });
+}
+
+async function submitPasswordChange() {
+    const currentPassword = document.getElementById("currentPassword")?.value || "";
+    const newPassword = document.getElementById("newPassword")?.value || "";
+    const confirmPassword = document.getElementById("confirmPassword")?.value || "";
+
+    if (newPassword.length < 12) {
+        showToast("Password", "Use at least 12 characters.", "fa-circle-exclamation");
+        return;
+    }
+    if (newPassword !== confirmPassword) {
+        showToast("Password", "The new passwords do not match.", "fa-circle-exclamation");
+        return;
+    }
+
+    const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        showToast("Password", data.detail || "Unable to change password.", "fa-circle-exclamation");
+        return;
+    }
+
+    closePasswordModal();
+    showToast("Password", "Password changed successfully.", "fa-circle-check");
 }
 
 /* ==========================================================

@@ -2,7 +2,14 @@
 // MAINTENANCE VIEW
 // ==========================================
 
+let maintenanceCalls = [];
+let filteredMaintenanceCalls = [];
+const maintenancePagination = { page: 1, pageSize: 25 };
+
 function renderMaintenance() {
+
+    const role = (localStorage.getItem("role") || "").toLowerCase();
+    const serviceName = role === "electrical" ? "electrical" : role === "it" ? "IT" : "biomedical";
 
     pageContent.innerHTML = `
 
@@ -28,7 +35,7 @@ function renderMaintenance() {
 
                 <p>
 
-                    Monitor, assign and manage all biomedical maintenance requests.
+                    Monitor, update and manage ${serviceName} maintenance requests.
 
                 </p>
 
@@ -160,6 +167,14 @@ function renderMaintenance() {
 
             </div>
 
+            <select id="maintenanceStatusFilter" aria-label="Filter tickets by status">
+                <option value="">All Statuses</option>
+            </select>
+
+            <select id="maintenanceDepartmentFilter" aria-label="Filter tickets by department">
+                <option value="">All Departments</option>
+            </select>
+
         </section>
 
         <!-- ================================= -->
@@ -212,11 +227,17 @@ function renderMaintenance() {
 
         </div>
 
+        <div id="maintenancePagination" class="table-pagination"></div>
+
     </div>
 
     `;
 
     lucide.createIcons();
+
+    document.getElementById("maintenanceSearch").addEventListener("input", applyMaintenanceFilters);
+    document.getElementById("maintenanceStatusFilter").addEventListener("change", applyMaintenanceFilters);
+    document.getElementById("maintenanceDepartmentFilter").addEventListener("change", applyMaintenanceFilters);
 
     loadMaintenanceData();
 
@@ -261,46 +282,9 @@ async function loadMaintenanceData() {
             downtimeHours.textContent =
                 `${Number(data.downtime ?? 0).toFixed(2)} h`;
 
-        // =====================================
-        // TABLE
-        // =====================================
-
-        const tbody =
-            document.getElementById("maintenanceTableBody");
-
-        tbody.innerHTML = "";
-
-        if (!data.calls || data.calls.length === 0) {
-
-            tbody.innerHTML = `
-
-                <tr>
-
-                    <td colspan="8" class="empty-table">
-
-                        No maintenance requests found.
-
-                    </td>
-
-                </tr>
-
-            `;
-
-            return;
-
-        }
-
-        let html = "";
-
-        data.calls.forEach((call, index) => {
-
-            html += createMaintenanceRow(call, index);
-
-        });
-
-        tbody.innerHTML = html;
-
-        lucide.createIcons();
+        maintenanceCalls = Array.isArray(data.calls) ? data.calls : [];
+        populateMaintenanceFilters(maintenanceCalls);
+        applyMaintenanceFilters(false);
 
     }
 
@@ -324,6 +308,72 @@ async function loadMaintenanceData() {
 
     }
 
+}
+
+function populateMaintenanceFilters(calls) {
+    const populate = (id, values, label) => {
+        const select = document.getElementById(id);
+        if (!select) return;
+        const previous = select.value;
+        const options = [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+        select.innerHTML = `<option value="">${label}</option>${options.map(value => `<option value="${String(value).replaceAll('"', '&quot;')}">${value}</option>`).join("")}`;
+        if (options.includes(previous)) select.value = previous;
+    };
+
+    populate("maintenanceStatusFilter", calls.map(call => call.status), "All Statuses");
+    populate("maintenanceDepartmentFilter", calls.map(call => call.department), "All Departments");
+}
+
+function applyMaintenanceFilters(resetPage = true) {
+    const search = (document.getElementById("maintenanceSearch")?.value || "").trim().toLowerCase();
+    const status = document.getElementById("maintenanceStatusFilter")?.value || "";
+    const department = document.getElementById("maintenanceDepartmentFilter")?.value || "";
+
+    filteredMaintenanceCalls = maintenanceCalls.filter((call) => {
+        const searchable = [call.ticket, call.equipment, call.department, call.issue, call.description]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+        return (!search || searchable.includes(search))
+            && (!status || call.status === status)
+            && (!department || call.department === department);
+    });
+
+    if (resetPage) maintenancePagination.page = 1;
+    renderMaintenanceTable(filteredMaintenanceCalls);
+}
+
+function renderMaintenanceTable(calls) {
+    const tbody = document.getElementById("maintenanceTableBody");
+    if (!tbody) return;
+
+    if (calls.length === 0) {
+        tbody.innerHTML = `
+            <tr><td colspan="8" class="empty-table">No maintenance requests found.</td></tr>
+        `;
+        TablePagination.render(
+            document.getElementById("maintenancePagination"),
+            maintenancePagination,
+            0,
+            () => renderMaintenanceTable(filteredMaintenanceCalls),
+            "tickets"
+        );
+        return;
+    }
+
+    const pageItems = TablePagination.pageItems(calls, maintenancePagination);
+    const startIndex = (maintenancePagination.page - 1) * maintenancePagination.pageSize;
+    tbody.innerHTML = pageItems.map((call, index) => createMaintenanceRow(call, startIndex + index)).join("");
+
+    TablePagination.render(
+        document.getElementById("maintenancePagination"),
+        maintenancePagination,
+        calls.length,
+        () => renderMaintenanceTable(filteredMaintenanceCalls),
+        "tickets"
+    );
+
+    if (window.lucide) lucide.createIcons();
 }
 // ==========================================
 // CREATE TABLE ROW
@@ -485,30 +535,6 @@ function getStatusBadge(status) {
     }
 
 }
-// ==========================================
-// SEARCH
-// ==========================================
-
-document.addEventListener("input", function(e){
-
-    if(e.target.id !== "maintenanceSearch")
-        return;
-
-    const search =
-        e.target.value.toLowerCase();
-
-    document.querySelectorAll(
-        "#maintenanceTableBody tr"
-    ).forEach(row=>{
-
-        row.style.display =
-            row.innerText.toLowerCase().includes(search)
-            ? ""
-            : "none";
-
-    });
-
-});
 // ==========================================
 // REFRESH BUTTON
 // ==========================================

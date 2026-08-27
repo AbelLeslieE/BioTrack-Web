@@ -2,15 +2,16 @@
 # IMPORTS
 # ==========================================
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 import sqlite3
+from backend.auth import require_roles
 
 
 # ==========================================
 # ROUTER
 # ==========================================
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_roles("Manager", "BME"))])
 
 
 # ==========================================

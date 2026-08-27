@@ -56,29 +56,7 @@ const pmWeekDays = [
 // (Temporary until backend integration)
 // ==========================================
 
-let pmEvents = [
-
-    {
-        date:"2026-07-15",
-        status:"Scheduled"
-    },
-
-    {
-        date:"2026-07-18",
-        status:"Completed"
-    },
-
-    {
-        date:"2026-07-21",
-        status:"Due"
-    },
-
-    {
-        date:"2026-07-24",
-        status:"Overdue"
-    }
-
-];
+let pmEvents = [];
 
 
 // ==========================================
@@ -495,11 +473,23 @@ function getPMEvent(date){
     const formatted =
         formatPMDate(date);
 
-    return pmEvents.find(event =>
+    const events = pmEvents.filter(event =>
 
         event.date === formatted
 
     );
+
+    if (!events.length) return null;
+
+    const priority = { Overdue: 4, Due: 3, Upcoming: 2, Completed: 1 };
+    const primary = [...events].sort(
+        (a, b) => (priority[b.status] || 0) - (priority[a.status] || 0)
+    )[0];
+
+    return {
+        ...primary,
+        count: events.length
+    };
 
 }
 

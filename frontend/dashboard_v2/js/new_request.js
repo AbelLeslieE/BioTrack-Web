@@ -164,6 +164,8 @@ function validateForm() {
 
         "problemCategory",
 
+        "serviceTeam", // Biomedical Engineering, Electrical Engineering, or IT
+
         "failureDescription"
 
     ];
@@ -278,6 +280,9 @@ async function submitRequest() {
 
                 problem_category:
                     document.getElementById("problemCategory").value,
+
+                service_team:
+                    document.getElementById("serviceTeam").value,
 
                 failure_description:
                     document.getElementById("failureDescription").value

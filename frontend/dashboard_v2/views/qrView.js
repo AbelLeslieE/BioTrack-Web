@@ -1,4 +1,8 @@
 let selectedQRAsset = null;
+let qrAssetsCache = [];
+let filteredQRAssets = [];
+const qrAssetsPagination = { page: 1, pageSize: 10 };
+
 function renderQR() {
 
     pageContent.innerHTML = `
@@ -352,6 +356,8 @@ function renderQR() {
 
         </div>
 
+        <div id="generateQRPagination" class="table-pagination"></div>
+
 
         <!-- =========================
              FOOTER
@@ -460,7 +466,8 @@ async function loadGenerateQRAssets() {
 
         const assets = await response.json();
 
-        renderGenerateQRAssetList(assets);
+        qrAssetsCache = Array.isArray(assets) ? assets : [];
+        applyGenerateQRSearch();
 
     }
 
@@ -485,7 +492,21 @@ function renderGenerateQRAssetList(assets) {
 
     table.innerHTML = "";
 
-    assets.forEach(asset => {
+    if (assets.length === 0) {
+        table.innerHTML = '<tr><td colspan="7">No assets found.</td></tr>';
+        TablePagination.render(
+            document.getElementById("generateQRPagination"),
+            qrAssetsPagination,
+            0,
+            () => renderGenerateQRAssetList(filteredQRAssets),
+            "assets"
+        );
+        return;
+    }
+
+    const pageItems = TablePagination.pageItems(assets, qrAssetsPagination);
+
+    pageItems.forEach(asset => {
 
         table.innerHTML += `
 
@@ -561,8 +582,28 @@ function renderGenerateQRAssetList(assets) {
 
     lucide.createIcons();
 
-    attachQRRowEvents(assets);
+    attachQRRowEvents(pageItems);
 
+    TablePagination.render(
+        document.getElementById("generateQRPagination"),
+        qrAssetsPagination,
+        assets.length,
+        () => renderGenerateQRAssetList(filteredQRAssets),
+        "assets"
+    );
+
+}
+
+function applyGenerateQRSearch() {
+    const keyword = (document.getElementById("generateQRSearch")?.value || "").trim().toLowerCase();
+    filteredQRAssets = qrAssetsCache.filter(asset => [
+        asset.asset_code,
+        asset.equipment_name,
+        asset.serial_number,
+        asset.department,
+    ].filter(Boolean).join(" ").toLowerCase().includes(keyword));
+    qrAssetsPagination.page = 1;
+    renderGenerateQRAssetList(filteredQRAssets);
 }
 function attachQRRowEvents(assets) {
 
@@ -763,44 +804,7 @@ function openGenerateQRModal(){
     };
     const search=document.getElementById("generateQRSearch");
 
-    search.onkeyup=async()=>{
-
-        const response=await fetch("/api/assets/");
-
-        const assets=await response.json();
-
-        const keyword=search.value.toLowerCase();
-
-        const filtered=assets.filter(asset=>
-
-            (asset.asset_code || "")
-            .toLowerCase()
-            .includes(keyword)
-
-            ||
-
-            (asset.equipment_name || "")
-            .toLowerCase()
-            .includes(keyword)
-
-            ||
-
-            (asset.serial_number || "")
-            .toLowerCase()
-            .includes(keyword)
-
-            ||
-
-            (asset.department || "")
-            .toLowerCase()
-            .includes(keyword)
-
-        );
-    
-
-        renderGenerateQRAssetList(filtered);
-
-    };
+    search.oninput = applyGenerateQRSearch;
 
     lucide.createIcons();
 

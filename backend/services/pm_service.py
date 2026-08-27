@@ -189,6 +189,11 @@ def complete_pm(
 
     schedule.status = "Upcoming"
 
+    # The following PM cycle needs a new response from the department.
+    schedule.department_response = "Pending"
+    schedule.department_response_note = None
+    schedule.department_response_at = None
+
     db.commit()
 
     return schedule

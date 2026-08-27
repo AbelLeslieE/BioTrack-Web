@@ -129,6 +129,84 @@ tbody tr:hover{
 }
 
 /* ==========================================
+   PAGINATION
+========================================== */
+
+.table-pagination{
+
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    padding:16px 4px 0;
+
+    color:#64748B;
+    font-size:14px;
+
+}
+
+.pagination-controls,
+.pagination-pages,
+.pagination-size-label{
+
+    display:flex;
+    align-items:center;
+    gap:8px;
+
+}
+
+.pagination-size-label{
+
+    color:#475569;
+    font-size:13px;
+    font-weight:600;
+
+}
+
+.pagination-size,
+.pagination-page{
+
+    min-height:36px;
+    border:1px solid #D8E1EE;
+    border-radius:8px;
+    background:#FFFFFF;
+    color:#334155;
+    font:inherit;
+
+}
+
+.pagination-size{
+
+    padding:0 28px 0 10px;
+    cursor:pointer;
+
+}
+
+.pagination-page{
+
+    padding:0 12px;
+    cursor:pointer;
+
+}
+
+.pagination-page:hover:not(:disabled),
+.pagination-page.is-active{
+
+    border-color:#2563EB;
+    background:#2563EB;
+    color:#FFFFFF;
+
+}
+
+.pagination-page:disabled{
+
+    cursor:not-allowed;
+    opacity:.45;
+
+}
+
+/* ==========================================
    STATUS BADGES
 ========================================== */
 
@@ -195,6 +273,20 @@ tbody tr:hover{
         align-items:flex-start;
 
         gap:12px;
+
+    }
+
+    .table-pagination,
+    .pagination-controls{
+
+        align-items:flex-start;
+        flex-direction:column;
+
+    }
+
+    .pagination-pages{
+
+        flex-wrap:wrap;
 
     }
 

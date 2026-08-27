@@ -24,10 +24,14 @@ const Pages = {
     userDashboard: renderUserDashboard,
     newRequest: renderNewRequest,
     myRequests: renderMyRequests,
+    myAssets: renderMyAssets,
+    departmentPMSchedule: renderDepartmentPMSchedule,
     requestDetails: renderRequestDetails,
     
     // Biomedical Engineer
     engineerDashboard: renderEngineerDashboard,
+    electricalDashboard: renderElectricalDashboard,
+    itDashboard: renderITDashboard,
     callManagement: renderMaintenance,
     // Admin
     callAssignment: renderMaintenance,
@@ -116,6 +120,18 @@ document.addEventListener("DOMContentLoaded", () => {
         case "engineer":
 
         navigate("engineerDashboard");
+
+        break;
+
+        case "electrical":
+
+        navigate("electricalDashboard");
+
+        break;
+
+        case "it":
+
+        navigate("itDashboard");
 
         break;
 

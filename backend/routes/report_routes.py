@@ -8,6 +8,7 @@ from sqlalchemy import func, extract
 
 from backend.database import get_db
 from backend.models import Request, Asset
+from backend.auth import require_roles
 
 # ==========================================
 # ROUTER
@@ -15,7 +16,8 @@ from backend.models import Request, Asset
 
 router = APIRouter(
     prefix="/api/reports",
-    tags=["Reports"]
+    tags=["Reports"],
+    dependencies=[Depends(require_roles("Manager", "BME"))],
 )
 
 # ==========================================

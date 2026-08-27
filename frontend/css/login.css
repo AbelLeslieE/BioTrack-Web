@@ -64,11 +64,8 @@ body{
     min-height:100vh;
 
     background:
-        linear-gradient(
-            rgba(255,255,255,.48),
-            rgba(255,255,255,.48)
-        ),
-        url("/static/assets/login-bg.png");
+        radial-gradient(circle at 12% 12%, rgba(47,103,246,.14), transparent 34%),
+        linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%);
 
     background-size:cover;
     background-position:center;
@@ -142,7 +139,15 @@ body{
 
     height:62px;
 
-    object-fit:contain;
+    display:grid;
+    place-items:center;
+    border-radius:18px;
+    background:linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color:#fff;
+    font-size:19px;
+    font-weight:800;
+    letter-spacing:.04em;
+    box-shadow:0 12px 24px rgba(47,103,246,.22);
 
     flex-shrink:0;
 

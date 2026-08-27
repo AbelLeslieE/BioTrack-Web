@@ -10,14 +10,18 @@ from backend.database import get_db
 from backend.models.request import Request
 from backend.models.device import Device
 from backend.models.user import User
+from backend.models.asset import Asset
+from backend.models.inventory import Inventory
+from backend.models.pm_schedule import PMSchedule
+from backend.auth import get_current_user, require_roles
 
-from datetime import date
+from datetime import date, datetime
 
 # ==========================================
 # ROUTER
 # ==========================================
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 # ==========================================
@@ -159,113 +163,124 @@ def dashboard_data(
 
 
 
-@router.get("/api/dashboard/v2")
+@router.get(
+    "/api/dashboard/v2",
+    dependencies=[Depends(require_roles("Manager"))],
+)
 def dashboard_v2(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-
-    total_assets = db.query(Device).count()
-
-    open_calls = db.query(Request).filter(
-        Request.status == "Open"
-    ).count()
-
-    working_calls = db.query(Request).filter(
-        Request.status == "In Progress"
-    ).count()
-
-    awaiting_parts = db.query(Request).filter(
-        Request.status == "Awaiting Parts"
-    ).count()
-
-    completed_today = (
-        db.query(Request)
-        .filter(
-            Request.status == "Closed",
-            Request.fixed_datetime.isnot(None)
-        )
-        .all()
+    """Executive dashboard data for every engineering service team."""
+    del current_user  # The role check above grants access; data is hospital-wide.
+    team_definitions = (
+        ("Biomedical", "BME"),
+        ("Electrical", "Electrical"),
+        ("IT", "IT"),
     )
+    active_statuses = {"Open", "Assigned", "In Progress", "Awaiting Parts"}
+    completed_statuses = {"Completed", "Closed"}
 
-    completed_today = len([
-        r for r in completed_today
-        if r.fixed_datetime.date() == date.today()
-    ])
-    today_calls = db.query(Request).filter(
-       Request.call_received_datetime.isnot(None)
-    ).all()
+    def normalized_team(value: str | None) -> str:
+        value = (value or "Biomedical").strip().lower()
+        if value in {"it", "information technology"}:
+            return "IT"
+        if value == "electrical":
+            return "Electrical"
+        return "Biomedical"
 
-    today_calls = len([
-        r for r in today_calls
-        if r.call_received_datetime.date() == date.today()
-    ])
+    requests = db.query(Request).order_by(Request.id.desc()).all()
+    assets = db.query(Asset).all()
+    inventory_items = db.query(Inventory).all()
+    today = date.today()
 
-    engineers_online = (
-        db.query(User)
-        .filter(User.role == "BME")
-        .count()
-    )
-
-    pm_due = (
-        db.query(Request)
-        .filter(
-            Request.problem_category == "Preventive Maintenance"
+    team_activity = []
+    for team, role in team_definitions:
+        team_requests = [item for item in requests if normalized_team(item.service_team) == team]
+        team_assets = [item for item in assets if normalized_team(item.service_team) == team]
+        team_inventory = [item for item in inventory_items if normalized_team(item.service_team) == team]
+        completed_today = sum(
+            item.status in completed_statuses
+            and item.fixed_datetime is not None
+            and item.fixed_datetime.date() == today
+            for item in team_requests
         )
-        .count()
-    )
-
-    critical_requests = (
-        db.query(Request)
-        .filter(
-            Request.priority == "Critical"
+        low_stock = sum(
+            (item.current_stock or 0) <= (item.minimum_stock or 0)
+            for item in team_inventory
         )
-        .count()
-    )
-    out_of_service = db.query(Request).filter(
-        Request.status == "Out of Service"
-    ).count()
-    closed_requests = db.query(Request).filter(
-    Request.final_downtime_hours > 0
-    ).all()
+        team_activity.append({
+            "team": team,
+            "active_calls": sum(item.status in active_statuses for item in team_requests),
+            "open_calls": sum(item.status in {"Open", "Assigned"} for item in team_requests),
+            "in_progress": sum(item.status == "In Progress" for item in team_requests),
+            "awaiting_parts": sum(item.status == "Awaiting Parts" for item in team_requests),
+            "completed_today": completed_today,
+            "critical_calls": sum(
+                item.status in active_statuses and (item.priority or "").lower() == "critical"
+                for item in team_requests
+            ),
+            "assets": len(team_assets),
+            "out_of_service_assets": sum(
+                (item.status or "").lower() in {"out of service", "inactive"}
+                for item in team_assets
+            ),
+            "inventory_items": len(team_inventory),
+            "low_stock": low_stock,
+            "engineers": db.query(User).filter(User.role == role).count(),
+        })
 
-    avg_downtime = 0
+    completed_requests = [
+        item for item in requests
+        if item.status in completed_statuses and (item.final_downtime_hours or 0) > 0
+    ]
+    recent_activity = []
+    for item in sorted(
+        requests,
+        key=lambda request: request.fixed_datetime or request.engineer_start_datetime or request.call_received_datetime or datetime.min,
+        reverse=True,
+    )[:10]:
+        occurred_at = item.fixed_datetime or item.engineer_start_datetime or item.call_received_datetime
+        recent_activity.append({
+            "ticket_number": item.ticket_number or f"Call #{item.id}",
+            "equipment_name": item.equipment_name or item.equipment_identifier or "Maintenance call",
+            "department": item.department or "Not specified",
+            "team": normalized_team(item.service_team),
+            "priority": item.priority or "Normal",
+            "status": item.status or "Open",
+            "occurred_at": occurred_at.isoformat() if occurred_at else None,
+        })
 
-    if closed_requests:
-
-        avg_downtime = round(
-            
-            sum(r.final_downtime_hours for r in closed_requests)
-
-            / len(closed_requests),
-            
-            2
-
-        )
-
+    active_calls = sum(item["active_calls"] for item in team_activity)
+    critical_calls = sum(item["critical_calls"] for item in team_activity)
+    inventory_alerts = sum(item["low_stock"] for item in team_activity)
     return {
-        
-
-    # Maintenance
-    "open_calls": open_calls,
-    "working_calls": working_calls,
-    "awaiting_parts": awaiting_parts,
-    "completed_today": completed_today,
-    "today_calls": today_calls,
-    "avg_downtime": avg_downtime,
-    "engineers_online": engineers_online,
-    "out_of_service": out_of_service,
-    # Assets
-    "total_assets": total_assets,
-    "pm_due": pm_due,
-    "critical_requests": critical_requests
-    
-}
+        "generated_at": datetime.now().isoformat(),
+        "summary": {
+            "active_calls": active_calls,
+            "critical_calls": critical_calls,
+            "completed_today": sum(item["completed_today"] for item in team_activity),
+            "total_assets": len(assets),
+            "inventory_alerts": inventory_alerts,
+            "engineers": sum(item["engineers"] for item in team_activity),
+            "pm_due": db.query(PMSchedule).filter(PMSchedule.status.in_(["Due", "Overdue"])).count(),
+            "avg_downtime": round(
+                sum(item.final_downtime_hours or 0 for item in completed_requests) / len(completed_requests),
+                2,
+            ) if completed_requests else 0,
+        },
+        "teams": team_activity,
+        "recent_activity": recent_activity,
+    }
 
 # ==========================================
 # EDIT REQUEST
 # ==========================================
 
-@router.put("/api/requests/{ticket}/edit")
+@router.put(
+    "/api/requests/{ticket}/edit",
+    dependencies=[Depends(require_roles("Manager", "BME"))],
+)
 def edit_request(
     ticket: str,
     data: dict,

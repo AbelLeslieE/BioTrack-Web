@@ -152,6 +152,12 @@ function renderPM() {
 
         </section>
 
+        <section
+            id="pmScheduleOverview"
+            class="pm-section">
+
+        </section>
+
         <!-- ==========================================
              UPCOMING PM
         ========================================== -->
@@ -257,10 +263,12 @@ function renderPM() {
 
                     <label>Equipment</label>
 
+                    <p class="pm-form-hint">Choose an asset assigned to this department. Unassigned biomedical assets are included and will be assigned when you schedule the visit.</p>
+
                     <select id="pmEquipment">
 
                         <option value="">
-                            Select Equipment
+                            Select a department first
                         </option>
 
                     </select>
@@ -358,5 +366,7 @@ function renderPM() {
     initializePMCalendar();
 
     initializePMDrawer();
+
+    loadEngineeringPMSchedules();
 
 }

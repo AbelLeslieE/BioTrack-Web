@@ -23,7 +23,7 @@ async function reportsApi(url){
    INITIALIZE REPORTS
 ========================================================== */
 
-function initializeReports(){
+async function initializeReports(){
 
     initializeReportsFilters();
 

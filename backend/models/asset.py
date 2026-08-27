@@ -50,6 +50,8 @@ class Asset(Base):
 
     maintained_by = Column(String)
 
+    service_team = Column(String, nullable=False, default="Biomedical", index=True)
+
     supplier = Column(String)
 
     purchase_value = Column(Float, default=0)

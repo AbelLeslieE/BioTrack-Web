@@ -37,13 +37,25 @@ async function loadRequestDetails() {
 
         const response = await fetch(
 
-            `/api/users/request/${currentRequestTicket}`
+            `/api/user/request-details/${encodeURIComponent(currentRequestTicket)}`,
+
+            {
+
+                cache: "no-store"
+
+            }
 
         );
 
         if (!response.ok) {
 
-            throw new Error("Unable to load request.");
+            const result = await response.json().catch(() => ({}));
+
+            throw new Error(
+
+                result.detail || "Unable to load request."
+
+            );
 
         }
 
@@ -56,6 +68,26 @@ async function loadRequestDetails() {
     catch (error) {
 
         console.error(error);
+
+        const title =
+            document.getElementById("requestTicketNumber");
+
+        const badge =
+            document.getElementById("requestStatusBadge");
+
+        if (title) {
+
+            title.textContent = "Unable to load this request";
+
+        }
+
+        if (badge) {
+
+            badge.textContent = "Unavailable";
+
+            badge.className = "status-badge closed";
+
+        }
 
         showSuccess({
 

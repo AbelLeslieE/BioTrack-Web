@@ -53,6 +53,17 @@ class PMSchedule(Base):
         default="Upcoming"
     )
 
+    # Department users confirm whether the planned visit is suitable.
+    department_response = Column(
+        String,
+        default="Pending",
+        nullable=False
+    )
+
+    department_response_note = Column(Text)
+
+    department_response_at = Column(DateTime)
+
     checklist_completed = Column(
         Boolean,
         default=False

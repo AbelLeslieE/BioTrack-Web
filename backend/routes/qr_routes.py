@@ -11,6 +11,7 @@ from backend.database import get_db
 from backend.models.asset import Asset
 
 from backend.services.qr_service import generate_qr
+from backend.auth import require_roles
 
 # ==========================================
 # ROUTER
@@ -18,7 +19,8 @@ from backend.services.qr_service import generate_qr
 
 router = APIRouter(
     prefix="/api/qr",
-    tags=["QR"]
+    tags=["QR"],
+    dependencies=[Depends(require_roles("Manager", "BME"))],
 )
 
 # ==========================================

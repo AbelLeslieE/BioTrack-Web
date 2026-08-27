@@ -11,7 +11,7 @@ from backend.models.inventory import Inventory
 # IMPORT INVENTORY EXCEL
 # ==========================================
 
-def import_inventory_excel(file, db):
+def import_inventory_excel(file, db, service_team="Biomedical"):
 
     workbook = load_workbook(file, data_only=True)
 
@@ -61,7 +61,8 @@ def import_inventory_excel(file, db):
 
             .filter(
 
-                Inventory.bpk_number == bpk_number
+                Inventory.bpk_number == bpk_number,
+                Inventory.service_team == service_team
 
             )
 
@@ -105,7 +106,9 @@ def import_inventory_excel(file, db):
 
                     purchase_price=0,
 
-                    remarks="Imported from Stock Workbook"
+                    remarks="Imported from Stock Workbook",
+
+                    service_team=service_team
 
                 )
 

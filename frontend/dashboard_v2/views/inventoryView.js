@@ -10,6 +10,8 @@ let filteredInventory = [];
 
 let currentInventoryId = null;
 
+const inventoryPagination = { page: 1, pageSize: 25 };
+
 
 // ==========================================
 // RENDER INVENTORY PAGE
@@ -230,6 +232,8 @@ async function renderInventory() {
 
         </div>
 
+        <div id="inventoryPagination" class="table-pagination"></div>
+
     </div>
 
     `;
@@ -383,11 +387,20 @@ function renderInventoryTable(data) {
 
         `;
 
+        TablePagination.render(
+            document.getElementById("inventoryPagination"),
+            inventoryPagination,
+            0,
+            () => renderInventoryTable(filteredInventory),
+            "inventory items"
+        );
         return;
 
     }
 
-    data.forEach(item => {
+    const pageItems = TablePagination.pageItems(data, inventoryPagination);
+
+    pageItems.forEach(item => {
 
         let statusClass = "stock-ok";
 
@@ -519,6 +532,14 @@ function renderInventoryTable(data) {
 
     }
 
+    TablePagination.render(
+        document.getElementById("inventoryPagination"),
+        inventoryPagination,
+        data.length,
+        () => renderInventoryTable(filteredInventory),
+        "inventory items"
+    );
+
 }
 // ==========================================
 // APPLY SEARCH & FILTER
@@ -592,6 +613,7 @@ function applyInventoryFilters() {
 
     });
 
+    inventoryPagination.page = 1;
     renderInventoryTable(filteredInventory);
 
 }

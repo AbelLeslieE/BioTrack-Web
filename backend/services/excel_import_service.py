@@ -11,7 +11,7 @@ from backend.models.asset import Asset
 # IMPORT ASSETS FROM EXCEL
 # ==========================================
 
-def import_assets_from_excel(file, db):
+def import_assets_from_excel(file, db, service_team="Biomedical"):
 
     imported = 0
     skipped = 0
@@ -42,7 +42,8 @@ def import_assets_from_excel(file, db):
             existing = (
                 db.query(Asset)
                 .filter(
-                    Asset.equipment_no == equipment_no
+                    Asset.equipment_no == equipment_no,
+                    Asset.service_team == service_team
                 )
                 .first()
             )
@@ -91,6 +92,8 @@ def import_assets_from_excel(file, db):
                 maintained_by=str(
                     row.get("Maint.By", "")
                 ),
+
+                service_team=service_team,
 
                 purchase_value=float(
                     row.get("Value", 0) or 0

@@ -10,10 +10,14 @@ from fastapi import (
     HTTPException
 )
 from sqlalchemy.orm import Session
+from sqlalchemy import false
 
 from backend.database import get_db
 from backend.services.excel_import_service import import_assets_from_excel
 from backend.models.asset import Asset
+from backend.auth import get_current_user, require_roles
+from backend.models.user import User
+from backend.services.service_team import scope_to_team, team_for_user
 
 
 # ==========================================
@@ -22,21 +26,33 @@ from backend.models.asset import Asset
 
 router = APIRouter(
     prefix="/api/assets",
-    tags=["Assets"]
+    tags=["Assets"],
+    dependencies=[Depends(get_current_user)],
 )
+
+
+def _assets_visible_to(db: Session, current_user: User):
+    """Return only the assets the signed-in role is allowed to inspect."""
+    assets = scope_to_team(db.query(Asset), Asset, current_user)
+    if current_user.role == "User":
+        if not current_user.department:
+            return assets.filter(false())
+        assets = assets.filter(Asset.department == current_user.department)
+    return assets
 
 
 # ==========================================
 # IMPORT EXCEL
 # ==========================================
 
-@router.post("/upload")
+@router.post("/upload", dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))])
 async def upload_asset_excel(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
 
-    result = import_assets_from_excel(file.file, db)
+    result = import_assets_from_excel(file.file, db, team_for_user(current_user))
 
     return result
 
@@ -50,9 +66,12 @@ async def upload_asset_excel(
 
 
 @router.get("/")
-def get_assets(db: Session = Depends(get_db)):
+def get_assets(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
 
-    assets = db.query(Asset).order_by(Asset.id.desc()).all()
+    assets = _assets_visible_to(db, current_user).order_by(Asset.id.desc()).all()
 
     return [
         {
@@ -79,6 +98,8 @@ def get_assets(db: Session = Depends(get_db)):
             "manufacturing_year": asset.manufacturing_year,
 
             "maintained_by": asset.maintained_by,
+
+            "service_team": asset.service_team,
 
             "supplier": asset.supplier,
 
@@ -127,11 +148,12 @@ def get_assets(db: Session = Depends(get_db)):
 @router.get("/code/{asset_code}")
 def get_asset_by_code(
     asset_code: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
 
     asset = (
-        db.query(Asset)
+        _assets_visible_to(db, current_user)
         .filter(Asset.asset_code == asset_code)
         .first()
     )
@@ -175,16 +197,45 @@ def get_asset_by_code(
 
     }
 # ==========================================
+# DEPARTMENT USER ASSET LIST
+# ==========================================
+
+@router.get("/department/mine", dependencies=[Depends(require_roles("User"))])
+def get_department_assets(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """A concise asset feed for the department user's My Assets page."""
+    assets = _assets_visible_to(db, current_user).order_by(Asset.equipment_name.asc()).all()
+    return [
+        {
+            "id": asset.id,
+            "asset_code": asset.asset_code,
+            "equipment_no": asset.equipment_no,
+            "equipment_name": asset.equipment_name,
+            "classification": asset.classification,
+            "equipment_type": asset.equipment_type,
+            "manufacturer": asset.manufacturer,
+            "model": asset.model,
+            "department": asset.department,
+            "location": asset.location,
+            "status": asset.status,
+            "pm_frequency": asset.pm_frequency,
+        }
+        for asset in assets
+    ]
+# ==========================================
 # GET SINGLE ASSET
 # ==========================================
 
 @router.get("/{asset_id}")
 def get_asset(
     asset_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
 
-    asset = db.query(Asset).filter(
+    asset = _assets_visible_to(db, current_user).filter(
         Asset.id == asset_id
     ).first()
 
@@ -216,6 +267,8 @@ def get_asset(
         "manufacturing_year": asset.manufacturing_year,
 
         "maintained_by": asset.maintained_by,
+
+        "service_team": asset.service_team,
 
         "supplier": asset.supplier,
 
@@ -261,12 +314,13 @@ def get_asset(
 from fastapi import Body
 from datetime import datetime
 
-@router.post("/")
+@router.post("/", dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))])
 def create_asset(
 
     data: dict = Body(...),
 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 
 ):
 
@@ -297,6 +351,8 @@ def create_asset(
         ),
 
         supplier=data.get("supplier"),
+
+        service_team=team_for_user(current_user, data.get("service_team")),
 
         purchase_value=float(
             data.get("purchaseCost") or 0

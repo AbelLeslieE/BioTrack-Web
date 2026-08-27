@@ -7,8 +7,13 @@ from backend.models.device import Device
 from openpyxl import load_workbook
 import io, qrcode, json
 from openpyxl import Workbook
+from backend.auth import require_roles
 
-router=APIRouter(prefix="/api/devices", tags=["devices"])
+router=APIRouter(
+    prefix="/api/devices",
+    tags=["devices"],
+    dependencies=[Depends(require_roles("Manager", "BME"))],
+)
 
 @router.post("")
 def add_device(data:dict, db:Session=Depends(get_db)):

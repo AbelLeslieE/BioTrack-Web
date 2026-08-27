@@ -2,6 +2,8 @@
 # IMPORTS
 # ==========================================
 
+import os
+
 from sqlalchemy.orm import Session
 import bcrypt
 
@@ -15,6 +17,16 @@ from backend.models.user import User
 
 def create_default_admin():
 
+    username = os.getenv("BOOTSTRAP_ADMIN_USERNAME")
+    password_value = os.getenv("BOOTSTRAP_ADMIN_PASSWORD")
+
+    if not username or not password_value:
+        print("No bootstrap administrator configured; skipping default-admin creation.")
+        return
+
+    if len(password_value) < 12:
+        raise RuntimeError("BOOTSTRAP_ADMIN_PASSWORD must contain at least 12 characters.")
+
     db: Session = SessionLocal()
 
     try:
@@ -26,13 +38,13 @@ def create_default_admin():
             return
 
         password = bcrypt.hashpw(
-            "admin123".encode("utf-8"),
+            password_value.encode("utf-8"),
             bcrypt.gensalt()
         ).decode("utf-8")
 
         admin = User(
 
-            username="admin",
+            username=username.strip().lower(),
 
             password_hash=password,
 

@@ -4,6 +4,9 @@
 
 function engineerDashboardView() {
 
+    const role = (localStorage.getItem("role") || "").toLowerCase();
+    const discipline = role === "electrical" ? "Electrical" : role === "it" ? "IT" : "Biomedical";
+
     return `
 
 <section class="engineer-dashboard">
@@ -16,11 +19,11 @@ function engineerDashboardView() {
 
         <div>
 
-            <h1>Biomedical Engineer Dashboard</h1>
+            <h1>${discipline} Engineer Dashboard</h1>
 
             <p>
 
-                Monitor your assigned maintenance calls and equipment activity.
+                Monitor your assigned ${discipline.toLowerCase()} maintenance calls and equipment activity.
 
             </p>
 

@@ -2,6 +2,10 @@
 // MY REQUESTS PAGE
 // ==========================================
 
+let myRequestsCache = [];
+let filteredMyRequests = [];
+const myRequestsPagination = { page: 1, pageSize: 10 };
+
 async function renderMyRequests() {
 
     const pageContent =
@@ -98,6 +102,7 @@ async function renderMyRequests() {
                 <div class="myrequest-search">
 
                     <input
+                        id="myRequestsSearch"
                         type="text"
                         placeholder="Search Ticket, Equipment..."
                     >
@@ -106,13 +111,13 @@ async function renderMyRequests() {
 
                 <div class="myrequest-filters">
 
-                    <select>
+                    <select id="myRequestsStatusFilter">
 
                         <option>All Status</option>
 
                     </select>
 
-                    <select>
+                    <select id="myRequestsPriorityFilter">
 
                         <option>All Priority</option>
 
@@ -156,9 +161,15 @@ async function renderMyRequests() {
 
             </div>
 
+            <div id="myRequestsPagination" class="table-pagination"></div>
+
         </div>
 
         `;
+
+    document.getElementById("myRequestsSearch").addEventListener("input", applyMyRequestsFilters);
+    document.getElementById("myRequestsStatusFilter").addEventListener("change", applyMyRequestsFilters);
+    document.getElementById("myRequestsPriorityFilter").addEventListener("change", applyMyRequestsFilters);
 
     loadMyRequests();
 
@@ -193,32 +204,65 @@ async function loadMyRequests() {
     document.getElementById("completedRequests").textContent =
         data.summary.completed;
 
-    const tbody =
-        document.getElementById("myRequestsBody");
+    myRequestsCache = Array.isArray(data.requests) ? data.requests : [];
+    populateMyRequestsFilters(myRequestsCache);
+    applyMyRequestsFilters(false);
 
-    tbody.innerHTML = "";
+}
 
-    if (data.requests.length === 0) {
+function populateMyRequestsFilters(requests) {
+    const populate = (id, values, label) => {
+        const select = document.getElementById(id);
+        if (!select) return;
+        const previous = select.value;
+        const options = [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+        select.innerHTML = `<option value="">${label}</option>${options.map(value => `<option value="${String(value).replaceAll('"', '&quot;')}">${value}</option>`).join("")}`;
+        if (options.includes(previous)) select.value = previous;
+    };
 
-        tbody.innerHTML = `
+    populate("myRequestsStatusFilter", requests.map(request => request.status), "All Statuses");
+    populate("myRequestsPriorityFilter", requests.map(request => request.priority), "All Priorities");
+}
 
-        <tr>
+function applyMyRequestsFilters(resetPage = true) {
+    const search = (document.getElementById("myRequestsSearch")?.value || "").trim().toLowerCase();
+    const status = document.getElementById("myRequestsStatusFilter")?.value || "";
+    const priority = document.getElementById("myRequestsPriorityFilter")?.value || "";
 
-            <td colspan="7">
+    filteredMyRequests = myRequestsCache.filter((request) => {
+        const searchable = [request.ticket, request.equipment, request.equipment_id, request.department]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+        return (!search || searchable.includes(search))
+            && (!status || request.status === status)
+            && (!priority || request.priority === priority);
+    });
 
-                No maintenance requests found.
+    if (resetPage) myRequestsPagination.page = 1;
+    renderMyRequestsTable(filteredMyRequests);
+}
 
-            </td>
+function renderMyRequestsTable(requests) {
+    const tbody = document.getElementById("myRequestsBody");
+    if (!tbody) return;
 
-        </tr>
-
-        `;
-
+    if (requests.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7">No maintenance requests found.</td></tr>`;
+        TablePagination.render(
+            document.getElementById("myRequestsPagination"),
+            myRequestsPagination,
+            0,
+            () => renderMyRequestsTable(filteredMyRequests),
+            "requests"
+        );
         return;
-
     }
 
-    data.requests.forEach(request => {
+    const pageItems = TablePagination.pageItems(requests, myRequestsPagination);
+    tbody.innerHTML = "";
+
+    pageItems.forEach(request => {
 
         tbody.innerHTML += `
 
@@ -234,7 +278,7 @@ async function loadMyRequests() {
 
             <td>
 
-                <span class="status-badge ${request.status.toLowerCase().replaceAll(" ","-")}">
+                <span class="status-badge ${(request.status || "").toLowerCase().replaceAll(" ","-")}">
 
                     ${request.status}
 
@@ -262,6 +306,14 @@ async function loadMyRequests() {
         `;
 
     });
+
+    TablePagination.render(
+        document.getElementById("myRequestsPagination"),
+        myRequestsPagination,
+        requests.length,
+        () => renderMyRequestsTable(filteredMyRequests),
+        "requests"
+    );
 
 }
 

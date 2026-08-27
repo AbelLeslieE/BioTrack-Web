@@ -35,6 +35,7 @@
     <link rel="stylesheet" href="/static/dashboard_v2/css/sidebar.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/topbar.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/cards.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/admin_dashboard.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/charts.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/tables.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/responsive.css">
@@ -57,6 +58,8 @@
     <link rel="stylesheet" href="/static/dashboard_v2/css/requestDetails.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/pm.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/pmDrawer.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/department_modules.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/responsive_overrides.css">
 
 
 </head>
@@ -231,12 +234,15 @@
 
 <link rel="stylesheet" href="/static/dashboard_v2/css/users.css">
 <script src="/static/dashboard_v2/js/api.js"></script>
+<script src="/static/dashboard_v2/js/pagination.js"></script>
 <script src="/static/dashboard_v2/js/logout.js"></script>
 <script src="/static/dashboard_v2/js/dashboard.js"></script>
 <script src="/static/dashboard_v2/js/sidebar.js"></script>
 <script src="/static/dashboard_v2/views/engineerDashboardView.js"></script>
 <script src="/static/dashboard_v2/views/dashboardView.js"></script>
 <script src="/static/dashboard_v2/views/userDashboardView.js"></script>
+<script src="/static/dashboard_v2/views/myAssetsView.js"></script>
+<script src="/static/dashboard_v2/views/departmentPmScheduleView.js"></script>
 <script src="/static/dashboard_v2/views/newRequestView.js"></script>
 <script src="/static/dashboard_v2/views/maintenanceView.js"></script>
 <script src="/static/dashboard_v2/views/ticketView.js"></script>
@@ -250,7 +256,10 @@
 <script src="/static/dashboard_v2/views/pmView.js"></script>
 <script src="/static/dashboard_v2/js/pmCalendar.js"></script>
 <script src="/static/dashboard_v2/js/pmDrawer.js"></script>
-<script src="/static/dashboard_v2/views/reportsView.js"></script>
+<script src="/static/dashboard_v2/js/pmScheduleOverview.js"></script>
+    <script src="/static/dashboard_v2/views/reportsView.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/dashboard_v2/js/reports.js"></script>
 <script src="/static/dashboard_v2/views/usersView.js"></script>
 <script src="/static/dashboard_v2/js/requestDetails.js"></script>
 <script src="/static/dashboard_v2/views/requestDetailsView.js"></script>
@@ -293,6 +302,14 @@ document.addEventListener("DOMContentLoaded", () => {
             roleText = "Biomedical Engineer";
             break;
 
+        case "electrical":
+            roleText = "Electrical Engineer";
+            break;
+
+        case "it":
+            roleText = "IT Department";
+            break;
+
         case "user":
             roleText = "Department User";
             break;
@@ -315,6 +332,3 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 </body>
 </html>
-
-
-

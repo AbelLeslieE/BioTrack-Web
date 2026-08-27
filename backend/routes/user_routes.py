@@ -7,7 +7,14 @@ from datetime import datetime
 import bcrypt
 from fastapi import HTTPException
 from backend.models import Request
-router=APIRouter(prefix="/api/users", tags=["users"])
+from backend.auth import require_roles
+router=APIRouter(
+    prefix="/api/users",
+    tags=["users"],
+    dependencies=[Depends(require_roles("Manager"))],
+)
+
+ALLOWED_ROLES = {"Manager", "BME", "Electrical", "IT", "User"}
 
 class UserCreate(BaseModel):
     name:str
@@ -33,6 +40,8 @@ def get_users(db:Session=Depends(get_db)):
 
 @router.post("/register")
 def register(data:UserCreate, db:Session=Depends(get_db)):
+    if data.role not in ALLOWED_ROLES:
+        raise HTTPException(status_code=422, detail="Invalid user role")
     existing=db.query(User).filter(User.username==data.username.lower().strip()).first()
     if existing:
         return {"success":False,"message":"Username already exists"}
@@ -72,6 +81,8 @@ class UserUpdate(BaseModel):
 
 @router.put("/{user_id}")
 def update_user(user_id:int, data:UserUpdate, db:Session=Depends(get_db)):
+    if data.role not in ALLOWED_ROLES:
+        raise HTTPException(status_code=422, detail="Invalid user role")
     user=db.query(User).filter(User.id==user_id).first()
     if not user:
         return {"success":False,"message":"User not found"}
