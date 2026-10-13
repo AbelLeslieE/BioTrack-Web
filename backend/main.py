@@ -33,6 +33,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
+
+@app.get("/api/health", include_in_schema=False)
+def health_check():
+    """Unauthenticated readiness check for Render and other hosting platforms."""
+    return {"status": "ok"}
+
 # ==========================================
 # STATIC FILES
 # ==========================================

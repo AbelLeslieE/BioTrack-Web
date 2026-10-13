@@ -11,6 +11,10 @@ FastAPI and SQLite application for managing biomedical assets, maintenance reque
 5. Start the app from this directory: `uvicorn backend.main:app --reload`.
 6. Open `http://127.0.0.1:8000`.
 
+## Render hosting
+
+Set `JWT_SECRET_KEY` in the Render service environment to a unique secret of at least 32 characters. Set `COOKIE_SECURE=true` for the public HTTPS service. Render can use `GET /api/health` as its health-check path.
+
 All `/api` endpoints except login require the HttpOnly session cookie issued by `/api/auth/login`. API clients may instead send the cookie's JWT as an `Authorization: Bearer <token>` header. Manager-only and biomedical-engineer endpoints are checked by the server; browser `localStorage` only controls dashboard presentation.
 
 ## Database changes

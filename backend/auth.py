@@ -23,9 +23,13 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 def _jwt_secret() -> str:
     secret = os.getenv("JWT_SECRET_KEY")
-    if not secret or len(secret) < 32:
+    if (
+        not secret
+        or len(secret) < 32
+        or secret.startswith("replace-with-")
+    ):
         raise RuntimeError(
-            "147852369852147852369852147852136"
+            "JWT_SECRET_KEY must be configured with a unique value of at least 32 characters."
         )
     return secret
 
