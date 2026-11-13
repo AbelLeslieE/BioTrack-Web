@@ -450,10 +450,10 @@ function populateAssetFilters(assets) {
     const setup = (id, values, allLabel) => {
         const select = document.getElementById(id);
         if (!select) return;
-        select.innerHTML = `<option value="">${allLabel}</option>${values
+        select.innerHTML = `<option value="">${escapeHTML(allLabel)}</option>${values
             .filter(Boolean)
             .sort((a, b) => a.localeCompare(b))
-            .map((value) => `<option value="${String(value).replaceAll('"', '&quot;')}">${value}</option>`)
+            .map((value) => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`)
             .join("")}`;
     };
 
@@ -530,17 +530,17 @@ function populateAssetTable(assets) {
         table.innerHTML += `
             <tr>
 
-                <td>${asset.equipment_no ?? ""}</td>
+                <td>${escapeHTML(asset.equipment_no ?? "")}</td>
 
-                <td>${asset.equipment_name ?? ""}</td>
+                <td>${escapeHTML(asset.equipment_name ?? "")}</td>
 
-                <td>${asset.department ?? ""}</td>
+                <td>${escapeHTML(asset.department ?? "")}</td>
 
-                <td>${asset.manufacturer ?? ""}</td>
+                <td>${escapeHTML(asset.manufacturer ?? "")}</td>
 
-                <td>${asset.model ?? ""}</td>
+                <td>${escapeHTML(asset.model ?? "")}</td>
 
-                <td>${asset.status ?? ""}</td>
+                <td>${escapeHTML(asset.status ?? "")}</td>
 
                 <td>${asset.qr_generated ? "✅" : "❌"}</td>
 
@@ -548,7 +548,7 @@ function populateAssetTable(assets) {
 
                     <button
                         class="btn-open-asset"
-                        onclick="openAssetPage(${asset.id})">
+                        onclick="openAssetPage(${Number(asset.id)})">
 
                         👁 View Asset
 

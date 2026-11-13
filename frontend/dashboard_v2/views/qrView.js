@@ -510,7 +510,7 @@ function renderGenerateQRAssetList(assets) {
 
         table.innerHTML += `
 
-        <tr class="qr-table-row" data-id="${asset.id}">
+        <tr class="qr-table-row" data-id="${Number(asset.id)}">
 
             <!-- Selection -->
 
@@ -524,7 +524,7 @@ function renderGenerateQRAssetList(assets) {
 
             <td class="asset-code">
 
-                <strong>${asset.asset_code || "-"}</strong>
+                <strong>${escapeHTML(asset.asset_code || "-")}</strong>
 
             </td>
 
@@ -532,7 +532,7 @@ function renderGenerateQRAssetList(assets) {
 
             <td>
 
-                ${asset.equipment_name || "-"}
+                ${escapeHTML(asset.equipment_name || "-")}
 
             </td>
 
@@ -540,7 +540,7 @@ function renderGenerateQRAssetList(assets) {
 
             <td>
 
-                ${asset.department || "-"}
+                ${escapeHTML(asset.department || "-")}
 
             </td>
 
@@ -548,7 +548,7 @@ function renderGenerateQRAssetList(assets) {
 
             <td>
 
-                ${asset.manufacturer || "-"}
+                ${escapeHTML(asset.manufacturer || "-")}
 
             </td>
 
@@ -560,7 +560,7 @@ function renderGenerateQRAssetList(assets) {
 
                     <span class="status-dot"></span>
 
-                    ${asset.status || "Active"}
+                    ${escapeHTML(asset.status || "Active")}
 
                 </span>
 
@@ -629,32 +629,32 @@ function attachQRRowEvents(assets) {
 
                     <div>
                         <span>Equipment</span>
-                        <strong>${selectedQRAsset.equipment_name || "-"}</strong>
+                        <strong>${escapeHTML(selectedQRAsset.equipment_name || "-")}</strong>
                     </div>
 
                     <div>
                         <span>Asset ID</span>
-                        <strong>${selectedQRAsset.asset_code || "-"}</strong>
+                        <strong>${escapeHTML(selectedQRAsset.asset_code || "-")}</strong>
                     </div>
 
                     <div>
                         <span>Department</span>
-                        <strong>${selectedQRAsset.department || "-"}</strong>
+                        <strong>${escapeHTML(selectedQRAsset.department || "-")}</strong>
                     </div>
 
                     <div>
                         <span>Manufacturer</span>
-                        <strong>${selectedQRAsset.manufacturer || "-"}</strong>
+                        <strong>${escapeHTML(selectedQRAsset.manufacturer || "-")}</strong>
                     </div>
 
                     <div>
                         <span>Status</span>
-                        <strong>${selectedQRAsset.status || "Active"}</strong>
+                        <strong>${escapeHTML(selectedQRAsset.status || "Active")}</strong>
                     </div>
 
                     <div>
                         <span>Location</span>
-                        <strong>${selectedQRAsset.location || "-"}</strong>
+                        <strong>${escapeHTML(selectedQRAsset.location || "-")}</strong>
                     </div>
 
                 </div>
@@ -667,9 +667,9 @@ function attachQRRowEvents(assets) {
 
                     <i data-lucide="qr-code"></i>
 
-                    <h3>${selectedQRAsset.asset_code}</h3>
+                    <h3>${escapeHTML(selectedQRAsset.asset_code)}</h3>
 
-                    <p>${selectedQRAsset.equipment_name}</p>
+                    <p>${escapeHTML(selectedQRAsset.equipment_name)}</p>
 
                 </div>
 
@@ -702,9 +702,9 @@ function selectQRAsset(assetId){
 
         document.getElementById("selectedAssetName").innerHTML=
 
-            `${asset.asset_code}
+            `${escapeHTML(asset.asset_code)}
             •
-            ${asset.equipment_name}`;
+            ${escapeHTML(asset.equipment_name)}`;
 
         document
             .getElementById("generateSelectedQR")
@@ -740,16 +740,16 @@ async function openQRPreview(assetId){
             <div class="generated-qr">
 
                 <img
-                    src="${result.qr_url}?t=${Date.now()}"
+                    src="${escapeHTML(result.qr_url)}?t=${Date.now()}"
                     alt="QR Code"
                     class="generated-qr-image">
 
-                <h3>${selectedQRAsset.asset_code}</h3>
+                <h3>${escapeHTML(selectedQRAsset.asset_code)}</h3>
 
-                <p>${selectedQRAsset.equipment_name}</p>
+                <p>${escapeHTML(selectedQRAsset.equipment_name)}</p>
 
                 <a
-                    href="${result.qr_url}"
+                    href="${escapeHTML(result.qr_url)}"
                     download
                     class="btn-secondary">
 

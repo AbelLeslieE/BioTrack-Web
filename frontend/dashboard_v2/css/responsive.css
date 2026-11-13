@@ -106,23 +106,54 @@
 
         position:fixed;
 
-        left:-100%;
+        left:0;
 
         top:0;
 
-        width:280px;
+        width:min(300px, calc(100vw - 44px));
 
         height:100vh;
+        height:100dvh;
 
         z-index:1000;
 
-        transition:left .35s ease;
+        overflow-y:auto;
+
+        transform:translateX(-105%);
+
+        transition:transform .35s ease;
 
     }
 
     .sidebar.active{
 
-        left:0;
+        transform:translateX(0);
+
+    }
+
+    /* Restore the labels hidden by the compact tablet sidebar. */
+
+    .sidebar .logo-text,
+    .sidebar .nav-item span,
+    .sidebar .profile-card div:not(.profile-avatar),
+    .sidebar .logout-btn span{
+
+        display:block;
+
+    }
+
+    .sidebar-logo,
+    .sidebar .nav-item,
+    .sidebar .profile-card,
+    .sidebar .logout-btn{
+
+        justify-content:flex-start;
+
+    }
+
+    .sidebar .nav-item{
+
+        padding:14px 16px;
 
     }
 

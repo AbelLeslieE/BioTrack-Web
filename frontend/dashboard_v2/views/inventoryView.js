@@ -434,7 +434,7 @@ function renderInventoryTable(data) {
 
             <td>
 
-                ${item.bpk_number || "-"}
+                ${escapeHTML(item.bpk_number || "-")}
 
             </td>
 
@@ -442,7 +442,7 @@ function renderInventoryTable(data) {
 
                 <strong>
 
-                    ${item.item_name || "-"}
+                    ${escapeHTML(item.item_name || "-")}
 
                 </strong>
 
@@ -450,13 +450,13 @@ function renderInventoryTable(data) {
 
             <td>
 
-                ${item.category || "-"}
+                ${escapeHTML(item.category || "-")}
 
             </td>
 
             <td>
 
-                ${item.manufacturer || "-"}
+                ${escapeHTML(item.manufacturer || "-")}
 
             </td>
 
@@ -484,7 +484,7 @@ function renderInventoryTable(data) {
 
             <td>
 
-                ${item.location || "-"}
+                ${escapeHTML(item.location || "-")}
 
             </td>
 
@@ -496,7 +496,7 @@ function renderInventoryTable(data) {
 
                         class="table-btn edit-btn"
 
-                        onclick="editInventory(${item.id})"
+                        onclick="editInventory(${Number(item.id)})"
 
                     >
 
@@ -508,7 +508,7 @@ function renderInventoryTable(data) {
 
                         class="table-btn delete-btn"
 
-                        onclick="deleteInventory(${item.id})"
+                        onclick="deleteInventory(${Number(item.id)})"
 
                     >
 
@@ -879,7 +879,7 @@ function showInventoryLoading(message = "Loading...") {
 
             <div class="loading-spinner"></div>
 
-            <h3>${message}</h3>
+            <h3>${escapeHTML(message)}</h3>
 
         </div>
 
@@ -926,7 +926,7 @@ function showInventoryToast(message){
 
         <i data-lucide="circle-check-big"></i>
 
-        <span>${message}</span>
+        <span>${escapeHTML(message)}</span>
 
     `;
 

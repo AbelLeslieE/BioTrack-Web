@@ -216,7 +216,7 @@ function populateMyRequestsFilters(requests) {
         if (!select) return;
         const previous = select.value;
         const options = [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
-        select.innerHTML = `<option value="">${label}</option>${options.map(value => `<option value="${String(value).replaceAll('"', '&quot;')}">${value}</option>`).join("")}`;
+        select.innerHTML = `<option value="">${escapeHTML(label)}</option>${options.map(value => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`).join("")}`;
         if (options.includes(previous)) select.value = previous;
     };
 
@@ -268,19 +268,19 @@ function renderMyRequestsTable(requests) {
 
         <tr>
 
-            <td>${request.ticket}</td>
+            <td>${escapeHTML(request.ticket)}</td>
 
-            <td>${request.equipment}</td>
+            <td>${escapeHTML(request.equipment)}</td>
 
-            <td>${request.equipment_id}</td>
+            <td>${escapeHTML(request.equipment_id)}</td>
 
-            <td>${request.priority}</td>
+            <td>${escapeHTML(request.priority)}</td>
 
             <td>
 
-                <span class="status-badge ${(request.status || "").toLowerCase().replaceAll(" ","-")}">
+                <span class="status-badge ${String(request.status || "").toLowerCase().replaceAll(/[^a-z0-9]+/g,"-")}">
 
-                    ${request.status}
+                    ${escapeHTML(request.status)}
 
                 </span>
 

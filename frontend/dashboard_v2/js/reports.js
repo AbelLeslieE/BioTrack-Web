@@ -977,9 +977,9 @@ function showReportsToast(title,message,type="info"){
 
         <div>
 
-            <strong>${title}</strong>
+            <strong>${escapeHTML(title)}</strong>
 
-            <p>${message}</p>
+            <p>${escapeHTML(message)}</p>
 
         </div>
 

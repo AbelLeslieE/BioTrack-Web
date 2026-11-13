@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.user import User
@@ -16,14 +16,39 @@ router=APIRouter(
 
 ALLOWED_ROLES = {"Manager", "BME", "Electrical", "IT", "User"}
 
-class UserCreate(BaseModel):
-    name:str
-    department:str
-    role:str
-    email:str
-    phone:str
-    username:str
-    password:str
+class UserFields(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    department: str = Field(min_length=1, max_length=120)
+    role: str = Field(min_length=1, max_length=30)
+    email: EmailStr
+    phone: str = Field(min_length=1, max_length=30)
+    username: str = Field(min_length=3, max_length=80)
+
+    @field_validator("name", "department", "role", "phone", "username")
+    @classmethod
+    def strip_required_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Field cannot be blank.")
+        return value
+
+    @field_validator("username")
+    @classmethod
+    def normalize_username(cls, value: str) -> str:
+        return value.casefold()
+
+
+class UserCreate(UserFields):
+    password: str = Field(min_length=12, max_length=72)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Password cannot be blank.")
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be no more than 72 UTF-8 bytes.")
+        return value
 
 @router.get("")
 def get_users(db:Session=Depends(get_db)):
@@ -42,9 +67,9 @@ def get_users(db:Session=Depends(get_db)):
 def register(data:UserCreate, db:Session=Depends(get_db)):
     if data.role not in ALLOWED_ROLES:
         raise HTTPException(status_code=422, detail="Invalid user role")
-    existing=db.query(User).filter(User.username==data.username.lower().strip()).first()
+    existing=db.query(User).filter(User.username==data.username).first()
     if existing:
-        return {"success":False,"message":"Username already exists"}
+        raise HTTPException(status_code=409, detail="Username already exists")
 
     hashed=bcrypt.hashpw(
         data.password.encode(),
@@ -57,7 +82,7 @@ def register(data:UserCreate, db:Session=Depends(get_db)):
         email=data.email,
         role=data.role,
         phone=data.phone,
-        username=data.username.lower().strip(),
+        username=data.username,
         password_hash=hashed,
         created_at=datetime.now()
     )
@@ -70,14 +95,17 @@ def register(data:UserCreate, db:Session=Depends(get_db)):
 
 
 
-class UserUpdate(BaseModel):
-    name:str
-    department:str
-    role:str
-    email:str
-    phone:str
-    username:str
-    password:str = ""
+class UserUpdate(UserFields):
+    password: str = Field(default="", max_length=72)
+
+    @field_validator("password")
+    @classmethod
+    def validate_optional_password(cls, value: str) -> str:
+        if value and (len(value) < 12 or not value.strip()):
+            raise ValueError("Password must contain at least 12 characters and cannot be blank.")
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be no more than 72 UTF-8 bytes.")
+        return value
 
 @router.put("/{user_id}")
 def update_user(user_id:int, data:UserUpdate, db:Session=Depends(get_db)):
@@ -85,10 +113,10 @@ def update_user(user_id:int, data:UserUpdate, db:Session=Depends(get_db)):
         raise HTTPException(status_code=422, detail="Invalid user role")
     user=db.query(User).filter(User.id==user_id).first()
     if not user:
-        return {"success":False,"message":"User not found"}
+        raise HTTPException(status_code=404, detail="User not found")
 
     existing=db.query(User).filter(
-        User.username == data.username.lower().strip()
+        User.username == data.username
     ).first()
 
     # ignore the same user's own username while editing
@@ -96,16 +124,16 @@ def update_user(user_id:int, data:UserUpdate, db:Session=Depends(get_db)):
         existing = None
 
     if existing:
-        return {"success":False,"message":"Username already exists"}
+        raise HTTPException(status_code=409, detail="Username already exists")
 
     user.name=data.name
     user.department=data.department
     user.role=data.role
     user.email=data.email
     user.phone=data.phone
-    user.username=data.username.lower().strip()
+    user.username=data.username
 
-    if data.password.strip():
+    if data.password:
         user.password_hash=bcrypt.hashpw(
             data.password.encode(),
             bcrypt.gensalt()
@@ -119,7 +147,7 @@ def update_user(user_id:int, data:UserUpdate, db:Session=Depends(get_db)):
 def delete_user(user_id:int, db:Session=Depends(get_db)):
     user=db.query(User).filter(User.id==user_id).first()
     if not user:
-        return {"success":False,"message":"User not found"}
+        raise HTTPException(status_code=404, detail="User not found")
     db.delete(user)
     db.commit()
     return {"success":True,"message":"User deleted"}

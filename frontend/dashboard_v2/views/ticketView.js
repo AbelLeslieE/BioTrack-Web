@@ -118,22 +118,22 @@ async function loadTicket() {
 
                     <div class="info-item">
                         <label>Equipment</label>
-                        <strong>${ticket.equipment}</strong>
+                        <strong>${escapeHTML(ticket.equipment)}</strong>
                     </div>
 
                     <div class="info-item">
                         <label>Equipment ID</label>
-                        <strong>${ticket.equipment_id}</strong>
+                        <strong>${escapeHTML(ticket.equipment_id)}</strong>
                     </div>
 
                     <div class="info-item">
                         <label>Department</label>
-                        <strong>${ticket.department}</strong>
+                        <strong>${escapeHTML(ticket.department)}</strong>
                     </div>
 
                     <div class="info-item">
                         <label>Location</label>
-                        <strong>${ticket.location}</strong>
+                        <strong>${escapeHTML(ticket.location)}</strong>
                     </div>
 
                 </div>
@@ -152,22 +152,22 @@ async function loadTicket() {
 
                     <div class="info-item">
                         <label>Ticket</label>
-                        <strong>${ticket.ticket}</strong>
+                        <strong>${escapeHTML(ticket.ticket)}</strong>
                     </div>
 
                     <div class="info-item">
                         <label>Reported By</label>
-                        <strong>${ticket.reported_by}</strong>
+                        <strong>${escapeHTML(ticket.reported_by)}</strong>
                     </div>
 
                     <div class="info-item">
                         <label>Received</label>
-                        <strong>${ticket.received}</strong>
+                        <strong>${escapeHTML(ticket.received)}</strong>
                     </div>
 
                     <div class="info-item">
                         <label>Priority</label>
-                        <strong>${ticket.priority}</strong>
+                        <strong>${escapeHTML(ticket.priority)}</strong>
                     </div>
 
                 </div>
@@ -225,7 +225,7 @@ async function loadTicket() {
 
                 <div class="ticket-text">
 
-                    ${ticket.description || "-"}
+                    ${escapeHTML(ticket.description || "-")}
 
                 </div>
 
@@ -240,7 +240,7 @@ async function loadTicket() {
                 <textarea
                     id="engineerNotes"
                     class="ticket-textarea"
-                >${ticket.notes || ""}</textarea>
+                >${escapeHTML(ticket.notes || "")}</textarea>
 
             </div>
 
@@ -253,7 +253,7 @@ async function loadTicket() {
                 <textarea
                     id="workDone"
                     class="ticket-textarea"
-                >${ticket.work_done || ""}</textarea>
+                >${escapeHTML(ticket.work_done || "")}</textarea>
 
             </div>
 
@@ -574,7 +574,7 @@ async function initializeSparePartsPicker(savedParts, stockDeducted) {
         }
         renderSparePartsPicker();
     } catch (error) {
-        container.innerHTML = `<p class="spare-parts-error">${error.message}</p>`;
+        container.innerHTML = `<p class="spare-parts-error">${escapeHTML(error.message)}</p>`;
     }
 }
 
@@ -587,7 +587,7 @@ function renderSparePartsPicker() {
             <p class="spare-parts-locked">Stock has already been deducted for this completed ticket.</p>
             ${selectedSpareParts.map(part => {
                 const item = sparePartsInventory.find(entry => entry.id === part.inventory_id);
-                return `<div class="spare-part-summary">${item?.item_name || `Item #${part.inventory_id}`} × ${part.quantity}</div>`;
+                return `<div class="spare-part-summary">${escapeHTML(item?.item_name || `Item #${part.inventory_id}`)} × ${escapeHTML(part.quantity)}</div>`;
             }).join("") || "<p>No spare parts were used.</p>"}
         `;
         return;
@@ -600,10 +600,10 @@ function renderSparePartsPicker() {
                     <select onchange="setSparePart(${index}, this.value)">
                         <option value="">Select a spare part</option>
                         ${sparePartsInventory.map(item =>
-                            `<option value="${item.id}" ${Number(part.inventory_id) === item.id ? "selected" : ""}>${item.item_name} — Available: ${item.current_stock} ${item.unit || ""}</option>`
+                            `<option value="${Number(item.id)}" ${Number(part.inventory_id) === item.id ? "selected" : ""}>${escapeHTML(item.item_name)} — Available: ${escapeHTML(item.current_stock)} ${escapeHTML(item.unit || "")}</option>`
                         ).join("")}
                     </select>
-                    <input type="number" min="1" value="${part.quantity || 1}" aria-label="Quantity" onchange="setSpareQuantity(${index}, this.value)">
+                    <input type="number" min="1" value="${Math.max(1, Number(part.quantity) || 1)}" aria-label="Quantity" onchange="setSpareQuantity(${index}, this.value)">
                     <button type="button" class="remove-spare-part" onclick="removeSparePart(${index})" aria-label="Remove spare part">Remove</button>
                 </div>
             `).join("")}

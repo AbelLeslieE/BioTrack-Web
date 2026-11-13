@@ -2,7 +2,11 @@
 # IMPORTS
 # ==========================================
 
+from datetime import date, datetime, time, timedelta
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
@@ -10,7 +14,6 @@ from backend.database import get_db
 from backend.models.request import Request
 from backend.models.user import User
 from backend.auth import get_current_user, require_roles
-from datetime import datetime
 import json
 
 
@@ -21,6 +24,33 @@ import json
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
 SERVICE_TEAMS = {"Biomedical", "Electrical", "IT"}
+
+
+class MaintenanceRequestCreate(BaseModel):
+    """Validated input accepted from the maintenance-request form."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="ignore")
+
+    department: str = Field(min_length=1, max_length=120)
+    location: str = Field(min_length=1, max_length=200)
+    equipment_identifier: str = Field(min_length=1, max_length=120)
+    equipment_name: str = Field(min_length=1, max_length=200)
+    make_model: str = Field(default="", max_length=200)
+    priority: Literal["Critical", "High", "Medium", "Low"]
+    problem_category: Literal[
+        "Breakdown",
+        "Calibration",
+        "Preventive Maintenance",
+        "Installation",
+        "Accessories",
+    ]
+    service_team: Literal["Biomedical", "Electrical", "IT"] = "Biomedical"
+    failure_description: str = Field(min_length=1, max_length=4000)
+
+
+def ticket_number_for(request_id: int, created_at: datetime) -> str:
+    """Build a stable ticket number from the database-generated primary key."""
+    return f"BT-{created_at.year}-{request_id:06d}"
 
 
 def _user_request_details(request: Request) -> dict:
@@ -63,29 +93,28 @@ def _user_request_details(request: Request) -> dict:
 
 @router.post("/api/requests")
 def create_request(
-    data: dict,
+    data: MaintenanceRequestCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
 
-    service_team = data.get("service_team", "Biomedical").strip().title()
-    if service_team not in SERVICE_TEAMS:
-        raise HTTPException(status_code=422, detail="Select Biomedical, Electrical, or IT service.")
+    service_team = data.service_team
+    department = data.department
+    if current_user.role == "User":
+        if not current_user.department:
+            raise HTTPException(status_code=422, detail="Your account has no assigned department.")
+        department = current_user.department
 
-    count = db.query(Request).count() + 1
-
-    ticket = (
-        f"BT-{datetime.now().year}-"
-        f"{count:06d}"
-    )
+    created_at = datetime.now()
 
     request = Request(
 
-        ticket_number=ticket,
+        # Assigned after flush from the database-generated primary key.
+        ticket_number=None,
 
-        department=data.get("department"),
+        department=department,
 
-        location=data.get("location"),
+        location=data.location,
 
         reported_by=current_user.name or current_user.username,
 
@@ -99,31 +128,35 @@ def create_request(
 
         service_team=service_team,
 
-        equipment_identifier=data.get("equipment_identifier"),
+        equipment_identifier=data.equipment_identifier,
 
-        equipment_name=data.get("equipment_name"),
+        equipment_name=data.equipment_name,
 
-        make_model=data.get("make_model"),
+        make_model=data.make_model,
 
-        priority=data.get("priority"),
+        priority=data.priority,
 
-        problem_category=data.get("problem_category"),
+        problem_category=data.problem_category,
 
-        failure_description=data.get("failure_description"),
+        failure_description=data.failure_description,
 
         status="Open",
 
-        call_received_datetime=datetime.now()
+        call_received_datetime=created_at
     )
     db.add(request)
 
+    # The primary key is monotonic and database-owned, so ticket numbers remain
+    # unique after deletions and across concurrent submissions.
+    db.flush()
+    request.ticket_number = ticket_number_for(request.id, created_at)
     db.commit()
 
     db.refresh(request)
 
     return {
         "success": True,
-        "ticket_number": ticket
+        "ticket_number": request.ticket_number
     }
     # ==========================================
 # GET ALL REQUESTS
@@ -223,10 +256,14 @@ def get_kpis(
         .count()
     )
 
+    start_of_today = datetime.combine(date.today(), time.min)
+    start_of_tomorrow = start_of_today + timedelta(days=1)
     closed_today = (
         db.query(Request)
         .filter(
-            Request.status == "Closed"
+            Request.status == "Closed",
+            Request.fixed_datetime >= start_of_today,
+            Request.fixed_datetime < start_of_tomorrow,
         )
         .count()
     )

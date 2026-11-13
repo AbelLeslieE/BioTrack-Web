@@ -41,7 +41,7 @@ form.addEventListener("submit", async (e) => {
 
     e.preventDefault();
 
-    msg.innerHTML = "";
+    msg.textContent = "";
 
     const body = {
 
@@ -96,14 +96,16 @@ form.addEventListener("submit", async (e) => {
         } else {
 
             msg.style.color = "#dc2626";
-            msg.innerHTML = data.detail || "Invalid username or password.";
+            msg.textContent = typeof data.detail === "string"
+                ? data.detail
+                : "Invalid username or password.";
 
         }
 
     } catch (err) {
 
         msg.style.color = "#dc2626";
-        msg.innerHTML = "Unable to connect to the server.";
+        msg.textContent = "Unable to connect to the server.";
 
         console.error(err);
 

@@ -240,7 +240,7 @@ def get_asset(
     ).first()
 
     if not asset:
-        return {"error": "Asset not found"}
+        raise HTTPException(status_code=404, detail="Asset not found")
 
     return {
 

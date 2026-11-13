@@ -266,21 +266,21 @@ function renderAssignedCalls(calls) {
 
         container.innerHTML += `
 
-            <div class="call-card ${(call.priority || "normal").toLowerCase()}
+            <div class="call-card ${engineerClassToken(call.priority)}">
 
                 <div class="call-header">
 
                     <div>
 
-                        <h3>${call.ticket}</h3>
+                        <h3>${escapeHTML(call.ticket)}</h3>
 
-                        <small>${call.department}</small>
+                        <small>${escapeHTML(call.department)}</small>
 
                     </div>
 
-                    <span class="priority ${(call.priority || "normal").toLowerCase()}">
+                    <span class="priority ${engineerClassToken(call.priority)}">
 
-                        ${call.priority}
+                        ${escapeHTML(call.priority)}
 
                     </span>
 
@@ -292,7 +292,7 @@ function renderAssignedCalls(calls) {
 
                         <label>Equipment</label>
 
-                        <strong>${call.equipment}</strong>
+                        <strong>${escapeHTML(call.equipment)}</strong>
 
                     </div>
 
@@ -300,7 +300,7 @@ function renderAssignedCalls(calls) {
 
                         <label>Equipment ID</label>
 
-                        <strong>${call.equipment_id}</strong>
+                        <strong>${escapeHTML(call.equipment_id)}</strong>
 
                     </div>
 
@@ -308,7 +308,7 @@ function renderAssignedCalls(calls) {
 
                         <label>Status</label>
 
-                        <strong>${call.status}</strong>
+                        <strong>${escapeHTML(call.status)}</strong>
 
                     </div>
 
@@ -316,22 +316,22 @@ function renderAssignedCalls(calls) {
 
                         <label>Reported</label>
 
-                        <strong>${call.reported_time}</strong>
+                        <strong>${escapeHTML(call.reported_time)}</strong>
 
                     </div>
 
                 </div>
 
                 <p class="call-description">
-                    <strong>${call.issue || "Maintenance issue"}:</strong>
-                    ${call.description || "No description provided."}
+                    <strong>${escapeHTML(call.issue || "Maintenance issue")}:</strong>
+                    ${escapeHTML(call.description || "No description provided.")}
                 </p>
 
                 <div class="call-actions">
 
                     <button
                         class="primary-btn"
-                        onclick="openEngineerTicket(${call.id})">
+                        onclick="openEngineerTicket(${Number(call.id)})">
 
                         Open Ticket
 
@@ -351,6 +351,10 @@ function renderAssignedCalls(calls) {
 
     }
 
+}
+
+function engineerClassToken(value) {
+    return String(value || "normal").toLowerCase().replaceAll(/[^a-z0-9]+/g, "-");
 }
 
 /* ==========================================================
@@ -416,9 +420,9 @@ function renderActivityFeed(activity) {
 
             <div class="activity-item">
 
-                <strong>${item.title}</strong>
+                <strong>${escapeHTML(item.title)}</strong>
 
-                <small>${item.time}</small>
+                <small>${escapeHTML(item.time)}</small>
 
             </div>
 

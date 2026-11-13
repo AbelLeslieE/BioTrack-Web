@@ -268,7 +268,7 @@ function buildSpareParts(request) {
 
                 <tr>
 
-                    <td>${part.trim()}</td>
+                    <td>${escapeHTML(part.trim())}</td>
 
                     <td>1</td>
 

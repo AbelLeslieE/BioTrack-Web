@@ -11,6 +11,20 @@ FastAPI and SQLite application for managing biomedical assets, maintenance reque
 5. Start the app from this directory: `uvicorn backend.main:app --reload`.
 6. Open `http://127.0.0.1:8000`.
 
+## Tests
+
+Run the backend regression suite from the project directory with:
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+Run the frontend output-encoding test with:
+
+```powershell
+node --test tests/security.test.js
+```
+
 ## Render hosting
 
 Set `JWT_SECRET_KEY` in the Render service environment to a unique secret of at least 32 characters. Set `COOKIE_SECURE=true` for the public HTTPS service. Render can use `GET /api/health` as its health-check path.
@@ -19,4 +33,4 @@ All `/api` endpoints except login require the HttpOnly session cookie issued by 
 
 ## Database changes
 
-The application creates missing tables but does not modify existing tables at startup. Back up `database/biotrack.db` and apply reviewed migration scripts for schema changes.
+The application creates missing tables but does not modify existing tables at startup. `database/schema.sql` describes a clean current installation; existing databases must use the reviewed migration scripts. Back up `database/biotrack.db` before applying migrations.

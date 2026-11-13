@@ -2,7 +2,7 @@
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.services.auth_service import authenticate_user
@@ -14,13 +14,22 @@ import bcrypt
 router = APIRouter(tags=['auth'])
 
 class LoginRequest(BaseModel):
-    username:str
-    password:str
+    username: str = Field(min_length=1, max_length=80)
+    password: str = Field(min_length=1, max_length=72)
 
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
-    new_password: str = Field(min_length=12, max_length=128)
+    new_password: str = Field(min_length=12, max_length=72)
+
+    @field_validator("new_password")
+    @classmethod
+    def reject_blank_password(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Password cannot be blank.")
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be no more than 72 UTF-8 bytes.")
+        return value
 
 @router.post('/api/auth/login')
 def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):

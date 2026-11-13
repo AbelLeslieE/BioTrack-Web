@@ -12,11 +12,20 @@ async function loadAssetProfile() {
 
         );
 
+        if (!response.ok) {
+            throw new Error("Asset not found.");
+        }
+
         const asset = await response.json();
 
-        console.log("Asset received:", asset);
+        const safeAsset = Object.fromEntries(
+            Object.entries(asset).map(([key, value]) => [
+                key,
+                typeof value === "string" ? escapeHTML(value) : value
+            ])
+        );
 
-        renderAssetHero(asset);
+        renderAssetHero(safeAsset);
 
     }
 

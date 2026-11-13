@@ -58,8 +58,8 @@ usersCache=data;
 let depts=[...new Set(data.map(x=>x.department))];
 let roles=[...new Set(data.map(x=>x.role))];
 
-deptFilter.innerHTML='<option value="">All Departments</option>'+depts.map(x=>`<option>${x}</option>`).join('');
-roleFilter.innerHTML='<option value="">All Roles</option>'+roles.map(x=>`<option>${x}</option>`).join('');
+deptFilter.innerHTML='<option value="">All Departments</option>'+depts.map(x=>`<option value="${escapeHTML(x)}">${escapeHTML(x)}</option>`).join('');
+roleFilter.innerHTML='<option value="">All Roles</option>'+roles.map(x=>`<option value="${escapeHTML(x)}">${escapeHTML(x)}</option>`).join('');
 
 filteredUsers=data;
 displayUsers(filteredUsers);
@@ -79,15 +79,15 @@ const pageItems=TablePagination.pageItems(data, usersPagination);
 
 usersBody.innerHTML=pageItems.map(u=>`
 <tr>
-<td>${u.name}</td>
-<td>${u.username}</td>
-<td>${u.department}</td>
-<td>${u.role}</td>
-<td>${u.email}</td>
-<td>${u.phone}</td>
+<td>${escapeHTML(u.name)}</td>
+<td>${escapeHTML(u.username)}</td>
+<td>${escapeHTML(u.department)}</td>
+<td>${escapeHTML(u.role)}</td>
+<td>${escapeHTML(u.email)}</td>
+<td>${escapeHTML(u.phone)}</td>
 <td class="actions">
-<button class="edit-btn" onclick="editUser(${u.id})">Edit</button>
-<button class="delete-btn" onclick="deleteUser(${u.id})">Delete</button>
+<button class="edit-btn" onclick="editUser(${Number(u.id)})">Edit</button>
+<button class="delete-btn" onclick="deleteUser(${Number(u.id)})">Delete</button>
 </td>
 </tr>
 `).join('');
@@ -153,7 +153,7 @@ userModal.innerHTML=`
 <input id="newPhone" placeholder="Phone">
 <input id="newUsername" placeholder="Username">
 <label for="newPassword">${editingUserId ? "New password (leave blank to keep the current password)" : "Password"}</label>
-<input id="newPassword" type="password" placeholder="${editingUserId ? "Set a new password" : "Create a password"}">
+<input id="newPassword" type="password" minlength="12" maxlength="72" autocomplete="new-password" placeholder="${editingUserId ? "Set a new password" : "Create a password"}">
 
 <div class="form-actions">
 <button onclick="registerUser()">Save User</button>
@@ -166,18 +166,20 @@ userModal.innerHTML=`
 function validateUserForm(){
  const email=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  const phone=/^(?:\+91|91)?[6-9][0-9]{9}$/;
+ const required=[newName,newDept,newRole,newEmail,newPhone,newUsername];
+ if(required.some(field=>!field.value.trim())){alert("Complete all required fields"); return false;}
  if(!email.test(newEmail.value)){alert("Enter valid email address"); return false;}
  if(!phone.test(newPhone.value.replace(/\s|-/g,""))){alert("Enter valid Indian mobile number"); return false;}
+ if((!editingUserId || newPassword.value) && (newPassword.value.length < 12 || newPassword.value.length > 72 || !newPassword.value.trim())){
+   alert("Password must contain 12 to 72 characters and cannot be blank");
+   return false;
+ }
  return true;
 }
 
 function registerUser(){
 
     if(!validateUserForm()) return;
-
-    if(editingUserId){
-        console.log("Updating user:", editingUserId);
-    }
 
     const payload = {
 
@@ -190,8 +192,6 @@ function registerUser(){
         password: newPassword.value
 
     };
-
-    console.log("Payload being sent:", payload);
 
     fetch(
         editingUserId
@@ -207,17 +207,28 @@ function registerUser(){
             body: JSON.stringify(payload)
         }
     )
-    .then(r => r.json())
-    .then(r => {
+    .then(async response => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const detail = Array.isArray(result.detail)
+                ? result.detail.map(item => item.msg).filter(Boolean).join(" ")
+                : result.detail;
+            throw new Error(detail || "Unable to save user");
+        }
+        return result;
+    })
+    .then(result => {
 
-        alert(r.message);
+        alert(result.message);
 
+        closeUserModal();
         renderUsers();
 
     })
     .catch(err => {
 
         console.error(err);
+        alert(err.message || "Unable to save user");
 
     });
 

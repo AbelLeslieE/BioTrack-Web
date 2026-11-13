@@ -74,7 +74,7 @@
         SIDEBAR
     ========================================== -->
 
-    <aside class="sidebar">
+    <aside class="sidebar" id="primary-sidebar" aria-label="Primary navigation">
 
         <!-- Logo -->
 
@@ -128,7 +128,7 @@
 
                 <i data-lucide="log-out"></i>
 
-                Logout
+                <span>Logout</span>
 
             </button>
 
@@ -149,7 +149,7 @@
             <!-- Left Section -->
             <div class="topbar-left">
 
-                <button class="menu-toggle">
+                <button class="menu-toggle" type="button" aria-label="Open navigation menu" aria-controls="primary-sidebar" aria-expanded="false">
                     <i data-lucide="menu"></i>
                 </button>
 
@@ -233,11 +233,13 @@
 
 
 <link rel="stylesheet" href="/static/dashboard_v2/css/users.css">
+<script src="/static/dashboard_v2/js/security.js"></script>
 <script src="/static/dashboard_v2/js/api.js"></script>
 <script src="/static/dashboard_v2/js/pagination.js"></script>
 <script src="/static/dashboard_v2/js/logout.js"></script>
 <script src="/static/dashboard_v2/js/dashboard.js"></script>
 <script src="/static/dashboard_v2/js/sidebar.js"></script>
+<script src="/static/dashboard_v2/js/responsive_tables.js"></script>
 <script src="/static/dashboard_v2/views/engineerDashboardView.js"></script>
 <script src="/static/dashboard_v2/views/dashboardView.js"></script>
 <script src="/static/dashboard_v2/views/userDashboardView.js"></script>

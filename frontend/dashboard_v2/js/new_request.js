@@ -13,12 +13,31 @@ function initializeNewRequest() {
 
     initializeDepartmentDropdown();
 
+    initializeRequesterFields();
+
     initializeSubmitButton();
 
     initializeModalButtons();
 
     initializeNavigation();
 
+}
+
+function initializeRequesterFields() {
+    const department = document.getElementById("departmentSearch");
+    const reportedBy = document.getElementById("reportedBy");
+    const role = (localStorage.getItem("role") || "").toLowerCase();
+    const assignedDepartment = (localStorage.getItem("department") || "").trim();
+    const requesterName = (localStorage.getItem("name") || localStorage.getItem("username") || "").trim();
+
+    if (department && assignedDepartment && role === "user") {
+        department.value = assignedDepartment;
+        department.readOnly = true;
+    }
+    if (reportedBy && requesterName) {
+        reportedBy.value = requesterName;
+        reportedBy.readOnly = true;
+    }
 }
 
 // ==========================================

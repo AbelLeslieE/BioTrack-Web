@@ -69,21 +69,32 @@ async function loadAssetDetails(assetId) {
 
         const response = await fetch(`/api/assets/${assetId}`);
 
+        if (!response.ok) {
+            throw new Error("Asset not found.");
+        }
+
         const asset = await response.json();
 
-        renderAssetHero(asset);
+        const safeAsset = Object.fromEntries(
+            Object.entries(asset).map(([key, value]) => [
+                key,
+                typeof value === "string" ? escapeHTML(value) : value
+            ])
+        );
 
-        renderGeneralInformation(asset);
+        renderAssetHero(safeAsset);
 
-        renderPurchaseInformation(asset);
+        renderGeneralInformation(safeAsset);
 
-        renderTechnicalInformation(asset);
+        renderPurchaseInformation(safeAsset);
 
-        renderMaintenanceOverview(asset);
+        renderTechnicalInformation(safeAsset);
 
-        renderPMHistory(asset);
+        renderMaintenanceOverview(safeAsset);
 
-        renderAssetTabs(asset);
+        renderPMHistory(safeAsset);
+
+        renderAssetTabs(safeAsset);
 
     }
 

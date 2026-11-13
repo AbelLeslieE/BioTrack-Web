@@ -1,5 +1,6 @@
 /* Final responsive layer: shared behaviour for every dashboard module. */
 html,body{max-width:100%;overflow-x:hidden}
+body.mobile-nav-open{overflow:hidden}
 img,svg,canvas,video{max-width:100%}
 button,input,select,textarea{max-width:100%}
 .sidebar-mobile-backdrop{display:none}
@@ -149,4 +150,23 @@ button,input,select,textarea{max-width:100%}
     .user-home-action-grid{grid-template-columns:1fr}
     .user-home-hero-actions{flex-direction:column}
     .user-home-hero-actions button{width:100%}
+
+    /* On phones, data tables become labelled cards instead of requiring a sideways swipe. */
+    .table-wrapper:has(.mobile-card-table),.table-container:has(.mobile-card-table),
+    .asset-table-container:has(.mobile-card-table),.maintenance-table-card:has(.mobile-card-table),
+    .inventory-table-card:has(.mobile-card-table),.department-table-card:has(.mobile-card-table),
+    .myrequest-table-card:has(.mobile-card-table),.users-table-scroll:has(.mobile-card-table),
+    .qr-table-wrapper:has(.mobile-card-table),.asset-summary-table:has(.mobile-card-table){overflow:visible}
+    table.mobile-card-table{display:block;width:100%;min-width:0!important;background:transparent;border:0;box-shadow:none}
+    .mobile-card-table thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .mobile-card-table tbody{display:grid;gap:12px;width:100%}
+    .mobile-card-table tbody tr{display:block;width:100%;padding:6px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 6px 18px rgba(15,23,42,.06)}
+    .mobile-card-table tbody td{display:grid;width:100%;grid-template-columns:minmax(90px,38%) minmax(0,1fr);gap:12px;align-items:center;min-height:43px;padding:10px 0!important;border:0!important;border-bottom:1px solid #eef2f7!important;text-align:right!important;white-space:normal;overflow-wrap:anywhere}
+    .mobile-card-table tbody td:last-child{border-bottom:0!important}
+    .mobile-card-table tbody td::before{content:attr(data-label);color:#64748b;font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.35;text-align:left;text-transform:uppercase}
+    .mobile-card-table tbody td>*{justify-self:end;max-width:100%}
+    .mobile-card-table tbody td[data-label="Action"],.mobile-card-table tbody td[data-label="Actions"]{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+    .mobile-card-table tbody td[data-label="Action"]::before,.mobile-card-table tbody td[data-label="Actions"]::before{margin-right:auto;align-self:center}
+    .mobile-card-table tbody td[colspan]{display:block;min-height:0;padding:18px 4px!important;text-align:center!important}
+    .mobile-card-table tbody td[colspan]::before{display:none}
 }

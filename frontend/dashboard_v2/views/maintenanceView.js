@@ -316,7 +316,7 @@ function populateMaintenanceFilters(calls) {
         if (!select) return;
         const previous = select.value;
         const options = [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
-        select.innerHTML = `<option value="">${label}</option>${options.map(value => `<option value="${String(value).replaceAll('"', '&quot;')}">${value}</option>`).join("")}`;
+        select.innerHTML = `<option value="">${escapeHTML(label)}</option>${options.map(value => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`).join("")}`;
         if (options.includes(previous)) select.value = previous;
     };
 
@@ -401,7 +401,7 @@ function createMaintenanceRow(call, index) {
 
             <strong class="ticket-link">
 
-                ${call.ticket}
+                ${escapeHTML(call.ticket)}
 
             </strong>
 
@@ -413,7 +413,7 @@ function createMaintenanceRow(call, index) {
 
                 <strong>
 
-                    ${call.equipment}
+                    ${escapeHTML(call.equipment)}
 
                 </strong>
 
@@ -423,13 +423,13 @@ function createMaintenanceRow(call, index) {
 
         <td>
 
-            ${call.department}
+            ${escapeHTML(call.department)}
 
         </td>
 
         <td>
 
-            ${call.received}
+            ${escapeHTML(call.received)}
 
         </td>
 
@@ -528,7 +528,7 @@ function getStatusBadge(status) {
 
             return `
                 <span class="status open">
-                    ${status}
+                    ${escapeHTML(status)}
                 </span>
             `;
 
@@ -699,7 +699,7 @@ function showError(message){
 
         <td colspan="8" class="empty-table">
 
-            ⚠ ${message}
+            ⚠ ${escapeHTML(message)}
 
         </td>
 

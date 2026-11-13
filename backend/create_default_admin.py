@@ -24,8 +24,10 @@ def create_default_admin():
         print("No bootstrap administrator configured; skipping default-admin creation.")
         return
 
-    if len(password_value) < 12:
-        raise RuntimeError("BOOTSTRAP_ADMIN_PASSWORD must contain at least 12 characters.")
+    if len(password_value) < 12 or not password_value.strip():
+        raise RuntimeError("BOOTSTRAP_ADMIN_PASSWORD must contain at least 12 characters and cannot be blank.")
+    if len(password_value.encode("utf-8")) > 72:
+        raise RuntimeError("BOOTSTRAP_ADMIN_PASSWORD must contain no more than 72 UTF-8 bytes.")
 
     db: Session = SessionLocal()
 

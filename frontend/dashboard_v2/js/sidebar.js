@@ -277,13 +277,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeMenu = () => {
         appSidebar.classList.remove("active");
         backdrop.classList.remove("show");
+        document.body.classList.remove("mobile-nav-open");
         menuButton.setAttribute("aria-expanded", "false");
+        menuButton.setAttribute("aria-label", "Open navigation menu");
     };
     const toggleMenu = () => {
         const willOpen = !appSidebar.classList.contains("active");
         appSidebar.classList.toggle("active", willOpen);
         backdrop.classList.toggle("show", willOpen);
+        document.body.classList.toggle("mobile-nav-open", willOpen);
         menuButton.setAttribute("aria-expanded", String(willOpen));
+        menuButton.setAttribute("aria-label", willOpen ? "Close navigation menu" : "Open navigation menu");
     };
 
     menuButton.setAttribute("aria-expanded", "false");
