@@ -7,10 +7,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.models.request import Request
+from backend.routes.engineer_routes import get_ticket
 from backend.routes.request_routes import (
+    DowntimeOverride,
     MaintenanceRequestCreate,
     create_request,
     get_kpis,
+    override_request_downtime,
 )
 
 
@@ -77,6 +80,56 @@ class MaintenanceRequestTests(unittest.TestCase):
         self.session.commit()
 
         self.assertEqual(get_kpis(self.session)["closed_today"], 1)
+
+    def test_manager_can_replace_downtime_without_changing_calculated_value(self):
+        received = datetime.now() - timedelta(hours=5)
+        fixed = datetime.now()
+        maintenance_request = Request(
+            ticket_number="BT-OVERRIDE",
+            status="Completed",
+            call_received_datetime=received,
+            fixed_datetime=fixed,
+            calculated_downtime_hours=5,
+            final_downtime_hours=5,
+        )
+        self.session.add(maintenance_request)
+        self.session.commit()
+
+        result = override_request_downtime(
+            "BT-OVERRIDE",
+            DowntimeOverride(hours=2.5),
+            self.session,
+            SimpleNamespace(role="Manager"),
+        )
+        self.session.refresh(maintenance_request)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(maintenance_request.manual_downtime_hours, 2.5)
+        self.assertEqual(maintenance_request.final_downtime_hours, 2.5)
+        self.assertEqual(maintenance_request.calculated_downtime_hours, 5)
+        self.assertEqual(maintenance_request.call_received_datetime, received)
+        self.assertEqual(maintenance_request.fixed_datetime, fixed)
+
+    def test_downtime_override_rejects_negative_values(self):
+        with self.assertRaises(ValidationError):
+            DowntimeOverride(hours=-0.01)
+
+    def test_ticket_details_include_current_downtime(self):
+        maintenance_request = Request(
+            ticket_number="BT-DETAIL",
+            status="Completed",
+            final_downtime_hours=3.25,
+        )
+        self.session.add(maintenance_request)
+        self.session.commit()
+
+        result = get_ticket(
+            maintenance_request.id,
+            self.session,
+            SimpleNamespace(role="Manager"),
+        )
+
+        self.assertEqual(result["downtime"], 3.25)
 
 
 if __name__ == "__main__":

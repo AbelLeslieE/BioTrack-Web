@@ -758,6 +758,139 @@
     height:18px;
 
 }
+
+.maintenance-row-actions{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+}
+
+.downtime-value-trigger{
+    appearance:none;
+    padding:0;
+    border:0;
+    color:inherit;
+    background:transparent;
+    font:inherit;
+    cursor:default;
+}
+
+.downtime-value-trigger:focus-visible{outline:2px solid #2563eb;outline-offset:4px;border-radius:3px}
+
+body.has-modal-open{overflow:hidden}
+
+.downtime-modal-backdrop{
+    position:fixed;
+    z-index:1600;
+    inset:0;
+    display:grid;
+    place-items:center;
+    padding:20px;
+    background:rgba(3,10,24,.68);
+    backdrop-filter:blur(5px);
+}
+
+.downtime-dialog{
+    width:min(100%,480px);
+    overflow:hidden;
+    border:1px solid #dce5f2;
+    border-radius:22px;
+    background:#fff;
+    box-shadow:0 28px 80px rgba(15,23,42,.3);
+}
+
+.downtime-dialog header{
+    display:grid;
+    grid-template-columns:auto 1fr auto;
+    gap:14px;
+    align-items:start;
+    padding:23px 24px 19px;
+    border-bottom:1px solid #e8eef7;
+}
+
+.downtime-dialog-icon{
+    display:grid;
+    width:44px;
+    height:44px;
+    place-items:center;
+    border-radius:13px;
+    color:#2563eb;
+    background:#eaf1ff;
+}
+
+.downtime-dialog-icon i{width:22px;height:22px}
+.downtime-dialog header small{color:#2563eb;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.downtime-dialog header h2{margin:3px 0 2px;color:#13213b;font-size:23px}
+.downtime-dialog header p{margin:0;color:#677791;font-size:13px}
+
+.downtime-dialog-close{
+    display:grid;
+    width:36px;
+    height:36px;
+    place-items:center;
+    border:0;
+    border-radius:10px;
+    color:#64748b;
+    background:#f1f5f9;
+    cursor:pointer;
+}
+
+.downtime-dialog-close i{width:18px;height:18px}
+.downtime-dialog-body{padding:22px 24px}
+.downtime-input-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.downtime-input-grid label{display:flex;flex-direction:column;gap:8px;color:#34435e;font-size:13px;font-weight:750}
+.downtime-input-grid input{width:100%;padding:13px 14px;border:1px solid #cad6e8;border-radius:11px;color:#16213e;background:#fbfdff;font:inherit;font-size:17px;font-weight:700;outline:none}
+.downtime-input-grid input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.14)}
+.downtime-dialog-note{display:flex;align-items:flex-start;gap:8px;margin:18px 0 0;padding:12px;border-radius:11px;color:#526583;background:#f3f7fc;font-size:12px;line-height:1.45}
+.downtime-dialog-note i{flex:0 0 auto;width:16px;height:16px;margin-top:1px;color:#2563eb}
+.downtime-dialog-error{min-height:18px;margin:10px 0 0;color:#dc2626;font-size:12px;font-weight:700}
+
+.downtime-dialog footer{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    padding:17px 24px 21px;
+    border-top:1px solid #e8eef7;
+}
+
+.downtime-cancel-btn,.downtime-save-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 15px;border-radius:10px;font:inherit;font-weight:800;cursor:pointer}
+.downtime-cancel-btn{border:1px solid #ccd7e6;color:#475569;background:#fff}
+.downtime-save-btn{border:1px solid #2563eb;color:#fff;background:#2563eb}
+.downtime-save-btn:disabled{cursor:wait;opacity:.62}
+.downtime-save-btn i{width:17px;height:17px}
+
+.downtime-feedback{
+    position:fixed;
+    z-index:1700;
+    right:24px;
+    bottom:24px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    max-width:min(420px,calc(100vw - 32px));
+    padding:14px 17px;
+    border:1px solid #86efac;
+    border-radius:13px;
+    color:#166534;
+    background:#f0fdf4;
+    box-shadow:0 18px 50px rgba(15,23,42,.2);
+    font-weight:700;
+    opacity:0;
+    transform:translateY(12px);
+    transition:.22s;
+}
+
+.downtime-feedback.is-visible{opacity:1;transform:translateY(0)}
+.downtime-feedback i{flex:0 0 auto;width:20px;height:20px}
+
+@media(max-width:600px){
+    .downtime-input-grid{grid-template-columns:1fr}
+    .downtime-dialog header,.downtime-dialog-body,.downtime-dialog footer{padding-right:18px;padding-left:18px}
+    .downtime-dialog footer{flex-direction:column-reverse}
+    .downtime-cancel-btn,.downtime-save-btn{width:100%}
+    .downtime-feedback{right:16px;bottom:16px;left:16px}
+}
 /* ==========================================
    TABLE
 ========================================== */

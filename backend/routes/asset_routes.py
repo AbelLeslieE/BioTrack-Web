@@ -7,6 +7,7 @@ from fastapi import (
     Depends,
     UploadFile,
     File,
+    Form,
     HTTPException
 )
 from sqlalchemy.orm import Session
@@ -48,11 +49,15 @@ def _assets_visible_to(db: Session, current_user: User):
 @router.post("/upload", dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))])
 async def upload_asset_excel(
     file: UploadFile = File(...),
+    service_team: str | None = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
 
-    result = import_assets_from_excel(file.file, db, team_for_user(current_user))
+    if current_user.role == "Manager" and not service_team:
+        raise HTTPException(status_code=422, detail="Select the service team for this import.")
+
+    result = import_assets_from_excel(file.file, db, team_for_user(current_user, service_team))
 
     return result
 

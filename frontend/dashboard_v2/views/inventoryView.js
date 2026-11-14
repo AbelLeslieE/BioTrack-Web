@@ -656,24 +656,16 @@ async function deleteInventory(id) {
 
     }
 
-    const response = await fetch(
-
-        `${INVENTORY_API}/${id}`,
-
-        {
-
-            method: "DELETE"
-
+    try {
+        const response = await fetch(`${INVENTORY_API}/${id}`, { method: "DELETE" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) {
+            throw new Error(result.detail || "Unable to delete this inventory item.");
         }
-
-    );
-
-    const result = await response.json();
-
-    if (result.success) {
-
+        showInventoryToast("Inventory item deleted.");
         await loadInventory();
-
+    } catch (error) {
+        alert(error.message || "Unable to delete this inventory item.");
     }
 
 }
@@ -740,34 +732,21 @@ async function saveInventoryItem(id = null) {
 
         : "POST";
 
-    const response = await fetch(
-
-        url,
-
-        {
-
+    try {
+        const response = await fetch(url, {
             method,
-
-            headers:{
-
-                "Content-Type":"application/json"
-
-            },
-
-            body:JSON.stringify(payload)
-
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) {
+            throw new Error(result.detail || "Unable to save this inventory item.");
         }
-
-    );
-
-    const result = await response.json();
-
-    if(result.success){
-
         closeInventoryModal();
-
+        showInventoryToast(id ? "Inventory item updated." : "Inventory item added.");
         await loadInventory();
-
+    } catch (error) {
+        alert(error.message || "Unable to save this inventory item.");
     }
 
 }

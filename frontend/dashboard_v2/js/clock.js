@@ -6,14 +6,13 @@ function updateClock() {
 
     const now = new Date();
 
-    const date = now.toLocaleDateString("en-IN", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric"
+    const date = `${now.toLocaleDateString("en-IN", { weekday: "long" })}, ${formatPreferredDate(now)}`;
+    const time = now.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: (localStorage.getItem("timeFormat") || "24 Hour") === "12 Hour",
     });
-
-    const time = now.toLocaleTimeString("en-IN");
 
     const currentDate = document.getElementById("currentDate");
     const currentTime = document.getElementById("currentTime");
@@ -27,6 +26,18 @@ function updateClock() {
         currentTime.textContent = time;
     }
 
+}
+
+function formatPreferredDate(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    const format = localStorage.getItem("dateFormat") || "DD/MM/YYYY";
+    if (format === "MM/DD/YYYY") return `${month}/${day}/${year}`;
+    if (format === "YYYY-MM-DD") return `${year}-${month}-${day}`;
+    return `${day}/${month}/${year}`;
 }
 
 updateClock();
@@ -48,14 +59,11 @@ function formatDateTime(dateString) {
 
     const date = new Date(dateString);
 
-    return date.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
+    return `${formatPreferredDate(date)}, ${date.toLocaleTimeString("en-IN", {
         hour: "2-digit",
         minute: "2-digit",
-        hour12: true
-    });
+        hour12: (localStorage.getItem("timeFormat") || "24 Hour") === "12 Hour",
+    })}`;
 
 }
 
@@ -70,11 +78,7 @@ function formatDate(dateString) {
 
     const date = new Date(dateString);
 
-    return date.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric"
-    });
+    return formatPreferredDate(date);
 
 }
 
@@ -89,10 +93,12 @@ function formatTime(dateString) {
 
     const date = new Date(dateString);
 
-    return date.toLocaleTimeString("en-GB", {
+    return date.toLocaleTimeString("en-IN", {
         hour: "2-digit",
         minute: "2-digit",
-        hour12: true
+        hour12: (localStorage.getItem("timeFormat") || "24 Hour") === "12 Hour",
     });
 
 }
+
+document.addEventListener("biotrack:preferences-changed", updateClock);

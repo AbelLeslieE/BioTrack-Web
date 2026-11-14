@@ -2,7 +2,7 @@
 # IMPORTS
 # ==========================================
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
@@ -315,6 +315,177 @@ def dashboard_v2(
         "recent_activity": recent_activity,
     }
 
+
+@router.get("/api/notifications")
+def notification_feed(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return a role-aware feed used by the in-app and browser notification center."""
+    role = (current_user.role or "").strip().lower()
+    active_statuses = {"Open", "Assigned", "In Progress", "Awaiting Parts"}
+    items: list[dict] = []
+
+    def add_item(
+        notification_id: str,
+        kind: str,
+        title: str,
+        message: str,
+        page: str,
+        priority: str,
+        created_at,
+    ) -> None:
+        if isinstance(created_at, date) and not isinstance(created_at, datetime):
+            created_at = datetime.combine(created_at, datetime.min.time())
+        items.append({
+            "id": notification_id,
+            "kind": kind,
+            "title": title,
+            "message": message,
+            "page": page,
+            "priority": priority,
+            "created_at": created_at.isoformat() if created_at else datetime.now().isoformat(),
+        })
+
+    if role == "user":
+        requests = (
+            db.query(Request)
+            .filter(Request.created_by == current_user.username)
+            .order_by(Request.id.desc())
+            .limit(10)
+            .all()
+        )
+        for request in requests:
+            priority = "critical" if (request.priority or "").lower() == "critical" else "info"
+            add_item(
+                f"request:{request.id}:{request.status}",
+                "request",
+                f"{request.ticket_number or 'Maintenance request'} · {request.status or 'Open'}",
+                f"{request.equipment_name or 'Equipment'} in {request.department or current_user.department or 'your department'}.",
+                "myRequests",
+                priority,
+                request.fixed_datetime or request.engineer_start_datetime or request.call_received_datetime,
+            )
+
+        if current_user.department:
+            schedules = (
+                db.query(PMSchedule)
+                .filter(PMSchedule.department == current_user.department)
+                .order_by(PMSchedule.scheduled_date.asc())
+                .all()
+            )
+            for schedule in schedules:
+                if (schedule.status or "") not in {"Due", "Overdue"} and (schedule.department_response or "Pending") != "Pending":
+                    continue
+                asset_name = schedule.asset.equipment_name if schedule.asset else "Department equipment"
+                add_item(
+                    f"pm:{schedule.id}:{schedule.status}:{schedule.department_response}",
+                    "maintenance",
+                    f"PM visit {str(schedule.status or 'scheduled').lower()}",
+                    f"{asset_name} is scheduled for {schedule.scheduled_date.strftime('%d %b %Y')}.",
+                    "departmentPMSchedule",
+                    "critical" if schedule.status == "Overdue" else "warning",
+                    schedule.updated_at or schedule.scheduled_date,
+                )
+    else:
+        service_team = {
+            "bme": "Biomedical",
+            "electrical": "Electrical",
+            "it": "IT",
+        }.get(role)
+
+        request_query = db.query(Request)
+        inventory_query = db.query(Inventory)
+        asset_query = db.query(Asset)
+        if service_team:
+            request_query = request_query.filter(Request.service_team == service_team)
+            inventory_query = inventory_query.filter(Inventory.service_team == service_team)
+            asset_query = asset_query.filter(Asset.service_team == service_team)
+
+        critical_requests = (
+            request_query
+            .filter(Request.status.in_(active_statuses), Request.priority == "Critical")
+            .order_by(Request.id.desc())
+            .limit(8)
+            .all()
+        )
+        for request in critical_requests:
+            add_item(
+                f"critical-call:{request.id}:{request.status}",
+                "critical-call",
+                f"Critical call · {request.ticket_number or f'#{request.id}'}",
+                f"{request.equipment_name or 'Equipment'} is {str(request.status or 'open').lower()} in {request.department or 'an unassigned department'}.",
+                "callManagement",
+                "critical",
+                request.engineer_start_datetime or request.call_received_datetime,
+            )
+
+        low_stock_items = (
+            inventory_query
+            .filter(Inventory.current_stock <= Inventory.minimum_stock)
+            .order_by(Inventory.current_stock.asc(), Inventory.id.desc())
+            .limit(8)
+            .all()
+        )
+        for stock in low_stock_items:
+            current_stock = stock.current_stock or 0
+            add_item(
+                f"stock:{stock.id}:{current_stock}",
+                "stock",
+                "Out of stock" if current_stock <= 0 else "Low stock alert",
+                f"{stock.item_name} has {current_stock} {stock.unit or 'units'} remaining (minimum {stock.minimum_stock or 0}).",
+                "inventory",
+                "critical" if current_stock <= 0 else "warning",
+                stock.updated_at or stock.created_at,
+            )
+
+        unavailable_assets = (
+            asset_query
+            .filter(Asset.status.in_(("Out of Service", "Inactive")))
+            .order_by(Asset.updated_at.desc(), Asset.id.desc())
+            .limit(5)
+            .all()
+        )
+        for asset in unavailable_assets:
+            add_item(
+                f"asset:{asset.id}:{asset.status}",
+                "asset",
+                f"Asset {str(asset.status or 'unavailable').lower()}",
+                f"{asset.equipment_name} ({asset.asset_code}) is unavailable in {asset.department or 'the hospital'}.",
+                "assets",
+                "warning",
+                asset.updated_at or asset.created_at,
+            )
+
+        if role in {"manager", "admin", "bme"}:
+            pm_query = db.query(PMSchedule).filter(PMSchedule.status.in_(("Due", "Overdue")))
+            if service_team:
+                biomedical_asset_ids = db.query(Asset.id).filter(Asset.service_team == service_team)
+                pm_query = pm_query.filter(PMSchedule.asset_id.in_(biomedical_asset_ids))
+            for schedule in pm_query.order_by(PMSchedule.scheduled_date.asc()).limit(8).all():
+                asset_name = schedule.asset.equipment_name if schedule.asset else "Equipment"
+                add_item(
+                    f"pm:{schedule.id}:{schedule.status}",
+                    "maintenance",
+                    f"Preventive maintenance {str(schedule.status or 'due').lower()}",
+                    f"{asset_name} was scheduled for {schedule.scheduled_date.strftime('%d %b %Y')}.",
+                    "pm",
+                    "critical" if schedule.status == "Overdue" else "warning",
+                    schedule.updated_at or schedule.scheduled_date,
+                )
+
+    priority_order = {"critical": 0, "warning": 1, "info": 2}
+    items.sort(
+        key=lambda item: (
+            priority_order.get(item["priority"], 3),
+            item["created_at"],
+        )
+    )
+    return {
+        "generated_at": datetime.now().isoformat(),
+        "items": items[:25],
+    }
+
 # ==========================================
 # EDIT REQUEST
 # ==========================================
@@ -326,7 +497,8 @@ def dashboard_v2(
 def edit_request(
     ticket: str,
     data: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
 
     request = (
@@ -375,12 +547,11 @@ def edit_request(
                 )
             )
 
-        request.final_downtime_hours = (
-            data.get(
-                "downtime",
-                request.final_downtime_hours
-            )
-        )
+        if "downtime" in data:
+            if current_user.role.casefold() != "manager":
+                raise HTTPException(status_code=403, detail="Only administrators can change downtime.")
+            request.manual_downtime_hours = round(float(data["downtime"]), 2)
+            request.final_downtime_hours = request.manual_downtime_hours
 
         db.commit()
 

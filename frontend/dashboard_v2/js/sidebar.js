@@ -4,7 +4,8 @@
 
 const sidebar = document.getElementById("sidebar-nav");
 
-const role = (localStorage.getItem("role") || "").toLowerCase();
+const storedRole = (localStorage.getItem("role") || "").toLowerCase();
+const role = storedRole === "manager" ? "admin" : storedRole === "bme" ? "engineer" : storedRole;
 
 // ==========================================
 // ADMIN MENU

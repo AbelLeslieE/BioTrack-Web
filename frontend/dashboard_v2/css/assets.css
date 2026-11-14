@@ -393,6 +393,70 @@ HERO ACTION PANEL
     justify-content:center;
 
 }
+
+.asset-import-team-label{
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    color:#526583;
+    font-size:12px;
+    font-weight:800;
+    text-align:left;
+}
+
+.asset-import-team-label select{
+    width:100%;
+    padding:11px 12px;
+    border:1px solid #d6e0ed;
+    border-radius:10px;
+    color:#1e293b;
+    background:#f8fbff;
+    font:inherit;
+    font-size:13px;
+}
+
+.asset-team-badge{
+    display:inline-flex;
+    padding:5px 9px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:800;
+    white-space:nowrap;
+}
+
+.asset-team-badge.is-biomedical{color:#047857;background:#d1fae5}
+.asset-team-badge.is-electrical{color:#b45309;background:#fef3c7}
+.asset-team-badge.is-it{color:#6d28d9;background:#ede9fe}
+
+.asset-mode-switcher{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    padding:17px 20px;
+    border:1px solid #dbe6f5;
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 8px 24px rgba(15,23,42,.05);
+}
+
+.asset-mode-switcher>div:first-child{display:flex;flex-direction:column;gap:3px}
+.asset-mode-switcher>div:first-child span{color:#64748b;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.asset-mode-switcher>div:first-child strong{color:#172554;font-size:16px}
+.asset-mode-options{display:grid;grid-template-columns:repeat(4,minmax(100px,1fr));gap:7px;padding:5px;border-radius:13px;background:#eef3fb}
+.asset-mode-options button{padding:10px 14px;border:0;border-radius:9px;color:#526583;background:transparent;font:inherit;font-size:13px;font-weight:800;cursor:pointer;transition:.18s}
+.asset-mode-options button:hover{color:#1d4ed8;background:#e0eaff}
+.asset-mode-options button.is-active{color:#fff;background:#2563eb;box-shadow:0 6px 14px rgba(37,99,235,.22)}
+.asset-kpi-mode{display:inline-flex;width:max-content;margin-top:4px;padding:3px 7px;border-radius:999px;color:#3562a2;background:#eaf1ff;font-size:10px!important;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+
+@media(max-width:900px){
+    .asset-mode-switcher{align-items:stretch;flex-direction:column}
+    .asset-mode-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media(max-width:520px){
+    .asset-mode-options{grid-template-columns:1fr}
+}
 /*==============================
 NEW KPI DESIGN
 ==============================*/
@@ -643,4 +707,119 @@ VIEW BUTTON
     );
 
 }
- 
+
+/* Asset QR actions */
+.asset-qr-table-button{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    min-height:34px;
+    padding:7px 11px;
+    border:1px solid #cbd5e1;
+    border-radius:9px;
+    background:#fff;
+    color:#475569;
+    font:inherit;
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+}
+
+.asset-qr-table-button:hover,
+.asset-qr-table-button.is-ready{
+    border-color:#2563eb;
+    background:#eff6ff;
+    color:#1d4ed8;
+}
+
+.asset-qr-table-button svg{ width:15px; height:15px; }
+.asset-qr-unavailable{ color:#94a3b8; font-size:12px; font-weight:600; }
+
+.asset-qr-overlay{
+    position:fixed;
+    inset:0;
+    z-index:2500;
+    display:grid;
+    place-items:center;
+    padding:20px;
+    background:rgba(15,23,42,.58);
+    backdrop-filter:blur(5px);
+}
+
+.asset-qr-dialog{
+    width:min(560px,100%);
+    max-height:calc(100vh - 40px);
+    overflow:auto;
+    border-radius:22px;
+    background:#fff;
+    box-shadow:0 28px 80px rgba(15,23,42,.28);
+}
+
+.asset-qr-dialog-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:20px;
+    padding:24px 26px 18px;
+    border-bottom:1px solid #e2e8f0;
+}
+
+.asset-qr-dialog-header h2{ margin:0 0 4px; font-size:22px; color:#0f172a; }
+.asset-qr-dialog-header p{ margin:0; color:#64748b; font-size:13px; }
+.asset-qr-close{
+    display:grid;
+    place-items:center;
+    width:36px;
+    height:36px;
+    border:0;
+    border-radius:10px;
+    background:#f1f5f9;
+    color:#334155;
+    font-size:22px;
+    cursor:pointer;
+}
+
+.asset-qr-dialog-body{ padding:24px 26px; }
+.asset-qr-dialog-body label{ display:block; margin-bottom:8px; color:#334155; font-size:13px; font-weight:700; }
+.asset-qr-dialog-body select{
+    width:100%;
+    min-height:46px;
+    padding:0 13px;
+    border:1px solid #cbd5e1;
+    border-radius:11px;
+    background:#fff;
+    color:#0f172a;
+}
+
+.asset-qr-preview{
+    display:grid;
+    place-items:center;
+    min-height:220px;
+    margin-top:20px;
+    padding:20px;
+    border:1px dashed #bfdbfe;
+    border-radius:16px;
+    background:#f8fbff;
+    color:#64748b;
+    text-align:center;
+}
+
+.asset-qr-preview img{ width:min(220px,100%); height:auto; }
+.asset-qr-preview strong{ display:block; margin-top:10px; color:#0f172a; }
+.asset-qr-dialog-footer{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    padding:18px 26px 24px;
+}
+
+.asset-qr-dialog-footer .primary-btn,
+.asset-qr-dialog-footer .secondary-btn{ min-width:120px; }
+
+@media (max-width:600px){
+    .asset-qr-dialog-header,
+    .asset-qr-dialog-body{ padding-left:18px; padding-right:18px; }
+    .asset-qr-dialog-footer{ flex-direction:column-reverse; padding:16px 18px 20px; }
+    .asset-qr-dialog-footer button{ width:100%; }
+}
+

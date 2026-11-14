@@ -189,6 +189,7 @@ def get_ticket(
         else "",
         "notes": ticket.engineer_notes or "",
         "work_done": ticket.work_done or "",
+        "downtime": ticket.final_downtime_hours or 0,
         "spare_parts": _saved_spare_parts(ticket.spare_parts),
         "stock_deducted": ticket.stock_deducted,
     }
@@ -277,10 +278,12 @@ def update_ticket(
     if ticket.status in {"Completed", "Closed"} and ticket.fixed_datetime is None:
         ticket.fixed_datetime = datetime.now()
         if ticket.call_received_datetime:
-            ticket.final_downtime_hours = round(
+            ticket.calculated_downtime_hours = round(
                 (ticket.fixed_datetime - ticket.call_received_datetime).total_seconds() / 3600,
                 2,
             )
+            if ticket.manual_downtime_hours is None:
+                ticket.final_downtime_hours = ticket.calculated_downtime_hours
 
     db.commit()
     db.refresh(ticket)

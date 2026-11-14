@@ -3,6 +3,29 @@
 // ==========================================
 
 const pageContent = document.getElementById("page-content");
+
+function normalizeDashboardRole(value) {
+    const role = String(value || "").trim().toLowerCase();
+    if (role === "manager") return "admin";
+    if (role === "bme") return "engineer";
+    return role;
+}
+
+const ROLE_HOME_PAGES = {
+    admin: "dashboard",
+    engineer: "engineerDashboard",
+    electrical: "electricalDashboard",
+    it: "itDashboard",
+    user: "userDashboard",
+};
+
+const ROLE_PAGE_ACCESS = {
+    admin: new Set(["dashboard", "ticket", "callManagement", "callAssignment", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "pm", "reports", "users", "qr", "settings"]),
+    engineer: new Set(["engineerDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "pm", "reports", "qr", "settings"]),
+    electrical: new Set(["electricalDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "settings"]),
+    it: new Set(["itDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "settings"]),
+    user: new Set(["userDashboard", "newRequest", "myRequests", "myAssets", "assetDetails", "departmentPMSchedule", "requestDetails", "qr", "settings"]),
+};
 // ==========================================
 // CURRENT SELECTED ASSET
 // ==========================================
@@ -45,8 +68,7 @@ const Pages = {
     reports: renderReports,
     ai: renderAI,
     users: renderUsers,
-     
-    qr: renderQR,
+    qr: renderQRScannerModule,
     settings: renderSettings
 
 };
@@ -56,6 +78,28 @@ const Pages = {
 // ==========================================
 
 function navigate(page) {
+    const role = normalizeDashboardRole(localStorage.getItem("role"));
+    const allowedPages = ROLE_PAGE_ACCESS[role];
+
+    if (!allowedPages || !allowedPages.has(page)) {
+        const homePage = ROLE_HOME_PAGES[role];
+        console.warn(`Blocked navigation to ${page} for role ${role || "unknown"}.`);
+        if (!homePage) {
+            window.location.href = "/";
+            return;
+        }
+        if (page !== homePage && Pages[homePage]) navigate(homePage);
+        return;
+    }
+
+    if (
+        page !== "qr"
+        && typeof isQRScannerActive === "function"
+        && isQRScannerActive()
+        && typeof closeQRScanner === "function"
+    ) {
+        void closeQRScanner();
+    }
 
     // Check page exists
     if (!Pages[page]) {
@@ -87,6 +131,10 @@ function navigate(page) {
 
     Pages[page]();
 
+    if (page === "qr" && typeof openQRScanner === "function") {
+        window.setTimeout(openQRScanner, 0);
+    }
+
     // Refresh Lucide icons for dynamically rendered pages
     if (window.lucide) {
 
@@ -102,46 +150,14 @@ function navigate(page) {
 
 document.addEventListener("DOMContentLoaded", () => {
 
-    const role = (localStorage.getItem("role") || "").toLowerCase();
-    // Default page based on role
-    switch (role) {
-
-        case "admin":
-        case "manager":
-
-            navigate("dashboard");
-
-            break;
-
-        case "user":
-            navigate("userDashboard");
-            break;
-
-        case "engineer":
-
-        navigate("engineerDashboard");
-
-        break;
-
-        case "electrical":
-
-        navigate("electricalDashboard");
-
-        break;
-
-        case "it":
-
-        navigate("itDashboard");
-
-        break;
-
-        default:
-
-            window.location.href = "/";
-
-            return;
-
+    const role = normalizeDashboardRole(localStorage.getItem("role"));
+    const homePage = ROLE_HOME_PAGES[role];
+    if (!homePage) {
+        window.location.href = "/";
+        return;
     }
+    const requestedPage = new URLSearchParams(window.location.search).get("page");
+    navigate(requestedPage && ROLE_PAGE_ACCESS[role].has(requestedPage) ? requestedPage : homePage);
 
     // Sidebar navigation
     document.querySelectorAll(".nav-item").forEach(item => {

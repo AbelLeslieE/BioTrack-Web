@@ -170,6 +170,24 @@ async function loadTicket() {
                         <strong>${escapeHTML(ticket.priority)}</strong>
                     </div>
 
+                    <div class="info-item ticket-downtime-item">
+                        <label>Downtime</label>
+                        <div class="ticket-downtime-value">
+                            ${isMaintenanceAdmin() ? `
+                                <button
+                                    type="button"
+                                    class="ticket-downtime-trigger"
+                                    data-ticket="${escapeHTML(ticket.ticket)}"
+                                    data-hours="${Number(ticket.downtime || 0)}"
+                                    onclick="handleDowntimeSecretClick(this.dataset.ticket, Number(this.dataset.hours))"
+                                    aria-label="Downtime ${formatDowntime(ticket.downtime)}"
+                                >
+                                    ${formatDowntime(ticket.downtime)}
+                                </button>
+                            ` : `<strong>${formatDowntime(ticket.downtime)}</strong>`}
+                        </div>
+                    </div>
+
                 </div>
 
             </div>
@@ -310,6 +328,8 @@ async function loadTicket() {
         window.currentTicketServiceTeam = ticket.service_team;
 
         await initializeSparePartsPicker(ticket.spare_parts, ticket.stock_deducted);
+
+        if (window.lucide) lucide.createIcons();
 
     }
 

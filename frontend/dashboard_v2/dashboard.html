@@ -37,10 +37,10 @@
          CSS
     =========================================== -->
 
-    <link rel="stylesheet" href="/static/dashboard_v2/css/theme.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/theme.css?v=11">
     <link rel="stylesheet" href="/static/dashboard_v2/css/layout.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/sidebar.css">
-    <link rel="stylesheet" href="/static/dashboard_v2/css/topbar.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/topbar.css?v=10">
     <link rel="stylesheet" href="/static/dashboard_v2/css/cards.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/admin_dashboard.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/charts.css">
@@ -59,7 +59,7 @@
     <link rel="stylesheet" href="/static/dashboard_v2/css/new_request.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/my_requests.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/inventory.css">
-    <link rel="stylesheet" href="/static/dashboard_v2/css/settings.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/settings.css?v=11">
     <link rel="stylesheet" href="/static/dashboard_v2/css/reports.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/successModal.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/requestDetails.css">
@@ -67,6 +67,7 @@
     <link rel="stylesheet" href="/static/dashboard_v2/css/pmDrawer.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/department_modules.css">
     <link rel="stylesheet" href="/static/dashboard_v2/css/responsive_overrides.css">
+    <link rel="stylesheet" href="/static/dashboard_v2/css/dark_theme.css?v=22">
 
 
 </head>
@@ -183,6 +184,8 @@
 
                     <i data-lucide="bell"></i>
 
+                    <span class="notification-badge" id="notificationBadge" hidden>0</span>
+
                 </button>
 
                 <div class="date-time">
@@ -247,7 +250,9 @@
 <script src="/static/dashboard_v2/js/logout.js"></script>
 <script src="/static/dashboard_v2/js/dashboard.js"></script>
 <script src="/static/dashboard_v2/js/sidebar.js"></script>
-<script src="/static/dashboard_v2/js/topbarInteractions.js"></script>
+<script src="/static/dashboard_v2/js/preferences.js?v=11"></script>
+<script src="/static/dashboard_v2/js/notifications.js?v=10"></script>
+<script src="/static/dashboard_v2/js/topbarInteractions.js?v=10"></script>
 <script src="/static/dashboard_v2/js/responsive_tables.js"></script>
 <script src="/static/dashboard_v2/views/engineerDashboardView.js"></script>
 <script src="/static/dashboard_v2/views/dashboardView.js"></script>
@@ -263,7 +268,7 @@
 <script src="/static/dashboard_v2/views/assetDetailsView.js"></script>
 <script src="/static/dashboard_v2/views/maintenanceModuleView.js"></script>
 <script src="/static/dashboard_v2/views/inventoryView.js"></script>
-<script src="/static/dashboard_v2/js/settings.js"></script>
+<script src="/static/dashboard_v2/js/settings.js?v=11"></script>
 <script src="/static/dashboard_v2/views/pmView.js"></script>
 <script src="/static/dashboard_v2/js/pmCalendar.js"></script>
 <script src="/static/dashboard_v2/js/pmDrawer.js"></script>
@@ -272,18 +277,18 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/static/dashboard_v2/js/reports.js"></script>
 <script src="/static/dashboard_v2/views/usersView.js"></script>
+<script src="/static/dashboard_v2/views/qrScannerView.js"></script>
 <script src="/static/dashboard_v2/js/requestDetails.js"></script>
 <script src="/static/dashboard_v2/views/requestDetailsView.js"></script>
 <script src="/static/dashboard_v2/js/successModal.js"></script>
 <script src="/static/dashboard_v2/views/myRequestsView.js"></script>
-<script src="/static/dashboard_v2/views/qrView.js"></script>
 <script src="/static/dashboard_v2/views/settingsView.js"></script>
 <script src="/static/dashboard_v2/views/aiView.js"></script>
 <script src="/static/dashboard_v2/js/asset_profile.js"></script>
 <script src="/static/js/biomedical_dashboard.js"></script>
 <script src="/static/dashboard_v2/js/router.js"></script>
 <script src="/static/dashboard_v2/js/new_request.js"></script>
-<script src="/static/dashboard_v2/js/clock.js"></script>
+<script src="/static/dashboard_v2/js/clock.js?v=11"></script>
 <script src="/static/dashboard_v2/js/assets_details.js"></script>
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script src="/static/dashboard_v2/js/qr_scanner.js"></script>

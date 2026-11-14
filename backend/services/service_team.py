@@ -1,4 +1,4 @@
-"""Service-team ownership and query scoping for Biomedical and Electrical data."""
+"""Service-team ownership and query scoping for Biomedical, Electrical and IT data."""
 
 from fastapi import HTTPException
 
@@ -7,7 +7,7 @@ SERVICE_TEAMS = {"Biomedical", "Electrical", "IT"}
 
 
 def team_for_user(current_user, requested_team: str | None = None) -> str | None:
-    """Return the enforced team for engineers; managers may work across both teams."""
+    """Return the enforced team for engineers; managers may work across every team."""
     if current_user.role == "BME":
         return "Biomedical"
     if current_user.role == "Electrical":

@@ -148,6 +148,28 @@
 
 }
 
+.ticket-downtime-item{grid-column:1/-1}
+
+.ticket-downtime-value{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+}
+
+.ticket-downtime-trigger{
+    appearance:none;
+    padding:0;
+    border:0;
+    color:#17233c;
+    background:transparent;
+    font:inherit;
+    font-weight:700;
+    cursor:default;
+}
+
+.ticket-downtime-trigger:focus-visible{outline:2px solid #2563eb;outline-offset:4px;border-radius:3px}
+
 /* ==========================================================
    LARGE CARDS
 ========================================================== */

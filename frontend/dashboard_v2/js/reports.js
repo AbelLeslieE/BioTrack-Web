@@ -464,6 +464,20 @@ function createReportsRipple(event){
    CHARTS
 ========================================================== */
 
+function reportsDarkModeEnabled(){
+    return document.body.classList.contains("dark-theme");
+}
+
+function reportsChartGridColor(){
+    return reportsDarkModeEnabled() ? "rgba(148,163,184,.18)" : "#eef2f7";
+}
+
+function applyReportsChartTheme(){
+    if(typeof Chart === "undefined") return;
+    Chart.defaults.color = reportsDarkModeEnabled() ? "#aebed2" : "#64748b";
+    Chart.defaults.borderColor = reportsChartGridColor();
+}
+
 function initializeReportsCharts(){
 
     createReportsOverviewChart();
@@ -483,6 +497,8 @@ function initializeReportsCharts(){
 ========================================================== */
 
 function createReportsOverviewChart(){
+
+    applyReportsChartTheme();
 
     const canvas=document.getElementById("reportsOverviewChart");
 
@@ -545,7 +561,7 @@ function createReportsOverviewChart(){
 
                     beginAtZero:true,
 
-                    grid:{color:"#eef2f7"}
+                    grid:{color:reportsChartGridColor()}
 
                 }
 
@@ -562,6 +578,8 @@ function createReportsOverviewChart(){
 ========================================================== */
 
 function createReportsStatusChart(){
+
+    applyReportsChartTheme();
 
     const canvas=document.getElementById("reportsStatusChart");
 
@@ -628,6 +646,8 @@ function createReportsStatusChart(){
 ========================================================== */
 
 function createReportsCategoryChart(){
+
+    applyReportsChartTheme();
 
     const canvas=document.getElementById("reportsCategoryChart");
 
@@ -703,6 +723,8 @@ function createReportsCategoryChart(){
 
 function createReportsDepartmentChart(){
 
+    applyReportsChartTheme();
+
     const canvas=document.getElementById("reportsDepartmentChart");
 
     if(!canvas || typeof Chart==="undefined") return;
@@ -767,7 +789,7 @@ function createReportsDepartmentChart(){
 
                     beginAtZero:true,
 
-                    grid:{color:"#eef2f7"}
+                    grid:{color:reportsChartGridColor()}
 
                 }
 
@@ -784,6 +806,8 @@ function createReportsDepartmentChart(){
 ========================================================== */
 
 function createReportsDowntimeChart(){
+
+    applyReportsChartTheme();
 
     const canvas=document.getElementById("reportsDowntimeChart");
 
@@ -846,7 +870,7 @@ function createReportsDowntimeChart(){
 
                     beginAtZero:true,
 
-                    grid:{color:"#eef2f7"}
+                    grid:{color:reportsChartGridColor()}
 
                 }
 

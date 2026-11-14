@@ -48,6 +48,14 @@ class MaintenanceRequestCreate(BaseModel):
     failure_description: str = Field(min_length=1, max_length=4000)
 
 
+class DowntimeOverride(BaseModel):
+    """Administrator-supplied downtime stored directly on a maintenance call."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    hours: float = Field(ge=0, le=1_000_000)
+
+
 def ticket_number_for(request_id: int, created_at: datetime) -> str:
     """Build a stable ticket number from the database-generated primary key."""
     return f"BT-{created_at.year}-{request_id:06d}"
@@ -383,13 +391,49 @@ def update_status(
                 )
             )
 
-            request.final_downtime_hours = (
-                request.calculated_downtime_hours
-            )
+            if request.manual_downtime_hours is None:
+                request.final_downtime_hours = (
+                    request.calculated_downtime_hours
+                )
     db.commit()
 
     return {
         "success": True
+    }
+
+
+# ==========================================
+# ADMIN DOWNTIME OVERRIDE
+# ==========================================
+
+@router.patch("/api/requests/{ticket}/downtime")
+def override_request_downtime(
+    ticket: str,
+    data: DowntimeOverride,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("Manager")),
+):
+    """Replace the displayed downtime without creating a history or audit entry."""
+    del current_user
+
+    maintenance_request = (
+        db.query(Request)
+        .filter(Request.ticket_number == ticket)
+        .first()
+    )
+    if not maintenance_request:
+        raise HTTPException(status_code=404, detail="Maintenance request not found.")
+
+    hours = round(float(data.hours), 2)
+    maintenance_request.manual_downtime_hours = hours
+    maintenance_request.final_downtime_hours = hours
+    db.commit()
+    db.refresh(maintenance_request)
+
+    return {
+        "success": True,
+        "ticket": maintenance_request.ticket_number,
+        "downtime": maintenance_request.final_downtime_hours,
     }
 # ==========================================
 # DELETE REQUEST
@@ -434,7 +478,8 @@ def delete_request(
 def edit_request(
     ticket: str,
     data: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
 
     request = (
@@ -476,12 +521,11 @@ def edit_request(
             )
         )
 
-    request.final_downtime_hours = (
-        data.get(
-            "downtime",
-            0
-        )
-    )
+    if "downtime" in data:
+        if current_user.role.casefold() != "manager":
+            raise HTTPException(status_code=403, detail="Only administrators can change downtime.")
+        request.manual_downtime_hours = round(float(data["downtime"]), 2)
+        request.final_downtime_hours = request.manual_downtime_hours
 
     db.commit()
 

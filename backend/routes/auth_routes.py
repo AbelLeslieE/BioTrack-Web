@@ -2,7 +2,7 @@
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.services.auth_service import authenticate_user
@@ -30,6 +30,17 @@ class ChangePasswordRequest(BaseModel):
         if len(value.encode("utf-8")) > 72:
             raise ValueError("Password must be no more than 72 UTF-8 bytes.")
         return value
+
+
+class ProfileUpdateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    email: EmailStr
+    phone: str = Field(default="", max_length=30)
+
+    @field_validator("name", "phone")
+    @classmethod
+    def trim_profile_fields(cls, value: str) -> str:
+        return value.strip()
 
 @router.post('/api/auth/login')
 def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
@@ -80,6 +91,37 @@ def change_password(
     ).decode("utf-8")
     db.commit()
     return {"success": True, "message": "Password changed successfully."}
+
+
+@router.get('/api/auth/me')
+def current_profile(current_user: User = Depends(get_current_user)):
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "name": current_user.name or current_user.username,
+        "email": current_user.email or "",
+        "phone": current_user.phone or "",
+        "department": current_user.department or "",
+        "role": current_user.role,
+    }
+
+
+@router.patch('/api/auth/profile')
+def update_current_profile(
+    payload: ProfileUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    current_user.name = payload.name
+    current_user.email = str(payload.email)
+    current_user.phone = payload.phone
+    db.commit()
+    return {
+        "success": True,
+        "name": current_user.name,
+        "email": current_user.email,
+        "phone": current_user.phone,
+    }
 
 
 @router.post("/api/logout")

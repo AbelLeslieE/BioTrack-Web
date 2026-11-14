@@ -722,7 +722,7 @@ MODAL BODY
 
 }
 
-#qr-reader{
+#reader{
 
     width:100%;
 
@@ -742,4 +742,16 @@ MODAL BODY
 
     color:#64748b;
 
+}
+
+.scanner-note.is-error{
+    color:#b91c1c;
+    font-weight:600;
+}
+
+@media (max-width:600px){
+    .qr-scanner-overlay{ align-items:flex-end; }
+    .qr-scanner-modal{ width:100%; max-width:100%; border-radius:22px 22px 0 0; }
+    .qr-scanner-header{ padding:18px 20px; }
+    .qr-scanner-body{ padding:18px; }
 }

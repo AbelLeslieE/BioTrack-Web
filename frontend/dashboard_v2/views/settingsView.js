@@ -131,7 +131,7 @@ function renderSettings() {
 
             <div class="detail-row">
 
-                <label>Employee ID</label>
+                <label>Department</label>
 
                 <span id="settingsEmployeeId">
                     Loading...
@@ -195,7 +195,7 @@ function renderSettings() {
 
     <div class="notification-list">
 
-        <!-- Email -->
+        <!-- In-app -->
 
         <div class="notification-item">
 
@@ -203,19 +203,19 @@ function renderSettings() {
 
                 <div class="notification-icon">
 
-                    <i data-lucide="mail"></i>
+                    <i data-lucide="bell-dot"></i>
 
                 </div>
 
                 <div>
 
-                    <h4>Email Notifications</h4>
+                    <h4>In-app Notifications</h4>
 
                     <p>
 
-                        Receive maintenance
-                        updates through your
-                        registered email.
+                        Show operational alerts
+                        in the BioTrack
+                        notification centre.
 
                     </p>
 
@@ -227,7 +227,7 @@ function renderSettings() {
 
                 <input
                     type="checkbox"
-                    id="emailNotification"
+                    id="inAppNotification"
                     checked>
 
                 <span class="slider"></span>
@@ -431,33 +431,25 @@ function renderSettings() {
 
         </div>
 
-        <!-- Two Factor -->
+        <!-- Account protection -->
 
         <div class="security-item">
 
             <div>
 
-                <h4>Two-Factor Authentication</h4>
+                <h4>Account Protection</h4>
 
                 <p>
 
-                    Add an extra layer
-                    of security to
-                    your BioTrack account.
+                    Password hashing, secure cookies
+                    and automatic session expiry
+                    are active.
 
                 </p>
 
             </div>
 
-            <label class="switch">
-
-                <input
-                    type="checkbox"
-                    id="twoFactor">
-
-                <span class="slider"></span>
-
-            </label>
+            <span class="security-status-pill"><i data-lucide="shield-check"></i> Protected</span>
 
         </div>
 
@@ -467,13 +459,13 @@ function renderSettings() {
 
             <div>
 
-                <h4>Active Sessions</h4>
+                <h4>Current Session</h4>
 
                 <p>
 
-                    Review all devices
-                    currently logged into
-                    your account.
+                    Review this browser session,
+                    network address and
+                    expiry time.
 
                 </p>
 
@@ -556,30 +548,26 @@ function renderSettings() {
 
         </div>
 
-        <!-- Language -->
+        <!-- Density -->
 
         <div class="preference-item">
 
             <div class="preference-left">
 
-                <i data-lucide="languages"></i>
+                <i data-lucide="rows-3"></i>
 
-                <span>Language</span>
+                <span>Interface Density</span>
 
             </div>
 
-            <select id="languageSelect">
+            <select id="densitySelect">
 
-                <option value="english" selected>
-                    English
+                <option value="comfortable" selected>
+                    Comfortable
                 </option>
 
-                <option value="malayalam">
-                    Malayalam
-                </option>
-
-                <option value="hindi">
-                    Hindi
+                <option value="compact">
+                    Compact
                 </option>
 
             </select>
@@ -809,7 +797,7 @@ function renderSettings() {
 
             <span id="systemVersion">
 
-                Version 1.0.0
+                Version 2.0.0
 
             </span>
 

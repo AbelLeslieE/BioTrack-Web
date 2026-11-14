@@ -5,11 +5,22 @@
 let currentStep = 1;
 
 const assetFormData = {};
+
+function currentAssetServiceTeam() {
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    if (role === "electrical") return "Electrical";
+    if (role === "it") return "IT";
+    if (role === "engineer" || role === "bme") return "Biomedical";
+    return assetFormData.service_team || "";
+}
 // ==========================================
 // ASSET REGISTRATION PAGE
 // ==========================================
 
 function renderAssetForm() {
+
+    const adminView = isAssetAdministrator();
+    const serviceTeam = currentAssetServiceTeam();
 
     pageContent.innerHTML = `
 
@@ -33,15 +44,15 @@ function renderAssetForm() {
 
                 <span class="asset-badge">
 
-                    Biomedical Asset Registration
+                    ${adminView ? "Multi-team Asset Registration" : `${serviceTeam} Asset Registration`}
 
                 </span>
 
-                <h1>Register New Biomedical Asset</h1>
+                <h1>Register New ${adminView ? "Hospital" : serviceTeam} Asset</h1>
 
                 <p>
 
-                    Create a complete biomedical equipment record for the hospital asset registry.
+                    Create a complete equipment record with the correct engineering service-team ownership.
 
                 </p>
 
@@ -175,6 +186,20 @@ function renderBasicInformationSection() {
 
         <div class="asset-form-grid">
 
+            <div class="form-group">
+                <label>Service Team <span class="required">*</span></label>
+                ${isAssetAdministrator() ? `
+                    <select id="service_team">
+                        <option value="">Select Service Team</option>
+                        <option value="Biomedical">Biomedical</option>
+                        <option value="Electrical">Electrical</option>
+                        <option value="IT">IT</option>
+                    </select>
+                ` : `
+                    <input id="service_team" type="text" value="${currentAssetServiceTeam()}" disabled>
+                `}
+            </div>
+
             <!-- Equipment ID -->
 
             <div class="form-group">
@@ -234,6 +259,13 @@ function renderBasicInformationSection() {
                     <option>Ultrasound</option>
                     <option>X-Ray</option>
                     <option>Laboratory Equipment</option>
+                    <option>Electrical Panel</option>
+                    <option>Generator</option>
+                    <option>UPS</option>
+                    <option>HVAC</option>
+                    <option>Server</option>
+                    <option>Network Device</option>
+                    <option>Computer</option>
                     <option>Other</option>
 
                 </select>
@@ -419,7 +451,7 @@ function initializeAssetFormNavigation() {
         switch (currentStep) {
 
             case 1:
-                saveBasicInformation();
+                if (saveBasicInformation() === false) return;
                 break;
 
             case 2:
@@ -456,6 +488,15 @@ function initializeAssetFormNavigation() {
 
 function saveBasicInformation() {
 
+    assetFormData.service_team =
+        document.getElementById("service_team")?.value || currentAssetServiceTeam();
+
+    if (!assetFormData.service_team) {
+        alert("Select Biomedical, Electrical or IT as the service team.");
+        document.getElementById("service_team")?.focus();
+        return false;
+    }
+
     assetFormData.equipmentId =
         document.getElementById("equipmentId").value;
 
@@ -490,6 +531,8 @@ function saveBasicInformation() {
         document.getElementById("description").value;
 
     console.log(assetFormData);
+
+    return true;
 
 }
  
@@ -1027,6 +1070,14 @@ function renderAssetSummary() {
     container.innerHTML = `
 
         <table class="asset-summary-table">
+
+            <tr>
+
+                <td><strong>Service Team</strong></td>
+
+                <td>${escapeHTML(assetFormData.service_team || "-")}</td>
+
+            </tr>
 
             <tr>
 

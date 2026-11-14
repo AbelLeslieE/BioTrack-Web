@@ -124,3 +124,57 @@ select{
     font:inherit;
 
 }
+
+/* User-selected display preferences */
+body.compact-density{
+    --page-padding:22px;
+    --section-gap:22px;
+    --card-gap:14px;
+    --topbar-height:70px;
+    font-size:14px;
+}
+body.compact-density .settings-grid{ gap:18px; }
+body.compact-density .settings-card{ padding:22px; }
+
+body.dark-theme{
+    --background:#0b1220;
+    --card:#111c2f;
+    --text:#e5edf8;
+    --border:#29364b;
+    color-scheme:dark;
+}
+body.dark-theme .main-content,
+body.dark-theme .settings-page,
+body.dark-theme .settings-content{ background:var(--background); color:var(--text); }
+body.dark-theme .topbar,
+body.dark-theme .settings-card,
+body.dark-theme .topbar-popover,
+body.dark-theme .profile-edit-dialog,
+body.dark-theme .password-dialog,
+body.dark-theme .notification-center-header,
+body.dark-theme .notification-center-footer{ background:var(--card); color:var(--text); border-color:var(--border); }
+body.dark-theme .settings-card h1,
+body.dark-theme .settings-card h2,
+body.dark-theme .settings-card h3,
+body.dark-theme .settings-card h4,
+body.dark-theme .detail-row span,
+body.dark-theme .preference-left,
+body.dark-theme .security-item h4,
+body.dark-theme .profile-edit-header h2,
+body.dark-theme .password-dialog h2,
+body.dark-theme .session-details strong{ color:#eef5ff; }
+body.dark-theme .settings-card p,
+body.dark-theme .settings-card label,
+body.dark-theme .profile-edit-header p,
+body.dark-theme .password-dialog p,
+body.dark-theme .notification-center-copy small{ color:#9bacbf; }
+body.dark-theme input,
+body.dark-theme select,
+body.dark-theme textarea,
+body.dark-theme .search-box,
+body.dark-theme .profile-button,
+body.dark-theme .session-details>div{ background:#0f1a2d; color:#e5edf8; border-color:#344258; }
+body.dark-theme .notification-center-item{ background:#142239; }
+body.dark-theme .notification-center-item.is-read{ background:#111c2f; }
+body.dark-theme .notification-center-copy strong,
+body.dark-theme .notification-center-header strong{ color:#eef5ff; }

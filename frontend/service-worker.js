@@ -1,4 +1,4 @@
-const CACHE_VERSION = "biotrack-shell-v2";
+const CACHE_VERSION = "biotrack-shell-v23";
 const OFFLINE_URL = "/offline";
 const PRECACHE_URLS = [
     OFFLINE_URL,
@@ -68,8 +68,7 @@ self.addEventListener("fetch", function (event) {
 
     if (url.pathname.startsWith("/static/") || url.pathname === "/manifest.webmanifest") {
         event.respondWith(
-            caches.match(request).then(function (cachedResponse) {
-                const networkResponse = fetch(request)
+            fetch(request, { cache: "no-cache" })
                     .then(function (response) {
                         if (response.ok) {
                             const responseCopy = response.clone();
@@ -80,11 +79,30 @@ self.addEventListener("fetch", function (event) {
                         return response;
                     })
                     .catch(function () {
-                        return cachedResponse || Response.error();
-                    });
-
-                return cachedResponse || networkResponse;
-            })
+                        return caches.match(request).then(function (cachedResponse) {
+                            return cachedResponse || Response.error();
+                        });
+                    })
         );
     }
+});
+
+self.addEventListener("notificationclick", function (event) {
+    event.notification.close();
+    const page = event.notification.data && event.notification.data.page;
+    const targetUrl = page
+        ? `/dashboard_v2?page=${encodeURIComponent(page)}`
+        : "/dashboard_v2";
+    event.waitUntil(
+        clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (windowClients) {
+            const dashboardClient = windowClients.find(function (client) {
+                return new URL(client.url).pathname.startsWith("/dashboard_v2");
+            });
+            if (dashboardClient) {
+                dashboardClient.postMessage({ type: "BIOTRACK_NAVIGATE", page: page });
+                return dashboardClient.focus();
+            }
+            return clients.openWindow(targetUrl);
+        })
+    );
 });

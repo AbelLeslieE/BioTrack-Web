@@ -102,17 +102,18 @@ document.addEventListener("DOMContentLoaded", () => {
         if (event.key === "Escape") closePopups();
     });
 
-    notification.addEventListener("click", () => {
+    notification.addEventListener("click", async () => {
         if (!alertsPanel.hidden) return closePopups();
-        alertsPanel.replaceChildren();
-        const heading = document.createElement("strong");
-        heading.className = "topbar-alert-heading";
-        heading.textContent = "Current operations alerts";
-        const description = document.createElement("p");
-        description.className = "topbar-search-empty";
-        description.textContent = "Open your dashboard to review live calls, PM due dates, inventory alerts, and asset availability.";
-        alertsPanel.append(heading, description);
-        addMenuAction(alertsPanel, "Open dashboard", () => window.navigate?.(homePage()), "layout-dashboard");
+        if (window.BioTrackNotifications) {
+            await window.BioTrackNotifications.renderPanel(alertsPanel);
+        } else {
+            alertsPanel.replaceChildren();
+            const description = document.createElement("p");
+            description.className = "topbar-search-empty";
+            description.textContent = "Notifications are temporarily unavailable. Refresh this page to try again.";
+            alertsPanel.append(description);
+            addMenuAction(alertsPanel, "Open dashboard", () => window.navigate?.(homePage()), "layout-dashboard");
+        }
         openPopup(alertsPanel, notification, true);
         notification.setAttribute("aria-expanded", "true");
         if (window.lucide) window.lucide.createIcons();

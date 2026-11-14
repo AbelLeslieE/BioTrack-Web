@@ -3,18 +3,15 @@
    PART 3A
 ========================================================== */
 function initSettings() {
-
-    initializeNavigation();
-
     initializeProfilePhoto();
+
+    initializeProfileEditor();
 
     initializeNotificationSwitches();
 
     initializeSecurity();
 
     initializePreferences();
-
-    initializeTheme();
 
     initializeBackup();
 
@@ -28,6 +25,8 @@ function initSettings() {
 
     initializeCardEffects();
 
+    initializeKeyboardShortcuts();
+
     showToast(
         "Settings",
         "Settings page loaded successfully.",
@@ -39,7 +38,7 @@ function initSettings() {
    LOAD PROFILE DATA
 ========================================================== */
 
-function loadProfileData() {
+async function loadProfileData() {
 
     const username =
         localStorage.getItem("username") || "Administrator";
@@ -50,8 +49,16 @@ function loadProfileData() {
     const email =
         localStorage.getItem("email") || "admin@biotrack.com";
 
-    const employeeId =
-        localStorage.getItem("employee_id") || "EMP-001";
+    const department =
+        localStorage.getItem("department") || "Not assigned";
+
+    let profile = { username, name: localStorage.getItem("name") || username, role, email, department };
+    try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        if (response.ok) profile = await response.json();
+    } catch (error) {
+        console.warn("Unable to refresh profile data", error);
+    }
 
     const fullName =
         document.getElementById("settingsFullName");
@@ -65,71 +72,76 @@ function loadProfileData() {
     const employee =
         document.getElementById("settingsEmployeeId");
 
-    if(fullName) fullName.textContent = username;
+    if(fullName) fullName.textContent = profile.name || profile.username || username;
 
-    if(emailText) emailText.textContent = email;
+    if(emailText) emailText.textContent = profile.email || "Not provided";
 
-    if(roleText) roleText.textContent = role;
+    if(roleText) roleText.textContent = profile.role || role;
 
-    if(employee) employee.textContent = employeeId;
+    if(employee) employee.textContent = profile.department || department;
 
 }
-/* ==========================================================
-   SIDEBAR NAVIGATION
-========================================================== */
 
-function initializeNavigation() {
+function initializeProfileEditor() {
+    const button = document.getElementById("editProfileBtn");
+    if (!button) return;
 
-    const navItems = document.querySelectorAll(".nav-item");
+    button.addEventListener("click", async () => {
+        let profile;
+        try {
+            const response = await fetch("/api/auth/me", { cache: "no-store" });
+            if (!response.ok) throw new Error("Unable to load your profile.");
+            profile = await response.json();
+        } catch (error) {
+            showToast("Profile", error.message, "fa-circle-exclamation");
+            return;
+        }
 
-    navItems.forEach(item => {
-
-        item.addEventListener("click", () => {
-
-            navItems.forEach(nav => nav.classList.remove("active"));
-
-            item.classList.add("active");
-
-            const target = document.getElementById(item.dataset.target);
-
-            if (!target) return;
-
-                            const sections =
-                    document.querySelectorAll(".settings-card");
-
-                sections.forEach(section => {
-
-                    section.style.display = "none";
-
+        const overlay = document.createElement("div");
+        overlay.className = "profile-edit-overlay";
+        overlay.innerHTML = `
+            <form class="profile-edit-dialog" id="profileEditForm">
+                <div class="profile-edit-header"><div><h2>Edit profile</h2><p>Update your contact information.</p></div><button type="button" class="profile-edit-close" aria-label="Close">×</button></div>
+                <label>Full name<input id="profileEditName" required maxlength="120" value="${escapeHTML(profile.name || "")}"></label>
+                <label>Email address<input id="profileEditEmail" type="email" required value="${escapeHTML(profile.email || "")}"></label>
+                <label>Phone<input id="profileEditPhone" maxlength="30" value="${escapeHTML(profile.phone || "")}"></label>
+                <div class="profile-edit-actions"><button type="button" class="secondary-btn profile-edit-cancel">Cancel</button><button type="submit" class="primary-btn">Save profile</button></div>
+            </form>`;
+        document.body.appendChild(overlay);
+        const close = () => overlay.remove();
+        overlay.querySelector(".profile-edit-close").onclick = close;
+        overlay.querySelector(".profile-edit-cancel").onclick = close;
+        overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
+        overlay.querySelector("#profileEditForm").onsubmit = async event => {
+            event.preventDefault();
+            const saveButton = event.submitter;
+            saveButton.disabled = true;
+            try {
+                const response = await fetch("/api/auth/profile", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        name: overlay.querySelector("#profileEditName").value.trim(),
+                        email: overlay.querySelector("#profileEditEmail").value.trim(),
+                        phone: overlay.querySelector("#profileEditPhone").value.trim(),
+                    }),
                 });
-
-                if (target) {
-
-                    target.style.display = "block";
-
-                }
-                const cards =
-                    document.querySelectorAll(".settings-card");
-
-                cards.forEach(card => {
-
-                    card.style.display = "none";
-
-                });
-
-                const first =
-                    document.getElementById("profile");
-
-                if (first) {
-
-                    first.style.display = "block";
-
-                }
-
-        });
-
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.detail || "Unable to save your profile.");
+                localStorage.setItem("name", result.name);
+                localStorage.setItem("email", result.email);
+                const topUsername = document.getElementById("topUsername");
+                if (topUsername) topUsername.textContent = result.name;
+                close();
+                await loadProfileData();
+                showToast("Profile updated", "Your changes were saved.", "fa-circle-check");
+            } catch (error) {
+                showToast("Profile", error.message, "fa-circle-exclamation");
+                saveButton.disabled = false;
+            }
+        };
+        overlay.querySelector("#profileEditName").focus();
     });
-
 }
 
 /* ==========================================================
@@ -145,6 +157,13 @@ function initializeProfilePhoto() {
     const cameraButton = document.getElementById("changePhoto");
 
     if (!uploadInput || !preview || !cameraButton) return;
+
+    const photoKey = `biotrack-profile-photo:${localStorage.getItem("username") || "user"}`;
+    const savedPhoto = localStorage.getItem(photoKey);
+    if (savedPhoto) {
+        preview.src = savedPhoto;
+        applyProfilePhotoToTopbar(savedPhoto);
+    }
 
     cameraButton.addEventListener("click", () => {
 
@@ -174,11 +193,25 @@ function initializeProfilePhoto() {
 
         }
 
+        if (file.size > 1500000) {
+            showToast("Image Too Large", "Choose a profile image smaller than 1.5 MB.", "fa-circle-exclamation");
+            uploadInput.value = "";
+            return;
+        }
+
         const reader = new FileReader();
 
         reader.onload = e => {
 
             preview.src = e.target.result;
+
+            try {
+                localStorage.setItem(photoKey, e.target.result);
+                applyProfilePhotoToTopbar(e.target.result);
+            } catch (error) {
+                showToast("Profile Photo", "The image could not be stored in this browser.", "fa-circle-exclamation");
+                return;
+            }
 
             showToast(
 
@@ -196,6 +229,18 @@ function initializeProfilePhoto() {
 
     });
 
+}
+
+function applyProfilePhotoToTopbar(source) {
+    const avatar = document.getElementById("topAvatar");
+    const sidebarAvatar = document.getElementById("sidebarAvatar");
+    [avatar, sidebarAvatar].forEach(element => {
+        if (!element) return;
+        element.style.backgroundImage = `url("${source}")`;
+        element.style.backgroundPosition = "center";
+        element.style.backgroundSize = "cover";
+        element.textContent = "";
+    });
 }
 
 /* ==========================================================
@@ -254,12 +299,21 @@ function createRipple(event) {
 function initializeNotificationSwitches() {
 
     const switches = document.querySelectorAll(
-        "#emailNotification, #desktopNotification, #requestUpdates, #pmReminder"
+        "#inAppNotification, #desktopNotification, #requestUpdates, #pmReminder"
     );
+
+    const saved = JSON.parse(localStorage.getItem("biotrack-notifications") || "{}");
 
     switches.forEach(toggle => {
 
-        toggle.addEventListener("change", function () {
+        if (typeof saved[toggle.id] === "boolean") toggle.checked = saved[toggle.id];
+
+        toggle.addEventListener("change", async function () {
+
+            if (this.id === "desktopNotification" && this.checked && "Notification" in window) {
+                const permission = await Notification.requestPermission();
+                if (permission !== "granted") this.checked = false;
+            }
 
             const title = getSettingName(this.id);
 
@@ -277,14 +331,25 @@ function initializeNotificationSwitches() {
 
     });
 
+    const saveButton = document.getElementById("saveNotificationSettings");
+    if (saveButton) {
+        saveButton.addEventListener("click", () => {
+            const preferences = {};
+            switches.forEach(toggle => { preferences[toggle.id] = toggle.checked; });
+            localStorage.setItem("biotrack-notifications", JSON.stringify(preferences));
+            document.dispatchEvent(new CustomEvent("biotrack:notification-preferences-changed", { detail: preferences }));
+            showToast("Notifications", "Notification preferences saved.", "fa-circle-check");
+        });
+    }
+
 }
 
 function getSettingName(id) {
 
     switch (id) {
 
-        case "emailNotification":
-            return "Email Notifications";
+        case "inAppNotification":
+            return "In-app Notifications";
 
         case "desktopNotification":
             return "Desktop Notifications";
@@ -309,66 +374,33 @@ function getSettingName(id) {
 function initializePreferences() {
 
     const theme = document.getElementById("themeSelect");
-    const language = document.getElementById("languageSelect");
+    const density = document.getElementById("densitySelect");
     const date = document.getElementById("dateFormat");
     const time = document.getElementById("timeFormat");
 
-    if (theme) {
+    if (theme) theme.addEventListener("change", () => saveSystemPreference("biotrack-theme", theme.value, "Theme", `${theme.options[theme.selectedIndex].text} theme applied.`));
 
-        theme.addEventListener("change", () => {
-
-            showToast(
-                "Theme",
-                `Theme changed to ${theme.value}.`,
-                "fa-palette"
-            );
-
-        });
-
-    }
-
-    if (language) {
-
-        language.addEventListener("change", () => {
-
-            showToast(
-                "Language",
-                `Language set to ${language.value}.`,
-                "fa-language"
-            );
-
-        });
-
-    }
+    if (density) density.addEventListener("change", () => saveSystemPreference("biotrack-density", density.value, "Interface Density", `${density.options[density.selectedIndex].text} spacing applied.`));
 
     if (date) {
 
-        date.addEventListener("change", () => {
-
-            showToast(
-                "Date Format",
-                `${date.value} selected.`,
-                "fa-calendar"
-            );
-
-        });
+        date.addEventListener("change", () => saveSystemPreference("dateFormat", date.value, "Date Format", `${date.value} selected.`));
 
     }
 
     if (time) {
 
-        time.addEventListener("change", () => {
-
-            showToast(
-                "Time Format",
-                `${time.value} selected.`,
-                "fa-clock"
-            );
-
-        });
+        time.addEventListener("change", () => saveSystemPreference("timeFormat", time.value, "Time Format", `${time.value} selected.`));
 
     }
 
+}
+
+function saveSystemPreference(key, value, title, message) {
+    localStorage.setItem(key, value);
+    window.applyBioTrackPreferences?.();
+    document.dispatchEvent(new CustomEvent("biotrack:preferences-changed"));
+    showToast(title, message, "fa-circle-check");
 }
 
 /* ==========================================================
@@ -383,9 +415,6 @@ function initializeSecurity() {
     const sessions =
         document.getElementById("viewSessions");
 
-    const twoFactor =
-        document.getElementById("twoFactor");
-
     if (changePassword) {
 
         changePassword.addEventListener("click", openPasswordModal);
@@ -394,36 +423,65 @@ function initializeSecurity() {
 
     if (sessions) {
 
-        sessions.addEventListener("click", () => {
-
-            showToast(
-                "Active Sessions",
-                "Loading signed-in devices...",
-                "fa-laptop"
-            );
-
-        });
+        sessions.addEventListener("click", openSessionDialog);
 
     }
 
-    if (twoFactor) {
+}
 
-        twoFactor.addEventListener("change", function () {
-
-            showToast(
-                "Two-Factor Authentication",
-                this.checked
-                    ? "Two-Factor Authentication Enabled."
-                    : "Two-Factor Authentication Disabled.",
-                this.checked
-                    ? "fa-lock"
-                    : "fa-lock-open"
-            );
-
-        });
-
+async function openSessionDialog() {
+    const button = document.getElementById("viewSessions");
+    if (button) button.disabled = true;
+    try {
+        const response = await fetch("/api/settings/session", { cache: "no-store" });
+        const session = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(session.detail || "Unable to load the current session.");
+        const overlay = document.createElement("div");
+        overlay.className = "profile-edit-overlay";
+        overlay.innerHTML = `
+            <section class="profile-edit-dialog session-dialog" role="dialog" aria-modal="true" aria-labelledby="sessionDialogTitle">
+                <div class="profile-edit-header"><div><h2 id="sessionDialogTitle">Current session</h2><p>This is the browser currently signed in to BioTrack.</p></div><button type="button" class="profile-edit-close" aria-label="Close">×</button></div>
+                <div class="session-details">
+                    <div><span>Account</span><strong id="sessionAccount"></strong></div>
+                    <div><span>Device</span><strong id="sessionDevice"></strong></div>
+                    <div><span>Network address</span><strong id="sessionIp"></strong></div>
+                    <div><span>Signed in</span><strong id="sessionIssued"></strong></div>
+                    <div><span>Expires</span><strong id="sessionExpires"></strong></div>
+                </div>
+                <div class="profile-edit-actions"><button type="button" class="secondary-btn session-close">Close</button><button type="button" class="danger-btn session-logout"><i data-lucide="log-out"></i> Sign out this device</button></div>
+            </section>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector("#sessionAccount").textContent = `${session.username} · ${session.role}`;
+        overlay.querySelector("#sessionDevice").textContent = friendlyBrowserName(session.user_agent);
+        overlay.querySelector("#sessionIp").textContent = session.ip_address || "Unknown";
+        overlay.querySelector("#sessionIssued").textContent = formatSettingsTimestamp(session.issued_at);
+        overlay.querySelector("#sessionExpires").textContent = formatSettingsTimestamp(session.expires_at);
+        const close = () => overlay.remove();
+        overlay.querySelector(".profile-edit-close").onclick = close;
+        overlay.querySelector(".session-close").onclick = close;
+        overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
+        overlay.querySelector(".session-logout").onclick = () => document.querySelector(".logout-btn")?.click();
+        if (window.lucide) window.lucide.createIcons();
+    } catch (error) {
+        showToast("Current Session", error.message, "fa-circle-exclamation");
+    } finally {
+        if (button) button.disabled = false;
     }
+}
 
+function friendlyBrowserName(userAgent) {
+    const value = String(userAgent || "");
+    if (/Edg\//.test(value)) return "Microsoft Edge on this device";
+    if (/Chrome\//.test(value)) return "Google Chrome on this device";
+    if (/Firefox\//.test(value)) return "Mozilla Firefox on this device";
+    if (/Safari\//.test(value)) return "Safari on this device";
+    return "Current browser";
+}
+
+function formatSettingsTimestamp(value) {
+    if (!value) return "Not available";
+    const timestamp = new Date(value);
+    return Number.isNaN(timestamp.getTime()) ? "Not available" : timestamp.toLocaleString();
 }
 
 function openPasswordModal() {
@@ -461,19 +519,27 @@ async function submitPasswordChange() {
         return;
     }
 
-    const response = await fetch("/api/auth/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        showToast("Password", data.detail || "Unable to change password.", "fa-circle-exclamation");
+    if (!currentPassword) {
+        showToast("Password", "Enter your current password.", "fa-circle-exclamation");
         return;
     }
-
-    closePasswordModal();
-    showToast("Password", "Password changed successfully.", "fa-circle-check");
+    const saveButton = document.getElementById("savePasswordChange");
+    if (saveButton) saveButton.disabled = true;
+    try {
+        const response = await fetch("/api/auth/change-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || "Unable to change password.");
+        closePasswordModal();
+        showToast("Password", "Password changed successfully.", "fa-circle-check");
+    } catch (error) {
+        showToast("Password", error.message, "fa-circle-exclamation");
+    } finally {
+        if (saveButton) saveButton.disabled = false;
+    }
 }
 
 /* ==========================================================
@@ -490,39 +556,18 @@ function showToast(title, message, icon) {
 
         toast.className = "toast";
 
-        toast.innerHTML = `
-
-            <i class="fa-solid ${icon}"></i>
-
-            <div>
-
-                <h4>${title}</h4>
-
-                <p>${message}</p>
-
-            </div>
-
-        `;
-
         document.body.appendChild(toast);
-
-    } else {
-
-        toast.innerHTML = `
-
-            <i class="fa-solid ${icon}"></i>
-
-            <div>
-
-                <h4>${title}</h4>
-
-                <p>${message}</p>
-
-            </div>
-
-        `;
-
     }
+
+    const iconElement = document.createElement("i");
+    iconElement.className = `fa-solid ${icon}`;
+    const copy = document.createElement("div");
+    const heading = document.createElement("h4");
+    const paragraph = document.createElement("p");
+    heading.textContent = title;
+    paragraph.textContent = message;
+    copy.append(heading, paragraph);
+    toast.replaceChildren(iconElement, copy);
 
     toast.classList.add("show");
 
@@ -548,49 +593,47 @@ function initializeBackup() {
 
     if (backupBtn) {
 
-        backupBtn.addEventListener("click", function () {
-
-            const original = this.innerHTML;
-
-            this.disabled = true;
-
-            this.innerHTML = `
-                <div class="loader"></div>
-                Creating Backup...
-            `;
-
-            setTimeout(() => {
-
-                this.disabled = false;
-
-                this.innerHTML = original;
-
-                showToast(
-                    "Backup Complete",
-                    "System backup created successfully.",
-                    "fa-cloud-arrow-up"
-                );
-
-            }, 2500);
-
-        });
+        backupBtn.addEventListener("click", () => downloadSettingsFile(backupBtn, "/api/settings/backup", "Creating backup…", "Backup Complete", "Your scoped BioTrack backup was downloaded."));
 
     }
 
     if (exportBtn) {
 
-        exportBtn.addEventListener("click", () => {
-
-            showToast(
-                "Export Started",
-                "Preparing maintenance data for download.",
-                "fa-file-export"
-            );
-
-        });
+        exportBtn.addEventListener("click", () => downloadSettingsFile(exportBtn, "/api/settings/export", "Preparing export…", "Export Complete", "Maintenance data was downloaded as CSV."));
 
     }
 
+}
+
+async function downloadSettingsFile(button, url, busyLabel, successTitle, successMessage) {
+    const original = button.innerHTML;
+    button.disabled = true;
+    button.textContent = busyLabel;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.detail || "The download could not be prepared.");
+        }
+        const blob = await response.blob();
+        const disposition = response.headers.get("Content-Disposition") || "";
+        const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || "biotrack-download";
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = objectUrl;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(objectUrl);
+        showToast(successTitle, successMessage, "fa-circle-check");
+    } catch (error) {
+        showToast("Download Failed", error.message, "fa-circle-exclamation");
+    } finally {
+        button.disabled = false;
+        button.innerHTML = original;
+        if (window.lucide) window.lucide.createIcons();
+    }
 }
 
 /* ==========================================================
@@ -647,15 +690,21 @@ function loadSavedPreferences() {
 
             selector.value = theme;
 
-            applyTheme(theme);
+            window.applyBioTrackPreferences?.();
 
         }
 
     }
 
-    saveDropdown("languageSelect");
-    saveDropdown("dateFormat");
-    saveDropdown("timeFormat");
+    const density = localStorage.getItem("biotrack-density");
+    const densitySelector = document.getElementById("densitySelect");
+    if (density && densitySelector) densitySelector.value = density;
+
+    ["dateFormat", "timeFormat"].forEach(id => {
+        const element = document.getElementById(id);
+        const saved = localStorage.getItem(id);
+        if (element && saved) element.value = saved;
+    });
 
 }
 
@@ -690,6 +739,9 @@ function saveDropdown(id) {
 ========================================================== */
 
 function initializeButtonEffects() {
+
+    if (window.settingsButtonEffectsBound) return;
+    window.settingsButtonEffectsBound = true;
 
     document.addEventListener("click", function (event) {
 
@@ -730,7 +782,12 @@ function initializeCardEffects(){
 
 function initializeKeyboardShortcuts(){
 
+    if (window.settingsKeyboardShortcutsBound) return;
+    window.settingsKeyboardShortcutsBound = true;
+
     document.addEventListener("keydown", event => {
+
+        if (!document.querySelector(".settings-page")) return;
 
         if(event.ctrlKey &&
            event.key.toLowerCase()==="s"){

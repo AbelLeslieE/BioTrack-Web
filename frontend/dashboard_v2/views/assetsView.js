@@ -1,9 +1,39 @@
 
 let assetsCache = [];
 let filteredAssets = [];
+let selectedAssetServiceTeam = "";
 const assetsPagination = { page: 1, pageSize: 25 };
 
+function canManageAssetQR() {
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    return ["admin", "manager", "engineer", "bme", "electrical", "it"].includes(role);
+}
+
+function isAssetAdministrator() {
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    return role === "admin" || role === "manager";
+}
+
+function assetRoleServiceTeam() {
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    if (role === "electrical") return "Electrical";
+    if (role === "it") return "IT";
+    if (role === "engineer" || role === "bme") return "Biomedical";
+    return "";
+}
+
+function assetRegistryCopy() {
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    if (role === "electrical") return { badge: "Electrical Asset Registry", description: "Manage electrical equipment, maintenance ownership, QR records and lifecycle information from one place." };
+    if (role === "it") return { badge: "IT Asset Registry", description: "Manage IT equipment, infrastructure, QR records and lifecycle information from one place." };
+    if (role === "engineer" || role === "bme") return { badge: "Biomedical Asset Registry", description: "Manage biomedical devices, preventive maintenance, QR records and equipment history from one place." };
+    return { badge: "Hospital Asset Registry", description: "Manage Biomedical, Electrical and IT assets across the hospital with team ownership, lifecycle information, QR records and maintenance history." };
+}
+
 function renderAssets() {
+
+    const registryCopy = assetRegistryCopy();
+    selectedAssetServiceTeam = isAssetAdministrator() ? "" : assetRoleServiceTeam();
 
     pageContent.innerHTML = `
 
@@ -22,7 +52,7 @@ function renderAssets() {
 
                 <span class="asset-badge">
 
-                    Biomedical Asset Registry
+                    ${registryCopy.badge}
 
                 </span>
 
@@ -34,9 +64,7 @@ function renderAssets() {
 
                 <p>
 
-                    Manage, monitor and track every biomedical device across the hospital.
-                    Access lifecycle information, preventive maintenance, QR management,
-                    warranty status and equipment history from one place.
+                    ${registryCopy.description}
 
                 </p>
 
@@ -64,6 +92,14 @@ function renderAssets() {
 
                     </button>
 
+                    ${canManageAssetQR() ? `<button
+                        id="assetQrBtn"
+                        class="btn-secondary hero-btn">
+
+                        <i data-lucide="qr-code"></i> Generate QR
+
+                    </button>` : ""}
+
                     <button
                         id="importExcelBtn"
                         class="btn-secondary hero-btn">
@@ -71,6 +107,18 @@ function renderAssets() {
                         📄 Import Excel
 
                     </button>
+
+                    ${isAssetAdministrator() ? `
+                        <label class="asset-import-team-label" for="assetImportTeam">
+                            <span>Excel import team</span>
+                            <select id="assetImportTeam">
+                                <option value="">Select service team</option>
+                                <option value="Biomedical">Biomedical</option>
+                                <option value="Electrical">Electrical</option>
+                                <option value="IT">IT</option>
+                            </select>
+                        </label>
+                    ` : ""}
 
                     <button
                         id="exportAssetBtn"
@@ -95,6 +143,22 @@ function renderAssets() {
         </div>
 
 
+        ${isAssetAdministrator() ? `
+            <section class="asset-mode-switcher" aria-label="Asset service-team mode">
+                <div>
+                    <span>Asset mode</span>
+                    <strong id="assetModeTitle">All engineering assets</strong>
+                </div>
+                <div class="asset-mode-options" role="tablist" aria-label="Filter assets by service team">
+                    <button type="button" class="is-active" data-asset-team="" role="tab" aria-selected="true">All</button>
+                    <button type="button" data-asset-team="Biomedical" role="tab" aria-selected="false">Biomedical</button>
+                    <button type="button" data-asset-team="Electrical" role="tab" aria-selected="false">Electrical</button>
+                    <button type="button" data-asset-team="IT" role="tab" aria-selected="false">IT</button>
+                </div>
+            </section>
+        ` : ""}
+
+
         <!-- ==========================================
              KPI CARDS
         =========================================== -->
@@ -112,6 +176,8 @@ function renderAssets() {
                 <div class="asset-card-content">
 
                     <h4>Total Assets</h4>
+
+                    <span class="asset-kpi-mode">All teams</span>
 
                     <h2 id="totalAssets">0</h2>
 
@@ -133,6 +199,8 @@ function renderAssets() {
 
                     <h4>Active Assets</h4>
 
+                    <span class="asset-kpi-mode">All teams</span>
+
                     <h2 id="activeAssets">0</h2>
 
                     <p>Operational Equipment</p>
@@ -152,6 +220,8 @@ function renderAssets() {
                 <div class="asset-card-content">
 
                     <h4>PM Due</h4>
+
+                    <span class="asset-kpi-mode">All teams</span>
 
                     <h2 id="pmDue">0</h2>
 
@@ -173,6 +243,8 @@ function renderAssets() {
 
                     <h4>Calibration Due</h4>
 
+                    <span class="asset-kpi-mode">All teams</span>
+
                     <h2 id="calibrationDue">0</h2>
 
                     <p>Calibration Schedule</p>
@@ -193,6 +265,8 @@ function renderAssets() {
 
                     <h4>Warranty</h4>
 
+                    <span class="asset-kpi-mode">All teams</span>
+
                     <h2 id="warrantyDue">0</h2>
 
                     <p>Expiring Soon</p>
@@ -212,6 +286,8 @@ function renderAssets() {
                 <div class="asset-card-content">
 
                     <h4>Critical Assets</h4>
+
+                    <span class="asset-kpi-mode">All teams</span>
 
                     <h2 id="criticalAssets">0</h2>
 
@@ -276,6 +352,8 @@ function renderAssets() {
 
                         <th>Department</th>
 
+                        <th>Service Team</th>
+
                         <th>Manufacturer</th>
 
                         <th>Model</th>
@@ -294,7 +372,7 @@ function renderAssets() {
 
                     <tr>
 
-                        <td colspan="8" class="empty-table">
+                        <td colspan="9" class="empty-table">
 
                             No assets found.
 
@@ -319,8 +397,15 @@ function renderAssets() {
     `;
     initializeAssetImport();
     initializeAddAsset();
+    initializeAssetQR();
+    initializeAssetModeSwitcher();
     initializeAssetFilters();
     loadAssets();
+}
+
+function initializeAssetQR() {
+    const button = document.getElementById("assetQrBtn");
+    if (button) button.onclick = () => openAssetQRGenerator();
 }
 
 // ==========================================
@@ -336,6 +421,13 @@ function initializeAssetImport() {
 
     importButton.onclick = () => {
 
+        const teamSelect = document.getElementById("assetImportTeam");
+        if (isAssetAdministrator() && !teamSelect?.value) {
+            alert("Select Biomedical, Electrical or IT before importing the spreadsheet.");
+            teamSelect?.focus();
+            return;
+        }
+
         excelInput.click();
 
     };
@@ -347,6 +439,8 @@ function initializeAssetImport() {
         const formData = new FormData();
 
         formData.append("file", excelInput.files[0]);
+        const selectedTeam = document.getElementById("assetImportTeam")?.value;
+        if (selectedTeam) formData.append("service_team", selectedTeam);
 
         try {
 
@@ -425,8 +519,6 @@ async function loadAssets() {
         populateAssetFilters(assetsCache);
         applyAssetFilters();
 
-        updateAssetKPIs(assetsCache);
-
     }
 
     catch (error) {
@@ -446,6 +538,21 @@ function initializeAssetFilters() {
         });
 }
 
+function initializeAssetModeSwitcher() {
+    document.querySelectorAll(".asset-mode-options button").forEach((button) => {
+        button.addEventListener("click", () => {
+            selectedAssetServiceTeam = button.dataset.assetTeam || "";
+            document.querySelectorAll(".asset-mode-options button").forEach((option) => {
+                const active = option === button;
+                option.classList.toggle("is-active", active);
+                option.setAttribute("aria-selected", String(active));
+            });
+            assetsPagination.page = 1;
+            applyAssetFilters();
+        });
+    });
+}
+
 function populateAssetFilters(assets) {
     const setup = (id, values, allLabel) => {
         const select = document.getElementById(id);
@@ -459,7 +566,7 @@ function populateAssetFilters(assets) {
 
     setup("assetDepartmentFilter", [...new Set(assets.map(asset => asset.department))], "All Departments");
     setup("assetStatusFilter", [...new Set(assets.map(asset => asset.status))], "All Status");
-    setup("assetCategoryFilter", [...new Set(assets.map(asset => asset.category))], "All Categories");
+    setup("assetCategoryFilter", [...new Set(assets.map(asset => asset.classification || asset.category))], "All Categories");
 }
 
 function applyAssetFilters() {
@@ -473,19 +580,24 @@ function applyAssetFilters() {
             asset.equipment_no,
             asset.equipment_name,
             asset.department,
+            asset.service_team,
             asset.manufacturer,
             asset.model,
-            asset.category,
+            asset.classification || asset.category,
         ].filter(Boolean).join(" ").toLowerCase();
 
         return (!search || searchable.includes(search))
             && (!department || asset.department === department)
+            && (!selectedAssetServiceTeam || asset.service_team === selectedAssetServiceTeam)
             && (!status || asset.status === status)
-            && (!category || asset.category === category);
+            && (!category || (asset.classification || asset.category) === category);
     });
 
     assetsPagination.page = 1;
     populateAssetTable(filteredAssets);
+    updateAssetKPIs(
+        assetsCache.filter(asset => !selectedAssetServiceTeam || asset.service_team === selectedAssetServiceTeam)
+    );
 }
 
 
@@ -503,7 +615,7 @@ function populateAssetTable(assets) {
 
         table.innerHTML = `
             <tr>
-                <td colspan="8" class="empty-table">
+                <td colspan="9" class="empty-table">
                     No assets found.
                 </td>
             </tr>
@@ -536,13 +648,15 @@ function populateAssetTable(assets) {
 
                 <td>${escapeHTML(asset.department ?? "")}</td>
 
+                <td><span class="asset-team-badge is-${String(asset.service_team || "Biomedical").toLowerCase()}">${escapeHTML(asset.service_team || "Biomedical")}</span></td>
+
                 <td>${escapeHTML(asset.manufacturer ?? "")}</td>
 
                 <td>${escapeHTML(asset.model ?? "")}</td>
 
                 <td>${escapeHTML(asset.status ?? "")}</td>
 
-                <td>${asset.qr_generated ? "✅" : "❌"}</td>
+                <td>${asset.qr_generated || canManageAssetQR() ? `<button type="button" class="asset-qr-table-button ${asset.qr_generated ? "is-ready" : ""}" onclick="openAssetQRGenerator(${Number(asset.id)})"><i data-lucide="qr-code"></i><span>${asset.qr_generated ? "View QR" : "Generate"}</span></button>` : '<span class="asset-qr-unavailable">Not generated</span>'}</td>
 
                 <td>
 
@@ -569,6 +683,87 @@ function populateAssetTable(assets) {
         "assets"
     );
 
+    if (window.lucide) lucide.createIcons();
+
+}
+
+async function openAssetQRGenerator(assetId = null) {
+    const canGenerate = canManageAssetQR();
+    let assets = assetsCache;
+    if (!assets.length) {
+        try {
+            const response = await fetch("/api/assets/", { cache: "no-store" });
+            if (!response.ok) throw new Error("Unable to load assets.");
+            assets = await response.json();
+            assetsCache = Array.isArray(assets) ? assets : [];
+        } catch (error) {
+            alert(error.message || "Unable to load assets.");
+            return;
+        }
+    }
+
+    const modalRoot = document.createElement("div");
+    modalRoot.className = "asset-qr-overlay";
+    modalRoot.innerHTML = `
+        <section class="asset-qr-dialog" role="dialog" aria-modal="true" aria-labelledby="assetQrTitle">
+            <header class="asset-qr-dialog-header"><span><i data-lucide="qr-code"></i></span><div><h2 id="assetQrTitle">Asset QR code</h2><p>Select an asset, then generate a printable equipment QR code.</p></div><button type="button" class="asset-qr-close" aria-label="Close"><i data-lucide="x"></i></button></header>
+            <div class="asset-qr-dialog-body">
+                <label class="asset-qr-select-label"><span>Hospital asset</span><select id="assetQrSelect"><option value="">Choose an asset</option>${assetsCache.map(asset => `<option value="${Number(asset.id)}" ${Number(asset.id) === Number(assetId) ? "selected" : ""}>${escapeHTML(asset.asset_code || asset.equipment_no || `Asset ${asset.id}`)} — ${escapeHTML(asset.equipment_name || "Equipment")}</option>`).join("")}</select></label>
+                <div id="assetQrPreview" class="asset-qr-preview"><span><i data-lucide="scan-line"></i></span><strong>No asset selected</strong><p>Choose an asset to create or view its QR code.</p></div>
+            </div>
+            <footer class="asset-qr-dialog-footer"><button type="button" class="asset-qr-cancel secondary-btn">${canGenerate ? "Cancel" : "Close"}</button>${canGenerate ? '<button type="button" class="asset-qr-generate primary-btn" disabled><i data-lucide="qr-code"></i><span>Generate QR</span></button>' : ""}</footer>
+        </section>`;
+    document.body.appendChild(modalRoot);
+    document.body.classList.add("asset-qr-open");
+
+    const close = () => { modalRoot.remove(); document.body.classList.remove("asset-qr-open"); };
+    const select = modalRoot.querySelector("#assetQrSelect");
+    const generate = modalRoot.querySelector(".asset-qr-generate");
+    modalRoot.querySelector(".asset-qr-close").onclick = close;
+    modalRoot.querySelector(".asset-qr-cancel").onclick = close;
+    modalRoot.addEventListener("click", event => { if (event.target === modalRoot) close(); });
+    select.onchange = () => {
+        if (generate) generate.disabled = !select.value;
+        const asset = assetsCache.find(item => Number(item.id) === Number(select.value));
+        const preview = modalRoot.querySelector("#assetQrPreview");
+        if (asset?.qr_code) {
+            preview.innerHTML = `<img src="${escapeHTML(asset.qr_code)}" alt="QR code for ${escapeHTML(asset.equipment_name || "asset")}"><strong>${escapeHTML(asset.asset_code || asset.equipment_no || "Asset QR")}</strong><p>${escapeHTML(asset.equipment_name || "Equipment")}</p><a href="${escapeHTML(asset.qr_code)}" download><i data-lucide="download"></i> Download QR</a>`;
+            if (generate) generate.querySelector("span").textContent = "Regenerate QR";
+        } else {
+            preview.innerHTML = asset ? `<span><i data-lucide="monitor-cog"></i></span><strong>${escapeHTML(asset.equipment_name || "Equipment")}</strong><p>${escapeHTML(asset.asset_code || asset.equipment_no || "No asset code")} · ${escapeHTML(asset.department || "No department")}</p>` : '<span><i data-lucide="scan-line"></i></span><strong>No asset selected</strong><p>Choose an asset to create or view its QR code.</p>';
+            if (generate) generate.querySelector("span").textContent = "Generate QR";
+        }
+        if (window.lucide) lucide.createIcons();
+    };
+    if (generate) generate.onclick = async () => {
+        if (!select.value) return;
+        generate.disabled = true;
+        generate.classList.add("is-loading");
+        generate.querySelector("span").textContent = "Generating…";
+        try {
+            const response = await fetch(`/api/qr/generate/${Number(select.value)}`, { method: "POST" });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.detail || "Unable to generate QR code.");
+            const asset = assetsCache.find(item => Number(item.id) === Number(select.value));
+            modalRoot.querySelector("#assetQrPreview").innerHTML = `<img src="${escapeHTML(result.qr_url)}?t=${Date.now()}" alt="QR code for ${escapeHTML(asset?.equipment_name || "asset")}"><strong>${escapeHTML(asset?.asset_code || asset?.equipment_no || "Asset QR")}</strong><p>${escapeHTML(asset?.equipment_name || "Equipment")}</p><a href="${escapeHTML(result.qr_url)}" download><i data-lucide="download"></i> Download QR</a>`;
+            generate.querySelector("span").textContent = "Regenerate QR";
+            const cachedAsset = assetsCache.find(item => Number(item.id) === Number(select.value));
+            if (cachedAsset) {
+                cachedAsset.qr_generated = true;
+                cachedAsset.qr_code = result.qr_url;
+            }
+            applyAssetFilters();
+        } catch (error) {
+            alert(error.message || "Unable to generate QR code.");
+            generate.querySelector("span").textContent = "Generate QR";
+        } finally {
+            generate.disabled = false;
+            generate.classList.remove("is-loading");
+            if (window.lucide) lucide.createIcons();
+        }
+    };
+    if (select.value) select.onchange();
+    if (window.lucide) lucide.createIcons();
 }
 
 
@@ -577,6 +772,15 @@ function populateAssetTable(assets) {
 // ==========================================
 
 function updateAssetKPIs(assets) {
+
+    const modeLabel = selectedAssetServiceTeam || "All teams";
+    document.querySelectorAll(".asset-kpi-mode").forEach(element => {
+        element.textContent = modeLabel;
+    });
+    const modeTitle = document.getElementById("assetModeTitle");
+    if (modeTitle) modeTitle.textContent = selectedAssetServiceTeam
+        ? `${selectedAssetServiceTeam} assets`
+        : "All engineering assets";
 
     document.getElementById("totalAssets").textContent =
         assets.length;
