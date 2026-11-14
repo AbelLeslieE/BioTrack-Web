@@ -1,5 +1,13 @@
 <!doctype html>
 <html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#087f8c">
+<meta name="application-name" content="BioTrack">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/static/assets/icons/biotrack-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/static/assets/icons/biotrack-192.png">
 <link rel="stylesheet" href="/static/css/global.css">
 <style>
 body{padding:20px}.card{padding:20px;border-radius:15px;box-shadow:0 2px 12px #ccc}
@@ -36,4 +44,4 @@ async function edit(id){
  if(n){await fetch('/api/devices/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...d,device_name:n})});load()}
 }
 load();
-</script></body></html>
+</script><script src="/static/js/pwa.js" defer></script></body></html>

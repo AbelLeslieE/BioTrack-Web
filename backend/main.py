@@ -39,6 +39,32 @@ def health_check():
     """Unauthenticated readiness check for Render and other hosting platforms."""
     return {"status": "ok"}
 
+
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def web_app_manifest():
+    return FileResponse(
+        "frontend/manifest.webmanifest",
+        media_type="application/manifest+json",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+@app.get("/service-worker.js", include_in_schema=False)
+def service_worker():
+    return FileResponse(
+        "frontend/service-worker.js",
+        media_type="application/javascript",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Service-Worker-Allowed": "/",
+        },
+    )
+
+
+@app.get("/offline", include_in_schema=False)
+def offline_page():
+    return FileResponse("frontend/offline.html")
+
 # ==========================================
 # STATIC FILES
 # ==========================================

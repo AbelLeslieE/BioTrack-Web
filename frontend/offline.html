@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#087f8c">
+    <title>BioTrack | Offline</title>
+    <style>
+        :root { color-scheme: light; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; color: #0b2d52; background: linear-gradient(145deg, #f5ffff, #ffffff 55%, #e2f8f7); }
+        main { width: min(100%, 520px); padding: clamp(32px, 7vw, 56px); text-align: center; background: rgba(255,255,255,.94); border: 1px solid #d9eeee; border-radius: 28px; box-shadow: 0 24px 64px rgba(11, 45, 82, .12); }
+        .mark { width: 90px; height: 90px; margin: 0 auto 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; position: relative; }
+        .mark span { background: linear-gradient(145deg, #08bfa8, #0798b8); }
+        .mark span:nth-child(1) { border-radius: 28px 5px 5px; }
+        .mark span:nth-child(2) { border-radius: 5px 28px 5px 5px; }
+        .mark span:nth-child(3) { border-radius: 5px 5px 5px 28px; }
+        .mark span:nth-child(4) { border-radius: 5px 5px 28px; }
+        .mark::before, .mark::after { content: ""; position: absolute; inset: 50% auto auto 50%; width: 48px; height: 16px; border-radius: 5px; background: white; transform: translate(-50%, -50%); }
+        .mark::after { width: 16px; height: 48px; }
+        h1 { margin: 0 0 12px; font-size: clamp(2rem, 8vw, 3rem); }
+        p { margin: 0 auto 28px; max-width: 38ch; color: #607080; line-height: 1.6; }
+        button { width: 100%; min-height: 52px; border: 0; border-radius: 14px; color: white; background: linear-gradient(135deg, #09bcae, #078f9f); font: inherit; font-weight: 700; cursor: pointer; }
+        button:focus-visible { outline: 3px solid #63d7d1; outline-offset: 3px; }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <h1>You’re offline</h1>
+        <p>BioTrack cannot reach the hospital server. Check your connection and try again. Hospital API responses are never cached for offline use.</p>
+        <button type="button" onclick="window.location.reload()">Try again</button>
+    </main>
+</body>
+</html>

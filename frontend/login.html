@@ -8,6 +8,15 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
 
+    <meta name="theme-color" content="#087f8c">
+    <meta name="application-name" content="BioTrack">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="BioTrack">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/static/assets/icons/biotrack-192.png" type="image/png">
+    <link rel="apple-touch-icon" href="/static/assets/icons/biotrack-192.png">
+
     <title>BioTrack | Login</title>
 
     <!-- Google Font -->
@@ -41,6 +50,25 @@
     =========================================== -->
 
     <main class="login-container">
+
+        <!-- Lightweight branding shown only when the photo background is slow. -->
+        <section class="fallback-brand" aria-label="Little Flower Hospital and Research Centre">
+
+            <div class="fallback-mark" aria-hidden="true">
+                <span class="fallback-petal petal-one"></span>
+                <span class="fallback-petal petal-two"></span>
+                <span class="fallback-petal petal-three"></span>
+                <span class="fallback-petal petal-four"></span>
+                <span class="fallback-cross"></span>
+            </div>
+
+            <div class="fallback-brand-copy">
+                <h1>Little Flower Hospital</h1>
+                <h2>&amp; Research Centre, Angamaly</h2>
+                <p>Fragrance of Compassion</p>
+            </div>
+
+        </section>
 
         <!-- ======================================
              LEFT SECTION
@@ -236,13 +264,15 @@
 
                 <h2>
 
-                    Welcome Back
+                    <span class="standard-login-title">Welcome Back</span>
+                    <span class="fallback-login-title">Login</span>
 
                 </h2>
 
                 <p class="subtitle">
 
-                    Sign in to continue to BioTrack
+                    <span class="standard-login-subtitle">Sign in to continue to BioTrack</span>
+                    <span class="fallback-login-subtitle">Access your hospital account</span>
 
                 </p>
 
@@ -340,6 +370,11 @@
 
                 </form>
 
+                <button class="pwa-install-btn" type="button" data-pwa-install hidden>
+                    <i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i>
+                    Install BioTrack App
+                </button>
+
                 <!-- Footer -->
 
                 <footer class="footer">
@@ -360,6 +395,7 @@
 
     <script src="/static/js/login.js"></script>
 
+    <script src="/static/js/pwa.js" defer></script>
 </body>
 
 </html>

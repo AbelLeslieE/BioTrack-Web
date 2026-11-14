@@ -8,6 +8,72 @@ const msg = document.getElementById("message");
 const usernameInput = document.getElementById("username");
 const passwordInput = document.getElementById("password");
 const togglePassword = document.getElementById("togglePassword");
+const submitButton = form.querySelector("button[type='submit']");
+
+// ==========================================
+// SLOW CONNECTION FALLBACK
+// ==========================================
+
+const BACKGROUND_WAIT_MS = 8000;
+const desktopBackground = "/static/assets/little-flower-hospital-campus.png";
+const mobileBackground = "/static/assets/little-flower-hospital-campus-mobile.png";
+const mobileBackgroundQuery = window.matchMedia("(max-width: 900px)");
+let backgroundTimer;
+let backgroundAttempt = 0;
+let fallbackLocked = false;
+
+function activateLowBandwidthLogin(message = "") {
+    if (!fallbackLocked) {
+        fallbackLocked = true;
+        clearTimeout(backgroundTimer);
+        document.body.classList.add("low-bandwidth-login");
+        usernameInput.placeholder = "Username";
+        passwordInput.placeholder = "Password";
+    }
+
+    if (message && !msg.textContent) {
+        msg.style.color = "#475569";
+        msg.textContent = message;
+    }
+}
+
+function monitorLoginBackground() {
+    if (fallbackLocked) return;
+
+    const attempt = ++backgroundAttempt;
+    const source = mobileBackgroundQuery.matches
+        ? mobileBackground
+        : desktopBackground;
+    const image = new Image();
+
+    clearTimeout(backgroundTimer);
+    backgroundTimer = setTimeout(() => {
+        if (attempt === backgroundAttempt) activateLowBandwidthLogin();
+    }, BACKGROUND_WAIT_MS);
+
+    image.addEventListener("load", () => {
+        if (attempt === backgroundAttempt && !fallbackLocked) {
+            clearTimeout(backgroundTimer);
+            document.body.classList.add("login-background-ready");
+        }
+    }, { once:true });
+
+    image.addEventListener("error", () => {
+        if (attempt === backgroundAttempt) activateLowBandwidthLogin();
+    }, { once:true });
+
+    image.src = source;
+}
+
+window.activateLowBandwidthLogin = activateLowBandwidthLogin;
+
+if (new URLSearchParams(window.location.search).has("lowBandwidth")) {
+    activateLowBandwidthLogin();
+} else {
+    monitorLoginBackground();
+}
+
+mobileBackgroundQuery.addEventListener("change", monitorLoginBackground);
 
 // ==========================================
 // SHOW / HIDE PASSWORD
@@ -49,6 +115,12 @@ form.addEventListener("submit", async (e) => {
         password: passwordInput.value
 
     };
+
+    const slowRequestTimer = setTimeout(() => {
+        activateLowBandwidthLogin("The connection is slower than usual. Still trying to sign you in…");
+    }, BACKGROUND_WAIT_MS);
+
+    submitButton.disabled = true;
 
     try {
 
@@ -108,6 +180,11 @@ form.addEventListener("submit", async (e) => {
         msg.textContent = "Unable to connect to the server.";
 
         console.error(err);
+
+    } finally {
+
+        clearTimeout(slowRequestTimer);
+        submitButton.disabled = false;
 
     }
 

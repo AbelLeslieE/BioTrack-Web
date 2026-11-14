@@ -11,6 +11,12 @@ FastAPI and SQLite application for managing biomedical assets, maintenance reque
 5. Start the app from this directory: `uvicorn backend.main:app --reload`.
 6. Open `http://127.0.0.1:8000`.
 
+## Progressive Web App
+
+BioTrack can be installed from Chrome, Edge, and supported mobile browsers. Open the HTTPS deployment, then use the browser's **Install BioTrack** option or the install button shown on the login screen when installation is available.
+
+The service worker caches only the application shell and static assets. Authenticated `/api` responses are always network-only and are not stored for offline access. When the server cannot be reached, navigation falls back to the dedicated offline screen.
+
 ## Tests
 
 Run the backend regression suite from the project directory with:
