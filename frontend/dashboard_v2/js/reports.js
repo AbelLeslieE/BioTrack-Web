@@ -29,6 +29,8 @@ async function initializeReports(){
 
     initializeReportsRipple();
 
+    initializeReportChartExpanders();
+
     await animateReportsKPIs();
 
     loadReportsFilters();
@@ -37,6 +39,32 @@ async function initializeReports(){
 
     initializeReportsExport();
 
+}
+
+function initializeReportChartExpanders(){
+    document.querySelectorAll(".reports-icon-button").forEach(button=>{
+        button.addEventListener("click",()=>{
+            const card=button.closest(".reports-card");
+            const canvas=card?.querySelector("canvas");
+            const chart=canvas&&typeof Chart!=="undefined"?Chart.getChart(canvas):null;
+            if(!card||!canvas||!chart){
+                showReportsToast("Chart is not ready yet. Please try again.");
+                return;
+            }
+            let dialog=document.getElementById("reportsChartDialog");
+            if(!dialog){
+                dialog=document.createElement("dialog");
+                dialog.id="reportsChartDialog";
+                dialog.className="reports-chart-dialog";
+                dialog.innerHTML='<form method="dialog"><button class="reports-chart-dialog-close" aria-label="Close expanded chart">×</button></form><h2></h2><img alt="Expanded report chart">';
+                dialog.addEventListener("click",event=>{if(event.target===dialog)dialog.close();});
+                document.body.appendChild(dialog);
+            }
+            dialog.querySelector("h2").textContent=card.querySelector("h3")?.textContent||"Report chart";
+            dialog.querySelector("img").src=chart.toBase64Image();
+            if(!dialog.open)dialog.showModal();
+        });
+    });
 }
 
 /* ==========================================================

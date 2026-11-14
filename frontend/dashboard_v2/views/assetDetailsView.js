@@ -193,6 +193,31 @@ function renderGeneralInformation(asset){
 
 }
 
+function showAssetPMScheduleDetails(row){
+    if(!row)return;
+    let dialog=document.getElementById("assetPMScheduleDialog");
+    if(!dialog){
+        dialog=document.createElement("dialog");
+        dialog.id="assetPMScheduleDialog";
+        dialog.className="reports-chart-dialog asset-pm-detail-dialog";
+        dialog.innerHTML='<form method="dialog"><button class="reports-chart-dialog-close" aria-label="Close visit details">×</button></form><h2>Preventive maintenance visit</h2><dl></dl>';
+        dialog.addEventListener("click",event=>{if(event.target===dialog)dialog.close();});
+        document.body.appendChild(dialog);
+    }
+    const labels=["Schedule","Scheduled date","Completed date","Service provider","Status"];
+    const values=[...row.cells].slice(0,5).map(cell=>cell.textContent.trim()||"—");
+    const list=dialog.querySelector("dl");
+    list.replaceChildren();
+    labels.forEach((label,index)=>{
+        const term=document.createElement("dt");
+        const value=document.createElement("dd");
+        term.textContent=label;
+        value.textContent=values[index]||"—";
+        list.append(term,value);
+    });
+    if(!dialog.open)dialog.showModal();
+}
+
 // ==========================================
 // PURCHASE INFORMATION
 // ==========================================
@@ -480,6 +505,12 @@ function renderMaintenanceOverview(asset){
     </section>
 
     `;
+
+    document.querySelectorAll("#assetMaintenanceOverview .btn-view").forEach(button=>{
+        button.type="button";
+        button.setAttribute("aria-label","View preventive maintenance visit details");
+        button.addEventListener("click",()=>showAssetPMScheduleDetails(button.closest("tr")));
+    });
 
 }
 // ==========================================

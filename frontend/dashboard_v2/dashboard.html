@@ -165,8 +165,11 @@
                     <i data-lucide="search"></i>
 
                     <input
+                        id="globalNavigationSearch"
+                        aria-label="Search sections and tools"
                         type="text"
-                        placeholder="Search devices, requests, users..."
+                        placeholder="Search sections and tools..."
+                        autocomplete="off"
                     >
 
                 </div>
@@ -176,11 +179,9 @@
             <!-- Right Section -->
             <div class="topbar-right">
 
-                <button class="notification-btn">
+                <button class="notification-btn" type="button" aria-label="Open dashboard alerts" aria-expanded="false">
 
                     <i data-lucide="bell"></i>
-
-                    <span class="notification-badge">5</span>
 
                 </button>
 
@@ -196,7 +197,7 @@
 
                 </div>
 
-                <div class="profile-button">
+                <button class="profile-button" type="button" aria-label="Open account menu" aria-haspopup="menu" aria-expanded="false">
 
                     <div class="profile-avatar" id="topAvatar">
                         A
@@ -212,7 +213,7 @@
 
                     <i data-lucide="chevron-down"></i>
 
-                </div>
+                </button>
 
             </div>
 
@@ -246,6 +247,7 @@
 <script src="/static/dashboard_v2/js/logout.js"></script>
 <script src="/static/dashboard_v2/js/dashboard.js"></script>
 <script src="/static/dashboard_v2/js/sidebar.js"></script>
+<script src="/static/dashboard_v2/js/topbarInteractions.js"></script>
 <script src="/static/dashboard_v2/js/responsive_tables.js"></script>
 <script src="/static/dashboard_v2/views/engineerDashboardView.js"></script>
 <script src="/static/dashboard_v2/views/dashboardView.js"></script>

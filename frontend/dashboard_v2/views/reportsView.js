@@ -584,7 +584,7 @@ function reportsView() {
 
             <h3>Requests by Department</h3>
 
-            <button class="reports-icon-button">
+            <button class="reports-icon-button" type="button" aria-label="Expand requests by department chart">
 
                 <i class="fa-solid fa-arrow-up-right-from-square"></i>
 
@@ -612,7 +612,7 @@ function reportsView() {
 
             <h3>Downtime Trend</h3>
 
-            <button class="reports-icon-button">
+            <button class="reports-icon-button" type="button" aria-label="Expand downtime trend chart">
 
                 <i class="fa-solid fa-arrow-up-right-from-square"></i>
 
