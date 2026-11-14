@@ -15,6 +15,7 @@ from backend.models.supplier import Supplier
 
 from backend.models.pm_schedule import PMSchedule
 from backend.models.pm_history import PMHistory
+from backend.models.google_calendar import GoogleCalendarConnection, GoogleCalendarEventLink
 
 # ==========================================
 # INVENTORY

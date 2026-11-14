@@ -1426,3 +1426,4 @@
 /* ==========================================
    END OF FILE
 ========================================== */
+.pm-google-calendar{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-left:auto}.pm-google-calendar-status{color:#64748b;font-size:12px;font-weight:700}.pm-google-calendar-status.is-connected{color:#047857}.pm-google-calendar-btn,.pm-google-calendar-disconnect{border:1px solid #d7e2f2;border-radius:9px;background:#fff;color:#1d4ed8;padding:9px 12px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}.pm-google-calendar-btn:hover,.pm-google-calendar-disconnect:hover{background:#eff6ff}.pm-google-calendar-btn:disabled{opacity:.6;cursor:wait}.pm-google-calendar-disconnect{color:#64748b}

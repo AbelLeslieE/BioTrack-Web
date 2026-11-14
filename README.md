@@ -40,3 +40,15 @@ All `/api` endpoints except login require the HttpOnly session cookie issued by 
 ## Database changes
 
 The application creates missing tables but does not modify existing tables at startup. `database/schema.sql` describes a clean current installation; existing databases must use the reviewed migration scripts. Back up `database/biotrack.db` before applying migrations.
+# Google Calendar integration
+
+The Preventive Maintenance page can connect a user's Google account and add or update BioTrack PM schedules in that account's **primary calendar**. The connection is per BioTrack user; calendar events are not automatically deleted when the account is disconnected. Use **Sync schedules** to add newly scheduled visits and update existing linked events.
+
+To enable it in production:
+
+1. In Google Cloud Console, enable the Google Calendar API and create an OAuth client for a web application. Register `https://YOUR-RENDER-SERVICE.onrender.com/api/google-calendar/callback` as an authorized redirect URI (and use the same exact value below). Configure the OAuth consent screen and add the intended users if the app is in Testing mode.
+2. In the Render service environment, set `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, and `GOOGLE_CALENDAR_REDIRECT_URI`.
+3. Generate a Fernet key with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` and set it as `GOOGLE_CALENDAR_TOKEN_ENCRYPTION_KEY`. Keep this key stable and private: the app uses it to encrypt stored Google refresh tokens.
+4. Deploy and open Preventive Maintenance, then choose **Connect Google Calendar** and approve access. Use **Sync schedules** to publish the current schedule.
+
+The integration uses the signed-in user's Google OAuth consent and requests only email identity and event access. No Google client secrets or encryption keys belong in source control.

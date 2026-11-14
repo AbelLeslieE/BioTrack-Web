@@ -20,6 +20,7 @@ from backend.routes.engineer_routes import router as engineer_router
 from backend.create_default_admin import create_default_admin
 from backend.routes.pm_routes import router as pm_router, department_user_router
 from backend.routes.inventory_routes import router as inventory_router
+from backend.routes.google_calendar_routes import router as google_calendar_router
 from backend.auth import validate_auth_config
 # ==========================================
 # APPLICATION
@@ -91,6 +92,7 @@ app.include_router(engineer_router)
 app.include_router(pm_router)
 app.include_router(department_user_router)
 app.include_router(inventory_router)
+app.include_router(google_calendar_router)
 app.include_router(report_router)
 # ==========================================
 # ROUTES

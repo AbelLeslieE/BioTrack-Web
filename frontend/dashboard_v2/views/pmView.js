@@ -84,6 +84,13 @@ function renderPM() {
 
                 </button>
 
+                <div class="pm-google-calendar" id="pmGoogleCalendar">
+                    <span class="pm-google-calendar-status" id="pmGoogleCalendarStatus">Checking Google Calendar…</span>
+                    <button type="button" id="pmGoogleConnectButton" class="pm-google-calendar-btn" hidden>Connect Google Calendar</button>
+                    <button type="button" id="pmGoogleSyncButton" class="pm-google-calendar-btn" hidden>Sync schedules</button>
+                    <button type="button" id="pmGoogleDisconnectButton" class="pm-google-calendar-disconnect" hidden>Disconnect</button>
+                </div>
+
             </div>
 
             <div id="pmCalendar">
@@ -366,6 +373,8 @@ function renderPM() {
     initializePMCalendar();
 
     initializePMDrawer();
+
+    initializeGoogleCalendar();
 
     loadEngineeringPMSchedules();
 
