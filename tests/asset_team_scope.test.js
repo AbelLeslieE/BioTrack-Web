@@ -23,5 +23,6 @@ test("asset registration and Excel import require administrator team ownership",
     assert.match(formSource, /option value="Biomedical"/);
     assert.match(formSource, /option value="Electrical"/);
     assert.match(formSource, /option value="IT"/);
-    assert.match(assetsSource, /formData\.append\("service_team"/);
+    assert.match(assetsSource, /upload\?service_team=/);
+    assert.match(assetsSource, /encodeURIComponent\(selectedTeam\)/);
 });

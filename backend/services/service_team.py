@@ -4,6 +4,7 @@ from fastapi import HTTPException
 
 
 SERVICE_TEAMS = {"Biomedical", "Electrical", "IT"}
+SERVICE_TEAM_NAMES = {team.casefold(): team for team in SERVICE_TEAMS}
 
 
 def team_for_user(current_user, requested_team: str | None = None) -> str | None:
@@ -17,8 +18,8 @@ def team_for_user(current_user, requested_team: str | None = None) -> str | None
     if current_user.role == "Manager":
         if requested_team is None:
             return "Biomedical"
-        team = requested_team.strip().title()
-        if team in SERVICE_TEAMS:
+        team = SERVICE_TEAM_NAMES.get(requested_team.strip().casefold())
+        if team:
             return team
         raise HTTPException(status_code=422, detail="Select Biomedical, Electrical, or IT service.")
     raise HTTPException(status_code=403, detail="This role cannot access engineering data.")

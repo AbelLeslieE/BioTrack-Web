@@ -440,14 +440,16 @@ function initializeAssetImport() {
 
         formData.append("file", excelInput.files[0]);
         const selectedTeam = document.getElementById("assetImportTeam")?.value;
-        if (selectedTeam) formData.append("service_team", selectedTeam);
+        const uploadUrl = selectedTeam
+            ? `/api/assets/upload?service_team=${encodeURIComponent(selectedTeam)}`
+            : "/api/assets/upload";
 
         try {
 
             importButton.disabled = true;
             importButton.textContent = "Importing...";
 
-            const response = await fetch("/api/assets/upload", {
+            const response = await fetch(uploadUrl, {
 
                 method: "POST",
                 body: formData
@@ -455,6 +457,13 @@ function initializeAssetImport() {
             });
 
             const result = await response.json();
+
+            if (!response.ok || result.success === false) {
+                const detail = Array.isArray(result.detail)
+                    ? result.detail.map(item => item.msg || String(item)).join("\n")
+                    : result.detail || result.message || "The spreadsheet could not be imported.";
+                throw new Error(detail);
+            }
 
             alert(
                 `Imported : ${result.imported}\n` +
@@ -470,7 +479,7 @@ function initializeAssetImport() {
 
             console.error(error);
 
-            alert("Import failed.");
+            alert(error.message || "Import failed.");
 
         }
 

@@ -1,15 +1,72 @@
 import unittest
+import asyncio
+import inspect
+from io import BytesIO
 from types import SimpleNamespace
 
-from fastapi import HTTPException
+import pandas as pd
+from fastapi import HTTPException, UploadFile
+from fastapi.params import Query
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.models.asset import Asset
-from backend.routes.asset_routes import get_asset, get_assets
+from backend.routes.asset_routes import get_asset, get_assets, upload_asset_excel
+from backend.services.service_team import team_for_user
 
 
 class AssetRouteTests(unittest.TestCase):
+    def test_manager_service_team_normalization_preserves_it_acronym(self):
+        manager = SimpleNamespace(role="Manager")
+        self.assertEqual(team_for_user(manager, "IT"), "IT")
+        self.assertEqual(team_for_user(manager, "it"), "IT")
+
+    @staticmethod
+    def _asset_workbook(equipment_number="IT-TEST-001"):
+        workbook = BytesIO()
+        dataframe = pd.DataFrame([
+            {
+                "Equipment No": equipment_number,
+                "Equipment": "Network Switch",
+                "Classification": "IT",
+                "Eq Type": "High",
+                "Manufacture": "Test Vendor",
+                "Value": 1000,
+                "Tax Amount": 180,
+            }
+        ])
+        with pd.ExcelWriter(workbook, engine="openpyxl") as writer:
+            dataframe.to_excel(writer, index=False, startrow=6)
+        return workbook.getvalue()
+
+    def test_manager_it_excel_upload_accepts_team_query_parameter(self):
+        parameter = inspect.signature(upload_asset_excel).parameters["service_team"]
+        self.assertIsInstance(parameter.default, Query)
+
+        engine = create_engine("sqlite:///:memory:")
+        Asset.__table__.create(engine)
+        session = sessionmaker(bind=engine)()
+
+        try:
+            result = asyncio.run(upload_asset_excel(
+                file=UploadFile(
+                    filename="it-assets.xlsx",
+                    file=BytesIO(self._asset_workbook()),
+                ),
+                service_team="IT",
+                service_team_form=None,
+                db=session,
+                current_user=SimpleNamespace(role="Manager", department=None),
+            ))
+            self.assertEqual(result["imported"], 1)
+
+            imported = session.query(Asset).one()
+            self.assertEqual(imported.service_team, "IT")
+            self.assertEqual(imported.equipment_no, "IT-TEST-001")
+        finally:
+            session.close()
+            engine.dispose()
+
     def test_missing_asset_returns_http_404(self):
         engine = create_engine("sqlite:///:memory:")
         Asset.__table__.create(engine)
