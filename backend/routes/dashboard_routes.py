@@ -192,7 +192,9 @@ def dashboard_v2(
     requests = db.query(Request).order_by(Request.id.desc()).all()
     assets = db.query(Asset).all()
     inventory_items = db.query(Inventory).all()
+    pm_schedules = db.query(PMSchedule).all()
     today = date.today()
+    now = datetime.now()
 
     team_activity = []
     for team, role in team_definitions:
@@ -254,6 +256,30 @@ def dashboard_v2(
     active_calls = sum(item["active_calls"] for item in team_activity)
     critical_calls = sum(item["critical_calls"] for item in team_activity)
     inventory_alerts = sum(item["low_stock"] for item in team_activity)
+    active_requests = [item for item in requests if item.status in active_statuses]
+    active_downtime_values = [
+        max((now - item.call_received_datetime).total_seconds() / 3600, 0)
+        for item in active_requests
+        if item.call_received_datetime is not None
+    ]
+    out_of_stock = sum((item.current_stock or 0) <= 0 for item in inventory_items)
+    out_of_service_assets = sum(
+        (item.status or "").lower() in {"out of service", "inactive"}
+        for item in assets
+    )
+    pm_due = sum((item.status or "") in {"Due", "Overdue"} for item in pm_schedules)
+    pm_overdue = sum((item.status or "") == "Overdue" for item in pm_schedules)
+    pm_pending_confirmation = sum(
+        (item.department_response or "Pending") == "Pending"
+        and (item.status or "") not in {"Completed", "Closed"}
+        for item in pm_schedules
+    )
+    stock_health_percent = round(
+        ((len(inventory_items) - inventory_alerts) / len(inventory_items)) * 100
+    ) if inventory_items else 100
+    asset_availability_percent = round(
+        ((len(assets) - out_of_service_assets) / len(assets)) * 100
+    ) if assets else 100
     return {
         "generated_at": datetime.now().isoformat(),
         "summary": {
@@ -262,8 +288,24 @@ def dashboard_v2(
             "completed_today": sum(item["completed_today"] for item in team_activity),
             "total_assets": len(assets),
             "inventory_alerts": inventory_alerts,
+            "inventory_items": len(inventory_items),
+            "out_of_stock": out_of_stock,
+            "stock_health_percent": stock_health_percent,
+            "inventory_value": round(sum(
+                (item.current_stock or 0) * (item.purchase_price or 0)
+                for item in inventory_items
+            ), 2),
             "engineers": sum(item["engineers"] for item in team_activity),
-            "pm_due": db.query(PMSchedule).filter(PMSchedule.status.in_(["Due", "Overdue"])).count(),
+            "pm_due": pm_due,
+            "pm_overdue": pm_overdue,
+            "pm_pending_confirmation": pm_pending_confirmation,
+            "open_calls": sum(item.status in {"Open", "Assigned"} for item in requests),
+            "in_progress": sum(item.status == "In Progress" for item in requests),
+            "awaiting_parts": sum(item.status == "Awaiting Parts" for item in requests),
+            "out_of_service_assets": out_of_service_assets,
+            "asset_availability_percent": asset_availability_percent,
+            "active_downtime_hours": round(sum(active_downtime_values), 1),
+            "oldest_active_call_hours": round(max(active_downtime_values), 1) if active_downtime_values else 0,
             "avg_downtime": round(
                 sum(item.final_downtime_hours or 0 for item in completed_requests) / len(completed_requests),
                 2,

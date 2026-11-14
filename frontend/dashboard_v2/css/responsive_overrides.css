@@ -3,7 +3,70 @@ html,body{max-width:100%;overflow-x:hidden}
 body.mobile-nav-open{overflow:hidden}
 img,svg,canvas,video{max-width:100%}
 button,input,select,textarea{max-width:100%}
-.sidebar-mobile-backdrop{display:none}
+
+/* The primary navigation is an off-canvas drawer at every viewport size. */
+.dashboard{grid-template-columns:minmax(0,1fr)}
+.sidebar{
+    position:fixed;
+    top:0;
+    bottom:0;
+    left:0;
+    z-index:1000;
+    width:min(280px,calc(100vw - 44px));
+    height:100vh;
+    height:100dvh;
+    overflow-y:auto;
+    transform:translateX(-105%);
+    transition:transform .28s ease,box-shadow .28s ease;
+    box-shadow:none;
+}
+.sidebar.active{
+    transform:translateX(0);
+    box-shadow:18px 0 45px rgba(15,23,42,.28);
+}
+.sidebar .logo-text,
+.sidebar .nav-item span,
+.sidebar .profile-card div:not(.profile-avatar),
+.sidebar .logout-btn span{display:block}
+.sidebar-logo,
+.sidebar .nav-item,
+.sidebar .profile-card,
+.sidebar .logout-btn{justify-content:flex-start}
+.sidebar .nav-item{padding:12px 14px;font-size:14px}
+.sidebar-logo{gap:12px;margin-bottom:26px}
+.sidebar-logo .logo-text h2{font-size:23px}
+.sidebar-logo .logo-text p{font-size:11px}
+.sidebar-mobile-backdrop{
+    display:block;
+    position:fixed;
+    inset:0;
+    z-index:999;
+    border:0;
+    background:rgba(15,23,42,.48);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .25s ease;
+}
+.sidebar-mobile-backdrop.show{opacity:1;pointer-events:auto}
+.menu-toggle{display:flex}
+
+/* Compact typography shared by every dashboard module. */
+body{font-size:14px}
+.topbar{font-size:13px}
+.search-box input{font-size:13px}
+#currentDate{font-size:14px}
+#currentTime,.profile-info small{font-size:11px}
+.profile-info strong{font-size:13px}
+#page-content{font-size:14px}
+#page-content h1{font-size:clamp(26px,2.3vw,34px)}
+#page-content h2{font-size:clamp(18px,1.7vw,24px)}
+#page-content h3{font-size:clamp(16px,1.35vw,20px)}
+#page-content p{font-size:13px}
+#page-content :where(button,input,select,textarea,label,th,td){font-size:13px}
+#page-content small{font-size:11px}
+#page-content :where(.kpi-info h2,.kpi-card h2,.dashboard-card h2){font-size:38px}
+#page-content :where(.kpi-info span,.kpi-card span,.dashboard-card span){font-size:13px}
+#page-content :where(.admin-summary-card strong,.user-home-metric strong){font-size:26px}
 
 /* Make all data-heavy modules scroll inside their own card instead of widening the page. */
 .table-wrapper,.table-container,.asset-table-container,.maintenance-table-card,.inventory-table-card,
@@ -42,10 +105,6 @@ button,input,select,textarea{max-width:100%}
     :root{--page-padding:16px;--section-gap:22px}
     #page-content{padding:16px}
     .menu-toggle{display:flex}
-    .sidebar{box-shadow:18px 0 45px rgba(15,23,42,.25)}
-    .sidebar-mobile-backdrop{position:fixed;inset:0;z-index:999;background:rgba(15,23,42,.48);border:0;opacity:0;pointer-events:none;transition:opacity .25s ease}
-    .sidebar-mobile-backdrop.show{display:block;opacity:1;pointer-events:auto}
-    .sidebar{z-index:1000}
     .topbar{gap:8px;padding:0 16px}
     .topbar-left,.topbar-right{gap:7px}
     .notification-btn{flex:0 0 auto}

@@ -13,7 +13,18 @@ async function loadDashboard() {
     setAdminDashboardText("adminOpsCompletedToday", summary.completed_today);
     setAdminDashboardText("adminOpsAssets", summary.total_assets);
     setAdminDashboardText("adminOpsActiveDetail", (summary.engineers || 0) + " engineering users across all departments");
-    setAdminDashboardText("adminOpsAssetsDetail", (summary.inventory_alerts || 0) + " stock alerts to review");
+    setAdminDashboardText("adminOpsAssetsDetail", (summary.asset_availability_percent ?? 100) + "% currently available");
+    setAdminDashboardText("adminOpsActiveDowntime", adminFormatHours(summary.active_downtime_hours));
+    setAdminDashboardText("adminOpsAvgDowntime", adminFormatHours(summary.avg_downtime));
+    setAdminDashboardText("adminOpsStockHealth", (summary.stock_health_percent ?? 100) + "%");
+    setAdminDashboardText("adminOpsPmDue", summary.pm_due || 0);
+    setAdminDashboardText("adminOpsAwaitingParts", summary.awaiting_parts || 0);
+    setAdminDashboardText("adminOpsAssetAvailability", (summary.asset_availability_percent ?? 100) + "%");
+    setAdminDashboardText("adminOpsOldestCall", adminFormatHours(summary.oldest_active_call_hours) + " oldest active call");
+    setAdminDashboardText("adminOpsStockDetail", (summary.inventory_alerts || 0) + " low · " + (summary.out_of_stock || 0) + " out of stock");
+    setAdminDashboardText("adminOpsPmDetail", (summary.pm_overdue || 0) + " overdue · " + (summary.pm_pending_confirmation || 0) + " awaiting confirmation");
+    setAdminDashboardText("adminOpsAssetDetail", (summary.out_of_service_assets || 0) + " out of service");
+    setAdminDashboardText("adminLastUpdated", "Updated " + adminFormatDateTime(data.generated_at));
     renderAdminTeams(data.teams || []);
     renderAdminActivity(data.recent_activity || []);
     renderAdminAttention(summary, data.teams || []);
@@ -76,14 +87,16 @@ function renderAdminAttention(summary, teams) {
     const container = document.getElementById("adminAttentionList");
     if (!container) return;
     const items = [];
-    if (summary.critical_calls) items.push({ icon: "siren", tone: "red", title: summary.critical_calls + " critical call" + (summary.critical_calls === 1 ? "" : "s"), text: "Prioritize assignment and resolution." });
-    if (summary.inventory_alerts) items.push({ icon: "package-x", tone: "orange", title: summary.inventory_alerts + " inventory alert" + (summary.inventory_alerts === 1 ? "" : "s"), text: "Parts are at or below their minimum stock level." });
-    if (summary.pm_due) items.push({ icon: "calendar-clock", tone: "blue", title: summary.pm_due + " PM visit" + (summary.pm_due === 1 ? "" : "s") + " due", text: "Review preventive-maintenance scheduling." });
+    if (summary.critical_calls) items.push({ icon: "siren", tone: "red", title: summary.critical_calls + " critical call" + (summary.critical_calls === 1 ? "" : "s"), text: "Prioritize assignment and resolution.", page: "callManagement" });
+    if (summary.inventory_alerts) items.push({ icon: "package-x", tone: "orange", title: summary.inventory_alerts + " inventory alert" + (summary.inventory_alerts === 1 ? "" : "s"), text: (summary.out_of_stock || 0) + " items are completely out of stock.", page: "inventory" });
+    if (summary.pm_due) items.push({ icon: "calendar-clock", tone: "blue", title: summary.pm_due + " PM visit" + (summary.pm_due === 1 ? "" : "s") + " due", text: (summary.pm_overdue || 0) + " preventive-maintenance visits are overdue.", page: "pm" });
     const awaiting = teams.reduce((total, team) => total + (team.awaiting_parts || 0), 0);
-    if (awaiting) items.push({ icon: "clock-3", tone: "violet", title: awaiting + " call" + (awaiting === 1 ? "" : "s") + " awaiting parts", text: "Coordinate supply before service delays increase." });
+    if (awaiting) items.push({ icon: "clock-3", tone: "violet", title: awaiting + " call" + (awaiting === 1 ? "" : "s") + " awaiting parts", text: "Coordinate supply before service delays increase.", page: "callManagement" });
+    if (summary.out_of_service_assets) items.push({ icon: "monitor-x", tone: "red", title: summary.out_of_service_assets + " asset" + (summary.out_of_service_assets === 1 ? "" : "s") + " out of service", text: "Review availability and maintenance status.", page: "assets" });
+    if ((summary.oldest_active_call_hours || 0) >= 24) items.push({ icon: "alarm-clock", tone: "orange", title: adminFormatHours(summary.oldest_active_call_hours) + " oldest active call", text: "This request has remained active for more than one day.", page: "callManagement" });
     if (!items.length) items.push({ icon: "circle-check-big", tone: "green", title: "Operations are on track", text: "No critical calls, stock alerts, or PM visits need immediate action." });
-    items.push({ icon: "timer-reset", tone: "slate", title: (summary.avg_downtime || 0) + " h average downtime", text: "Based on completed maintenance calls." });
-    container.innerHTML = items.map(item => `<div class="admin-attention-row is-${item.tone}"><span><i data-lucide="${item.icon}"></i></span><div><strong>${adminEscape(item.title)}</strong><p>${adminEscape(item.text)}</p></div></div>`).join("");
+    items.push({ icon: "timer-reset", tone: "slate", title: adminFormatHours(summary.avg_downtime) + " average downtime", text: "Based on completed maintenance calls.", page: "reports" });
+    container.innerHTML = items.map(item => `<div class="admin-attention-row is-${item.tone}"><span><i data-lucide="${item.icon}"></i></span><div><strong>${adminEscape(item.title)}</strong><p>${adminEscape(item.text)}</p></div>${item.page ? `<button type="button" onclick="navigate('${item.page}')">Review</button>` : ""}</div>`).join("");
 }
 
 function renderAdminDashboardError(message) {
@@ -110,6 +123,24 @@ function adminFormatDateTime(value) {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "Recently";
     return new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(date);
+}
+
+function adminFormatHours(value) {
+    const hours = Number(value || 0);
+    return (Number.isInteger(hours) ? hours : hours.toFixed(1)) + " h";
+}
+
+if (!window.adminDashboardShortcutsBound) {
+    window.adminDashboardShortcutsBound = true;
+    document.addEventListener("keydown", event => {
+        if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        if (event.target.closest("input, textarea, select, [contenteditable='true']")) return;
+        const shortcuts = { c: "callManagement", a: "assets", i: "inventory", p: "pm", q: "qr", r: "reports", u: "users", s: "settings" };
+        const page = shortcuts[String(event.key || "").toLowerCase()];
+        if (!page || typeof navigate !== "function") return;
+        event.preventDefault();
+        navigate(page);
+    });
 }
 
 function adminEscape(value) {

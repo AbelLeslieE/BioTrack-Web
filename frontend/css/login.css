@@ -1297,10 +1297,10 @@ body.low-bandwidth-login::before{
     }
 
     .login-container{
-        grid-template-columns:minmax(400px,500px);
+        grid-template-columns:minmax(310px,360px);
         justify-content:end;
         gap:0;
-        padding:clamp(24px,3vw,52px);
+        padding:clamp(18px,2.4vw,42px);
     }
 
     .left-section{
@@ -1312,15 +1312,100 @@ body.low-bandwidth-login::before{
         justify-content:flex-end;
     }
 
-    .login-card{
-        max-height:calc(100vh - 48px);
-        max-height:calc(100svh - 48px);
+    body:not(.low-bandwidth-login) .login-card{
+        max-width:360px;
+        max-height:calc(100vh - 36px);
+        max-height:calc(100svh - 36px);
+        padding:25px 27px 21px;
+        border-radius:18px;
         overflow-y:auto;
         border:1px solid rgba(255,255,255,.75);
         background:rgba(255,255,255,.94);
         box-shadow:0 28px 70px rgba(6,18,38,.28);
         scrollbar-width:thin;
         scrollbar-color:rgba(47,103,246,.42) transparent;
+    }
+
+    body:not(.low-bandwidth-login) .avatar{
+        width:54px;
+        height:54px;
+    }
+
+    body:not(.low-bandwidth-login) .avatar i{
+        font-size:25px;
+    }
+
+    body:not(.low-bandwidth-login) .login-card h2{
+        margin-top:15px;
+        font-size:30px;
+    }
+
+    body:not(.low-bandwidth-login) .subtitle{
+        margin-top:5px;
+        margin-bottom:20px;
+        font-size:13px;
+    }
+
+    body:not(.low-bandwidth-login) label{
+        margin-top:9px;
+        margin-bottom:6px;
+        font-size:13px;
+    }
+
+    body:not(.low-bandwidth-login) .input-group{
+        height:46px;
+        padding:0 12px;
+        border-radius:9px;
+    }
+
+    body:not(.low-bandwidth-login) .input-group i{
+        width:19px;
+        font-size:14px;
+    }
+
+    body:not(.low-bandwidth-login) .input-group input{
+        padding:0 10px;
+        font-size:14px;
+    }
+
+    body:not(.low-bandwidth-login) .toggle-password{
+        width:30px;
+        height:30px;
+    }
+
+    body:not(.low-bandwidth-login) .message{
+        min-height:15px;
+        margin-top:8px;
+        font-size:12px;
+    }
+
+    body:not(.low-bandwidth-login) .login-btn{
+        height:46px;
+        margin-top:10px;
+        border-radius:9px;
+        font-size:15px;
+    }
+
+    body:not(.low-bandwidth-login) .pwa-install-btn{
+        min-height:36px;
+        margin-top:8px;
+        border-radius:9px;
+        font-size:12px;
+    }
+
+    body:not(.low-bandwidth-login) .footer{
+        margin-top:15px;
+        padding-top:11px;
+    }
+
+    body:not(.low-bandwidth-login) .footer p{
+        margin-top:3px;
+        font-size:10px;
+    }
+
+    body:not(.low-bandwidth-login) .footer span{
+        margin-top:5px;
+        font-size:10px;
     }
 
     .login-card::-webkit-scrollbar{

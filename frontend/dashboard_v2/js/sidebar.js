@@ -278,6 +278,8 @@ document.addEventListener("DOMContentLoaded", () => {
         appSidebar.classList.remove("active");
         backdrop.classList.remove("show");
         document.body.classList.remove("mobile-nav-open");
+        appSidebar.setAttribute("aria-hidden", "true");
+        appSidebar.inert = true;
         menuButton.setAttribute("aria-expanded", "false");
         menuButton.setAttribute("aria-label", "Open navigation menu");
     };
@@ -286,20 +288,20 @@ document.addEventListener("DOMContentLoaded", () => {
         appSidebar.classList.toggle("active", willOpen);
         backdrop.classList.toggle("show", willOpen);
         document.body.classList.toggle("mobile-nav-open", willOpen);
+        appSidebar.setAttribute("aria-hidden", String(!willOpen));
+        appSidebar.inert = !willOpen;
         menuButton.setAttribute("aria-expanded", String(willOpen));
         menuButton.setAttribute("aria-label", willOpen ? "Close navigation menu" : "Open navigation menu");
     };
 
-    menuButton.setAttribute("aria-expanded", "false");
+    closeMenu();
     menuButton.addEventListener("click", toggleMenu);
     backdrop.addEventListener("click", closeMenu);
     appSidebar.addEventListener("click", event => {
-        if (event.target.closest(".nav-item") && window.matchMedia("(max-width: 768px)").matches) closeMenu();
+        if (event.target.closest(".nav-item")) closeMenu();
     });
     document.addEventListener("keydown", event => {
         if (event.key === "Escape") closeMenu();
     });
-    window.addEventListener("resize", () => {
-        if (!window.matchMedia("(max-width: 768px)").matches) closeMenu();
-    });
+    window.addEventListener("resize", closeMenu);
 });
