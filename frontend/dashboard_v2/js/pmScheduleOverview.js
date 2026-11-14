@@ -33,12 +33,38 @@ function renderEngineeringPMSchedules(schedules) {
               <div class="pm-overview-equipment"><strong>${pmOverviewEscape(item.equipment_name || "Department equipment")}</strong><span>${pmOverviewEscape(item.asset_code || "-")} · ${pmOverviewEscape(item.department || "No department")}</span></div>
               <div class="pm-overview-state"><b class="pm-overview-badge ${pmOverviewClass(item.status)}">${pmOverviewEscape(item.status || "Upcoming")}</b><small>PM status</small></div>
               <div class="pm-overview-response"><b class="pm-overview-response-badge ${pmOverviewClass(item.department_response)}">${pmOverviewEscape(item.department_response || "Pending")}</b><small>Department response</small>${item.department_response_note ? `<p>“${pmOverviewEscape(item.department_response_note)}”</p>` : ""}</div>
+              <a class="pm-overview-calendar-link" href="${pmOverviewGoogleCalendarUrl(item)}" target="_blank" rel="noopener noreferrer" aria-label="Add ${pmOverviewEscape(item.equipment_name || "PM visit")} to Google Calendar"><i data-lucide="calendar-plus"></i> Add to Google Calendar</a>
             </article>
           `).join("")}
         </div>
       </div>
     `;
     if (window.lucide) lucide.createIcons();
+}
+
+function pmOverviewGoogleCalendarUrl(item) {
+    const startDate = String(item.scheduled_date || "").replaceAll("-", "");
+    const parsedDate = new Date(`${item.scheduled_date}T00:00:00Z`);
+    if (!startDate || Number.isNaN(parsedDate.getTime())) return "https://calendar.google.com/calendar/";
+    parsedDate.setUTCDate(parsedDate.getUTCDate() + 1);
+    const endDate = parsedDate.toISOString().slice(0, 10).replaceAll("-", "");
+    const title = `Preventive Maintenance — ${item.equipment_name || item.asset_code || "Equipment"}`;
+    const details = [
+        `BioTrack PM schedule #${item.id}`,
+        `Asset: ${item.asset_code || "—"}`,
+        `Department: ${item.department || "—"}`,
+        `Location: ${item.location || "—"}`,
+        `Status: ${item.status || "Upcoming"}`,
+        item.remarks ? `Remarks: ${item.remarks}` : "",
+    ].filter(Boolean).join("\n");
+    const params = new URLSearchParams({
+        action: "TEMPLATE",
+        text: title,
+        dates: `${startDate}/${endDate}`,
+        details,
+        location: item.location || "",
+    });
+    return `https://calendar.google.com/calendar/u/0/r/eventedit?${params.toString()}`;
 }
 
 function pmOverviewDay(value) {
