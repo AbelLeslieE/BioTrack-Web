@@ -97,7 +97,7 @@ async function onQRCodeDetected(decodedText) {
             return;
         }
 
-        openAssetPage(result.asset.id);
+        openQRAssetProfile(result.asset.id);
     } catch (error) {
         console.error(error);
         alert("Unable to locate this asset. Please try again.");

@@ -496,3 +496,20 @@ body.dark-theme .ticket-btn.secondary{
     border:1px solid #3b5271!important;
 }
 body.dark-theme .ticket-downtime-trigger{color:var(--dark-text)!important;background:transparent!important}
+
+/* Role-aware QR profile and scanned request. */
+body.dark-theme .qr-profile-page{color:var(--dark-text)}
+body.dark-theme .qr-profile-back{color:#dbeafe;background:#17273e;border-color:#3b5271}
+body.dark-theme .qr-profile-topbar>span{color:#9fb0c6}
+body.dark-theme :is(.qr-profile-loading,.qr-profile-error,.qr-profile-section){color:var(--dark-text);background:var(--dark-surface);border-color:var(--dark-border);box-shadow:none}
+body.dark-theme .qr-profile-heading h2,body.dark-theme .qr-engineer-pm-action h2{color:var(--dark-text)}
+body.dark-theme .qr-profile-heading p,body.dark-theme .qr-engineer-pm-action p{color:var(--dark-muted)}
+body.dark-theme .qr-profile-facts article,body.dark-theme .qr-maintenance-metrics article,body.dark-theme .qr-history-list article{background:#0e1a2c;border-color:#344862}
+body.dark-theme .qr-profile-facts small,body.dark-theme .qr-maintenance-metrics small,body.dark-theme .qr-history-list span{color:#9fb0c6}
+body.dark-theme .qr-profile-facts strong,body.dark-theme .qr-maintenance-metrics strong{color:#eef5ff}
+body.dark-theme .qr-profile-callout{background:#142a47}body.dark-theme .qr-profile-callout p,body.dark-theme .qr-history-list p,body.dark-theme .qr-empty-history{color:#a8bad0}
+body.dark-theme .qr-engineer-pm-action{background:linear-gradient(100deg,#101d31,#142a47)}
+body.dark-theme .qr-admin-details{background:#344862;border-color:#344862}body.dark-theme .qr-admin-details>div{background:#0e1a2c}body.dark-theme .qr-admin-details span{color:#9fb0c6}body.dark-theme .qr-admin-details strong{color:#eef5ff}
+body.dark-theme .qr-pm-confirm-dialog{color:var(--dark-text);background:var(--dark-surface);border:1px solid var(--dark-border)}body.dark-theme .qr-pm-confirm-dialog p{color:var(--dark-muted)}body.dark-theme .qr-pm-cancel{color:#d3dfed;background:#17273e;border-color:#3b5271}
+body.dark-theme .qr-request-prefill-banner{color:#d1fae5;background:#12352e;border-color:#237b62}body.dark-theme .qr-request-prefill-banner p{color:#9dd9c5}
+body.dark-theme .page-container input[readonly],body.dark-theme .page-container select:disabled{color:#a8bad0!important;background:#17253a!important;border-color:#344862!important}

@@ -20,17 +20,18 @@ const ROLE_HOME_PAGES = {
 };
 
 const ROLE_PAGE_ACCESS = {
-    admin: new Set(["dashboard", "ticket", "callManagement", "callAssignment", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "pm", "reports", "users", "qr", "settings"]),
-    engineer: new Set(["engineerDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "pm", "reports", "qr", "settings"]),
-    electrical: new Set(["electricalDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "settings"]),
-    it: new Set(["itDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "settings"]),
-    user: new Set(["userDashboard", "newRequest", "myRequests", "myAssets", "assetDetails", "departmentPMSchedule", "requestDetails", "qr", "settings"]),
+    admin: new Set(["dashboard", "ticket", "callManagement", "callAssignment", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "pm", "reports", "users", "qr", "qrAssetProfile", "settings"]),
+    engineer: new Set(["engineerDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "pm", "reports", "qr", "qrAssetProfile", "settings"]),
+    electrical: new Set(["electricalDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "qrAssetProfile", "settings"]),
+    it: new Set(["itDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "qrAssetProfile", "settings"]),
+    user: new Set(["userDashboard", "newRequest", "myRequests", "myAssets", "assetDetails", "departmentPMSchedule", "requestDetails", "qr", "qrAssetProfile", "settings"]),
 };
 // ==========================================
 // CURRENT SELECTED ASSET
 // ==========================================
 
 let currentAssetId = null;
+let currentQRAssetId = null;
 
 // ==========================================
 // PAGE REGISTRY
@@ -69,6 +70,7 @@ const Pages = {
     ai: renderAI,
     users: renderUsers,
     qr: renderQRScannerModule,
+    qrAssetProfile: renderQRAssetProfile,
     settings: renderSettings
 
 };
@@ -189,4 +191,9 @@ function openAssetPage(assetId) {
 
     navigate("assetDetails");
 
+}
+
+function openQRAssetProfile(assetId) {
+    currentQRAssetId = Number(assetId);
+    navigate("qrAssetProfile");
 }

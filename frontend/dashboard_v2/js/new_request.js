@@ -15,6 +15,8 @@ function initializeNewRequest() {
 
     initializeRequesterFields();
 
+    applyQRMaintenancePrefill();
+
     initializeSubmitButton();
 
     initializeModalButtons();
@@ -37,6 +39,58 @@ function initializeRequesterFields() {
     if (reportedBy && requesterName) {
         reportedBy.value = requesterName;
         reportedBy.readOnly = true;
+    }
+}
+
+function getQRMaintenancePrefill() {
+    try {
+        return JSON.parse(sessionStorage.getItem("qrMaintenancePrefill") || "null");
+    } catch (error) {
+        console.warn("Unable to read QR maintenance prefill", error);
+        sessionStorage.removeItem("qrMaintenancePrefill");
+        return null;
+    }
+}
+
+function applyQRMaintenancePrefill() {
+    const prefill = getQRMaintenancePrefill();
+    if (!prefill) return;
+
+    const values = {
+        departmentSearch: prefill.department,
+        locationRoom: prefill.location,
+        equipmentIdentifier: prefill.equipment_identifier,
+        equipmentName: prefill.equipment_name,
+        makeModel: prefill.make_model,
+        serviceTeam: prefill.service_team,
+    };
+
+    Object.entries(values).forEach(([id, value]) => {
+        const field = document.getElementById(id);
+        if (!field || value === null || value === undefined) return;
+        field.value = value;
+        field.classList.remove("input-error");
+    });
+
+    ["departmentSearch", "locationRoom", "equipmentIdentifier", "equipmentName", "makeModel"]
+        .forEach(id => {
+            const field = document.getElementById(id);
+            if (field) field.readOnly = true;
+        });
+
+    const serviceTeam = document.getElementById("serviceTeam");
+    if (serviceTeam) serviceTeam.disabled = true;
+
+    const problemCategory = document.getElementById("problemCategory");
+    if (problemCategory && !problemCategory.value) problemCategory.value = "Breakdown";
+
+    const page = document.querySelector(".page-container");
+    if (page && !document.getElementById("qrRequestPrefillBanner")) {
+        const banner = document.createElement("div");
+        banner.id = "qrRequestPrefillBanner";
+        banner.className = "qr-request-prefill-banner";
+        banner.innerHTML = '<span aria-hidden="true">✓</span><div><strong>Equipment added from QR scan</strong><p>Identification and location are locked to the scanned asset. Add the problem details you know; the failure description is optional.</p></div>';
+        page.querySelector(".page-header")?.insertAdjacentElement("afterend", banner);
     }
 }
 
@@ -92,6 +146,8 @@ function clearForm() {
         "Form Cleared Successfully",
         "success"
     );
+
+    applyQRMaintenancePrefill();
 
 }
 
@@ -183,9 +239,7 @@ function validateForm() {
 
         "problemCategory",
 
-        "serviceTeam", // Biomedical Engineering, Electrical Engineering, or IT
-
-        "failureDescription"
+        "serviceTeam" // Biomedical Engineering, Electrical Engineering, or IT
 
     ];
 
@@ -332,6 +386,19 @@ async function submitRequest() {
             buttonText: "Create Another Request",
 
             onClose() {
+
+                sessionStorage.removeItem("qrMaintenancePrefill");
+
+                document.getElementById("qrRequestPrefillBanner")?.remove();
+
+                ["locationRoom", "equipmentIdentifier", "equipmentName", "makeModel"]
+                    .forEach(id => {
+                        const field = document.getElementById(id);
+                        if (field) field.readOnly = false;
+                    });
+
+                const serviceTeam = document.getElementById("serviceTeam");
+                if (serviceTeam) serviceTeam.disabled = false;
 
                 clearForm();
 

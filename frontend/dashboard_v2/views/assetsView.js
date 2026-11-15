@@ -728,6 +728,10 @@ async function openAssetQRGenerator(assetId = null) {
     const close = () => { modalRoot.remove(); document.body.classList.remove("asset-qr-open"); };
     const select = modalRoot.querySelector("#assetQrSelect");
     const generate = modalRoot.querySelector(".asset-qr-generate");
+    const setGenerateLabel = label => {
+        const labelElement = generate?.querySelector("span");
+        if (labelElement) labelElement.textContent = label;
+    };
     modalRoot.querySelector(".asset-qr-close").onclick = close;
     modalRoot.querySelector(".asset-qr-cancel").onclick = close;
     modalRoot.addEventListener("click", event => { if (event.target === modalRoot) close(); });
@@ -737,10 +741,10 @@ async function openAssetQRGenerator(assetId = null) {
         const preview = modalRoot.querySelector("#assetQrPreview");
         if (asset?.qr_code) {
             preview.innerHTML = `<img src="${escapeHTML(asset.qr_code)}" alt="QR code for ${escapeHTML(asset.equipment_name || "asset")}"><strong>${escapeHTML(asset.asset_code || asset.equipment_no || "Asset QR")}</strong><p>${escapeHTML(asset.equipment_name || "Equipment")}</p><a href="${escapeHTML(asset.qr_code)}" download><i data-lucide="download"></i> Download QR</a>`;
-            if (generate) generate.querySelector("span").textContent = "Regenerate QR";
+            setGenerateLabel("Regenerate QR");
         } else {
             preview.innerHTML = asset ? `<span><i data-lucide="monitor-cog"></i></span><strong>${escapeHTML(asset.equipment_name || "Equipment")}</strong><p>${escapeHTML(asset.asset_code || asset.equipment_no || "No asset code")} · ${escapeHTML(asset.department || "No department")}</p>` : '<span><i data-lucide="scan-line"></i></span><strong>No asset selected</strong><p>Choose an asset to create or view its QR code.</p>';
-            if (generate) generate.querySelector("span").textContent = "Generate QR";
+            setGenerateLabel("Generate QR");
         }
         if (window.lucide) lucide.createIcons();
     };
@@ -748,23 +752,26 @@ async function openAssetQRGenerator(assetId = null) {
         if (!select.value) return;
         generate.disabled = true;
         generate.classList.add("is-loading");
-        generate.querySelector("span").textContent = "Generating…";
+        setGenerateLabel("Generating…");
         try {
             const response = await fetch(`/api/qr/generate/${Number(select.value)}`, { method: "POST" });
             const result = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(result.detail || "Unable to generate QR code.");
             const asset = assetsCache.find(item => Number(item.id) === Number(select.value));
             modalRoot.querySelector("#assetQrPreview").innerHTML = `<img src="${escapeHTML(result.qr_url)}?t=${Date.now()}" alt="QR code for ${escapeHTML(asset?.equipment_name || "asset")}"><strong>${escapeHTML(asset?.asset_code || asset?.equipment_no || "Asset QR")}</strong><p>${escapeHTML(asset?.equipment_name || "Equipment")}</p><a href="${escapeHTML(result.qr_url)}" download><i data-lucide="download"></i> Download QR</a>`;
-            generate.querySelector("span").textContent = "Regenerate QR";
+            setGenerateLabel("Regenerate QR");
             const cachedAsset = assetsCache.find(item => Number(item.id) === Number(select.value));
             if (cachedAsset) {
                 cachedAsset.qr_generated = true;
                 cachedAsset.qr_code = result.qr_url;
             }
-            applyAssetFilters();
+            // The generator is shared by the registry and the asset-details page.
+            // Registry KPI/table elements do not exist when this modal is opened
+            // from Asset Details, so only refresh filters when that view is mounted.
+            if (document.getElementById("assetTableBody")) applyAssetFilters();
         } catch (error) {
             alert(error.message || "Unable to generate QR code.");
-            generate.querySelector("span").textContent = "Generate QR";
+            setGenerateLabel("Generate QR");
         } finally {
             generate.disabled = false;
             generate.classList.remove("is-loading");

@@ -64,8 +64,7 @@ class MaintenanceRequestTests(unittest.TestCase):
         )
 
     def test_request_fields_are_validated(self):
-        with self.assertRaises(ValidationError):
-            valid_request(failure_description="   ")
+        self.assertEqual(valid_request(failure_description="   ").failure_description, "")
         with self.assertRaises(ValidationError):
             valid_request(priority="Immediate")
 

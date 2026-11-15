@@ -45,7 +45,7 @@ class MaintenanceRequestCreate(BaseModel):
         "Accessories",
     ]
     service_team: Literal["Biomedical", "Electrical", "IT"] = "Biomedical"
-    failure_description: str = Field(min_length=1, max_length=4000)
+    failure_description: str = Field(default="", max_length=4000)
 
 
 class DowntimeOverride(BaseModel):

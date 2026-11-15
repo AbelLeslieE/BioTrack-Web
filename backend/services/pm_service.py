@@ -41,24 +41,17 @@ def calculate_pm_status(schedule: PMSchedule):
 # NEXT PM DATE
 # ==========================================
 
-def calculate_next_pm_date(asset: Asset):
+def calculate_next_pm_date(asset: Asset, completed_on=None, frequency_days=None):
 
     """
     Generate the next PM date
     based on frequency.
     """
 
-    if asset.pm_frequency is None:
+    frequency = frequency_days or asset.pm_frequency
+    if not frequency:
         return None
-
-    start_date = asset.last_pm_date
-
-    if start_date is None:
-        start_date = date.today()
-
-    return start_date + timedelta(
-        days=asset.pm_frequency
-    )
+    return (completed_on or date.today()) + timedelta(days=frequency)
 
 
 # ==========================================
@@ -133,7 +126,8 @@ def complete_pm(
     db: Session,
     schedule_id: int,
     engineer_name: str,
-    remarks: str = ""
+    remarks: str = "",
+    engineer_id: int | None = None,
 ):
 
     """
@@ -151,7 +145,9 @@ def complete_pm(
         Asset.id == schedule.asset_id
     ).first()
 
-    schedule.completed_date = date.today()
+    completed_on = date.today()
+    status_before = schedule.status or "Due"
+    schedule.completed_date = completed_on
 
     schedule.status = "Completed"
 
@@ -161,17 +157,19 @@ def complete_pm(
 
         pm_schedule_id=schedule.id,
 
+        engineer_id=engineer_id,
+
         engineer_name=engineer_name,
 
         scheduled_date=schedule.scheduled_date,
 
-        completed_date=date.today(),
+        completed_date=completed_on,
 
         remarks=remarks,
 
         checklist_status="Completed",
 
-        status_before="Due",
+        status_before=status_before,
 
         status_after="Completed"
 
@@ -179,11 +177,17 @@ def complete_pm(
 
     db.add(history)
 
-    asset.last_pm_date = date.today()
+    next_pm_date = calculate_next_pm_date(
+        asset,
+        completed_on=completed_on,
+        frequency_days=schedule.frequency_days,
+    )
+    if next_pm_date is None:
+        db.rollback()
+        return None
 
-    asset.next_pm_date = calculate_next_pm_date(asset)
-
-    schedule.scheduled_date = asset.next_pm_date
+    asset.pm_frequency = schedule.frequency_days
+    schedule.scheduled_date = next_pm_date
 
     schedule.completed_date = None
 

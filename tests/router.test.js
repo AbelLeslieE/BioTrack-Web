@@ -12,7 +12,7 @@ function createRouter(role) {
         "renderRequestDetails", "renderEngineerDashboard", "renderElectricalDashboard",
         "renderITDashboard", "renderMaintenance", "renderMaintenanceModule", "renderAssets",
         "renderAssetForm", "renderAssetDetails", "renderInventory", "renderPM",
-        "renderReports", "renderAI", "renderUsers", "renderQRScannerModule", "renderSettings",
+        "renderReports", "renderAI", "renderUsers", "renderQRScannerModule", "renderQRAssetProfile", "renderSettings",
     ];
     const context = {
         console: { log() {}, warn() {}, error() {} },
