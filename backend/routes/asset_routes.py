@@ -340,13 +340,22 @@ def create_asset(
 
 ):
 
+    equipment_id = str(data.get("equipmentId") or "").strip()
+    equipment_name = str(data.get("equipmentName") or "").strip()
+    serial_number = str(data.get("serialNumber") or "").strip() or None
+
+    if not equipment_id:
+        raise HTTPException(status_code=422, detail="Equipment ID is required.")
+    if not equipment_name:
+        raise HTTPException(status_code=422, detail="Equipment name is required.")
+
     asset = Asset(
 
-        asset_code=data.get("equipmentId"),
+        asset_code=equipment_id,
 
-        equipment_no=data.get("equipmentId"),
+        equipment_no=equipment_id,
 
-        equipment_name=data.get("equipmentName"),
+        equipment_name=equipment_name,
 
         classification=data.get("assetCategory"),
 
@@ -358,7 +367,7 @@ def create_asset(
 
         model=data.get("model"),
 
-        serial_number=data.get("serialNumber"),
+        serial_number=serial_number,
 
         manufacturing_year=(
             int(data["manufacturerYear"])
@@ -410,9 +419,15 @@ def create_asset(
 
     db.add(asset)
 
-    db.commit()
-
-    db.refresh(asset)
+    try:
+        db.commit()
+        db.refresh(asset)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Asset code, equipment number and serial number must be unique.",
+        ) from exc
 
     return {
 

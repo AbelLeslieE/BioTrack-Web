@@ -11,7 +11,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.models.asset import Asset
-from backend.routes.asset_routes import get_asset, get_assets, update_asset, upload_asset_excel
+from backend.routes.asset_routes import create_asset, get_asset, get_assets, update_asset, upload_asset_excel
+from backend.services.excel_import_service import import_assets_from_excel
 from backend.services.service_team import team_for_user
 
 
@@ -103,6 +104,76 @@ class AssetRouteTests(unittest.TestCase):
             imported = session.query(Asset).one()
             self.assertEqual(imported.service_team, "IT")
             self.assertEqual(imported.equipment_no, "IT-TEST-001")
+        finally:
+            session.close()
+            engine.dispose()
+
+    def test_excel_upload_allows_multiple_missing_serial_numbers(self):
+        engine = create_engine("sqlite:///:memory:")
+        Asset.__table__.create(engine)
+        session = sessionmaker(bind=engine)()
+        workbook = BytesIO()
+        dataframe = pd.DataFrame([
+            {"Equipment No": "IT-101", "Equipment": "Laptop", "Manuf.SlNo": ""},
+            {"Equipment No": "IT-102", "Equipment": "Monitor", "Manuf.SlNo": None},
+        ])
+        with pd.ExcelWriter(workbook, engine="openpyxl") as writer:
+            dataframe.to_excel(writer, index=False, startrow=6)
+        workbook.seek(0)
+
+        try:
+            result = import_assets_from_excel(workbook, session, "IT")
+            self.assertTrue(result["success"])
+            self.assertEqual(result["imported"], 2)
+            self.assertEqual(session.query(Asset).filter(Asset.serial_number.is_(None)).count(), 2)
+        finally:
+            session.close()
+            engine.dispose()
+
+    def test_excel_upload_skips_real_duplicate_serial_numbers(self):
+        engine = create_engine("sqlite:///:memory:")
+        Asset.__table__.create(engine)
+        session = sessionmaker(bind=engine)()
+        workbook = BytesIO()
+        dataframe = pd.DataFrame([
+            {"Equipment No": "BIO-101", "Equipment": "Monitor A", "Manuf.SlNo": "SER-101"},
+            {"Equipment No": "BIO-102", "Equipment": "Monitor B", "Manuf.SlNo": "SER-101"},
+        ])
+        with pd.ExcelWriter(workbook, engine="openpyxl") as writer:
+            dataframe.to_excel(writer, index=False, startrow=6)
+        workbook.seek(0)
+
+        try:
+            result = import_assets_from_excel(workbook, session, "Biomedical")
+            self.assertTrue(result["success"])
+            self.assertEqual(result["imported"], 1)
+            self.assertEqual(result["skipped"], 1)
+            self.assertEqual(session.query(Asset).count(), 1)
+        finally:
+            session.close()
+            engine.dispose()
+
+    def test_manual_asset_creation_allows_multiple_missing_serial_numbers(self):
+        engine = create_engine("sqlite:///:memory:")
+        Asset.__table__.create(engine)
+        session = sessionmaker(bind=engine)()
+        manager = SimpleNamespace(role="Manager", department=None)
+
+        try:
+            for equipment_id in ("IT-MANUAL-1", "IT-MANUAL-2"):
+                result = create_asset(
+                    {
+                        "equipmentId": equipment_id,
+                        "equipmentName": "Network device",
+                        "serialNumber": "  ",
+                        "service_team": "IT",
+                    },
+                    session,
+                    manager,
+                )
+                self.assertTrue(result["success"])
+
+            self.assertEqual(session.query(Asset).filter(Asset.serial_number.is_(None)).count(), 2)
         finally:
             session.close()
             engine.dispose()
