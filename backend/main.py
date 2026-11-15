@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from backend.models import Base
 from backend.routes.dashboard_routes import router as dashboard_router
 from backend.routes.log_routes import router as log_router
-from backend.database import engine
+from backend.database import schema_engine
 from backend.routes.request_routes import router as request_router
 from backend.routes.auth_routes import router as auth_router
 from backend.routes.report_routes import router as report_router
@@ -22,11 +22,12 @@ from backend.routes.pm_routes import router as pm_router, department_user_router
 from backend.routes.inventory_routes import router as inventory_router
 from backend.routes.settings_routes import router as settings_router
 from backend.auth import validate_auth_config
+from backend.storage import QR_DIRECTORY
 # ==========================================
 # APPLICATION
 # ==========================================
 validate_auth_config()
-Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=schema_engine)
 create_default_admin()
 
 app = FastAPI(
@@ -69,6 +70,12 @@ def offline_page():
 # ==========================================
 # STATIC FILES
 # ==========================================
+
+app.mount(
+    "/static/qr",
+    StaticFiles(directory=str(QR_DIRECTORY)),
+    name="generated-qr"
+)
 
 app.mount(
     "/static",

@@ -2,7 +2,7 @@
 # IMPORTS
 # ==========================================
 
-from backend.database import engine
+from backend.database import schema_engine
 from backend.models import Base
 
 # ==========================================
@@ -15,7 +15,7 @@ def initialize_database():
     in SQLAlchemy models.
     """
 
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=schema_engine)
 
     print("BioTrack database initialized successfully.")
 

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, inspect, text
 
-from backend.database import DATABASE_URL
+from backend.database import MIGRATION_DATABASE_URL as DATABASE_URL
 
 
 def _sqlite_database_path() -> Path:

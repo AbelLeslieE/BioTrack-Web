@@ -2,32 +2,39 @@
 # IMPORTS
 # ==========================================
 
-import os
+from io import BytesIO
+from urllib.parse import quote
+
 import qrcode
-
-# ==========================================
-# QR STORAGE LOCATION
-# ==========================================
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-
-QR_FOLDER = os.path.join(
-    BASE_DIR,
-    "frontend",
-    "qr"
-)
-
-os.makedirs(QR_FOLDER, exist_ok=True)
-
-os.makedirs(QR_FOLDER, exist_ok=True)
 
 # ==========================================
 # GENERATE QR
 # ==========================================
 
+def qr_url_for_asset_code(asset_code: str) -> str:
+    """Return the stable, database-backed QR image endpoint for an asset."""
+    return f"/api/qr/image/{quote(asset_code, safe='')}"
+
+
+def generate_qr_png(asset_code: str) -> bytes:
+    """Render an asset QR code without depending on persistent file storage."""
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(asset_code)
+    qr.make(fit=True)
+    image = qr.make_image(fill_color="black", back_color="white")
+    output = BytesIO()
+    image.save(output, format="PNG")
+    return output.getvalue()
+
+
 def generate_qr(asset_code: str) -> str:
     """
-    Generate a QR image for an equipment asset.
+    Return the dynamic QR image URL for an equipment asset.
 
     Returns:
         Relative URL of generated QR image.
@@ -44,22 +51,4 @@ def generate_qr(asset_code: str) -> str:
     # qr_data = f"https://biotrack.lfhospital.com/assets/{asset_code}"
     #
 
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_H,
-        box_size=10,
-        border=4,
-    )
-
-    qr.add_data(qr_data)
-    qr.make(fit=True)
-
-    image = qr.make_image(fill_color="black", back_color="white")
-
-    filename = f"{asset_code}.png"
-
-    filepath = os.path.join(QR_FOLDER, filename)
-
-    image.save(filepath)
-
-    return f"/static/qr/{filename}"
+    return qr_url_for_asset_code(qr_data)

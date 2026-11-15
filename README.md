@@ -40,6 +40,24 @@ All `/api` endpoints except login require the HttpOnly session cookie issued by 
 ## Database changes
 
 The application creates missing tables but does not modify existing tables at startup. `database/schema.sql` describes a clean current installation; existing databases must use the reviewed migration scripts. Back up `database/biotrack.db` before applying migrations.
+
+## Persistent data with free Render hosting
+
+Render's free web-service filesystem is ephemeral, and its free PostgreSQL
+database expires after 30 days. The recommended no-cost setup is therefore a
+free Neon PostgreSQL database while the application itself remains on Render:
+
+1. Create a free Neon project and copy its pooled PostgreSQL connection string.
+2. In the Render web service's **Environment** page, add `DATABASE_URL` with that
+   connection string as its value.
+3. Redeploy the service. BioTrack creates its tables in PostgreSQL on startup.
+
+Do not commit the connection string or paste it into source files. BioTrack
+continues to use `database/biotrack.db` for local development whenever
+`DATABASE_URL` is not set.
+
+As a paid alternative, attach a Render persistent disk at `/var/data` and set
+`BIOTRACK_DATA_DIR=/var/data` to keep SQLite and generated QR files there.
 # Google Calendar links
 
 The Preventive Maintenance schedule has an **Add to Google Calendar** link for each visit. It opens a prefilled all-day event in Google Calendar with the visit date, equipment, department, location, status, and remarks. The user reviews and saves the event in Google Calendar.

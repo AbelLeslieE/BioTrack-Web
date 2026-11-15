@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from backend.auth import get_current_user, require_roles
@@ -13,7 +13,7 @@ from backend.models.pm_schedule import PMSchedule
 from backend.models.request import Request
 from backend.models.user import User
 from backend.services.pm_service import complete_pm
-from backend.services.qr_service import generate_qr
+from backend.services.qr_service import generate_qr, generate_qr_png, qr_url_for_asset_code
 from backend.services.service_team import scope_to_team
 
 
@@ -115,6 +115,22 @@ def _same_department(current_user: User, asset: Asset) -> bool:
     return bool(user_department and asset_department and user_department == asset_department)
 
 
+def _scannable_asset(db: Session, current_user: User, asset_code: str) -> Asset:
+    """Resolve an asset using the same role boundaries as the QR scanner."""
+    role = (current_user.role or "").casefold()
+    if role == "user":
+        query = db.query(Asset)
+    elif role in {"manager", "bme", "electrical", "it"}:
+        query = scope_to_team(db.query(Asset), Asset, current_user)
+    else:
+        raise HTTPException(status_code=403, detail="This role cannot scan equipment QR codes.")
+
+    asset = query.filter(Asset.asset_code == asset_code).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found for your portal.")
+    return asset
+
+
 @router.post(
     "/generate/{asset_id}",
     dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))],
@@ -145,18 +161,26 @@ def lookup_qr_asset(
     current_user: User = Depends(get_current_user),
 ):
     """Resolve a scanned QR without adding other departments to asset lists."""
-    role = (current_user.role or "").casefold()
-    if role == "user":
-        query = db.query(Asset)
-    elif role in {"manager", "bme", "electrical", "it"}:
-        query = scope_to_team(db.query(Asset), Asset, current_user)
-    else:
-        raise HTTPException(status_code=403, detail="This role cannot scan equipment QR codes.")
-
-    asset = query.filter(Asset.asset_code == asset_code).first()
-    if not asset:
-        raise HTTPException(status_code=404, detail="Asset not found for your portal.")
+    asset = _scannable_asset(db, current_user, asset_code)
     return {"success": True, "asset": {"id": asset.id}}
+
+
+@router.get("/image/{asset_code}")
+def get_asset_qr_image(
+    asset_code: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Render QR PNGs on demand so free Render deploys cannot delete them."""
+    asset = _scannable_asset(db, current_user, asset_code)
+    return Response(
+        content=generate_qr_png(asset.asset_code),
+        media_type="image/png",
+        headers={
+            "Cache-Control": "private, max-age=3600",
+            "Content-Disposition": f'inline; filename="{asset.asset_code}.png"',
+        },
+    )
 
 
 @router.get("/profile/{asset_id}")
@@ -239,7 +263,7 @@ def get_qr_asset_profile(
                 "calibration_required": asset.calibration_required,
                 "remarks": asset.remarks,
                 "qr_generated": asset.qr_generated,
-                "qr_code": asset.qr_code,
+                "qr_code": qr_url_for_asset_code(asset.asset_code) if asset.qr_generated else None,
                 "created_at": asset.created_at,
                 "updated_at": asset.updated_at,
             },

@@ -20,6 +20,7 @@ from backend.models.asset import Asset
 from backend.auth import get_current_user, require_roles
 from backend.models.user import User
 from backend.services.service_team import scope_to_team, team_for_user
+from backend.services.qr_service import qr_url_for_asset_code
 
 
 # ==========================================
@@ -145,7 +146,7 @@ def get_assets(
 
             "qr_generated": asset.qr_generated,
 
-            "qr_code": asset.qr_code,
+            "qr_code": qr_url_for_asset_code(asset.asset_code) if asset.qr_generated else None,
 
             "created_at": asset.created_at,
 
@@ -205,7 +206,7 @@ def get_asset_by_code(
 
             "image_path": asset.image_path,
 
-            "qr_code": asset.qr_code
+            "qr_code": qr_url_for_asset_code(asset.asset_code) if asset.qr_generated else None
 
         }
 
@@ -314,7 +315,7 @@ def get_asset(
 
         "qr_generated": asset.qr_generated,
 
-        "qr_code": asset.qr_code,
+        "qr_code": qr_url_for_asset_code(asset.asset_code) if asset.qr_generated else None,
 
         "created_at": asset.created_at,
 
