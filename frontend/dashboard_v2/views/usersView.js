@@ -191,7 +191,7 @@ function showRegisterUser() {
                     <div class="user-form-grid">
                         <label><span>Full name</span><input id="newName" maxlength="120" autocomplete="name" placeholder="e.g. Anjali Thomas" required></label>
                         <label><span>Username</span><input id="newUsername" minlength="3" maxlength="80" autocomplete="username" placeholder="e.g. anjali.thomas" required></label>
-                        <label><span>Department</span><input id="newDept" maxlength="120" placeholder="e.g. Cardiology" required></label>
+                        <label><span>Department</span><select id="newDept" required>${renderHospitalDepartmentOptions(currentUser?.department)}</select></label>
                         <label><span>Access role</span><select id="newRole" required><option value="">Select a role</option><option value="Manager">Administrator</option><option value="BME">Biomedical Engineer</option><option value="Electrical">Electrical Engineer</option><option value="IT">IT Department</option><option value="User">Department User</option></select></label>
                         <label><span>Email address</span><input id="newEmail" type="email" autocomplete="email" placeholder="name@hospital.org" required></label>
                         <label><span>Phone number</span><input id="newPhone" type="tel" autocomplete="tel" placeholder="10-digit mobile number" required></label>
@@ -203,7 +203,6 @@ function showRegisterUser() {
         </div>`;
     if (currentUser) {
         document.getElementById("newName").value = currentUser.name || "";
-        document.getElementById("newDept").value = currentUser.department || "";
         document.getElementById("newRole").value = currentUser.role || "";
         document.getElementById("newEmail").value = currentUser.email || "";
         document.getElementById("newPhone").value = currentUser.phone || "";

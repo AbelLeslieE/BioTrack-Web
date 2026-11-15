@@ -278,10 +278,9 @@ function renderBasicInformationSection() {
 
                 <label>Department</label>
 
-                <input
-                    id="department"
-                    type="text"
-                    placeholder="Example : ICU">
+                <select id="department">
+                    ${renderHospitalDepartmentOptions()}
+                </select>
 
             </div>
 

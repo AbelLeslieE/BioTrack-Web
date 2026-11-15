@@ -263,7 +263,7 @@ async function openAssetEditor(assetId) {
                             <div><h3>Location & equipment</h3><p>Operational placement and manufacturer information.</p></div>
                         </div>
                         <div class="asset-edit-grid">
-                            <label>Department<input name="department" value="${assetEditorValue(asset.department)}"></label>
+                            <label>Department<select name="department">${renderHospitalDepartmentOptions(asset.department)}</select></label>
                             <label>Location<input name="location" value="${assetEditorValue(asset.location)}"></label>
                             <label>Manufacturer<input name="manufacturer" value="${assetEditorValue(asset.manufacturer)}"></label>
                             <label>Model<input name="model" value="${assetEditorValue(asset.model)}"></label>
