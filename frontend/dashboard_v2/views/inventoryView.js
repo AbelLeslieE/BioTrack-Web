@@ -266,7 +266,7 @@ async function renderInventory() {
     .getElementById("addInventoryBtn")
     .addEventListener("click", () => {
 
-        alert("Add Inventory Modal - Coming Next");
+        BioTrackToast.info("Inventory", "Use the inventory form to add a new stock item.");
 
     });
 
@@ -665,7 +665,7 @@ async function deleteInventory(id) {
         showInventoryToast("Inventory item deleted.");
         await loadInventory();
     } catch (error) {
-        alert(error.message || "Unable to delete this inventory item.");
+        BioTrackToast.error("Inventory item not deleted", error.message || "Unable to delete this inventory item.");
     }
 
 }
@@ -746,7 +746,7 @@ async function saveInventoryItem(id = null) {
         showInventoryToast(id ? "Inventory item updated." : "Inventory item added.");
         await loadInventory();
     } catch (error) {
-        alert(error.message || "Unable to save this inventory item.");
+        BioTrackToast.error("Inventory item not saved", error.message || "Unable to save this inventory item.");
     }
 
 }
@@ -800,14 +800,10 @@ function importInventoryExcel(){
 
         if(result.success){
 
-            alert(
-
-`Inventory Imported Successfully
-
-Added : ${result.added}
-
-Updated : ${result.updated}`
-
+            BioTrackToast.success(
+                "Inventory import complete",
+                `${result.added} added · ${result.updated} updated`,
+                { duration: 7000 },
             );
 
             await loadInventory();
@@ -816,7 +812,7 @@ Updated : ${result.updated}`
 
         else{
 
-            alert("Import Failed");
+            BioTrackToast.error("Inventory import failed", result.detail || result.message || "The spreadsheet could not be imported.");
 
         }
 
@@ -833,7 +829,7 @@ Updated : ${result.updated}`
 
 function exportInventoryExcel(){
 
-    alert("Export module will be connected next.");
+    BioTrackToast.info("Inventory export", "The export module is not available yet.");
 
 }
 // ==========================================
@@ -886,49 +882,7 @@ function hideInventoryLoading(){
 // ==========================================
 
 function showInventoryToast(message){
-
-    const old = document.getElementById("inventoryToast");
-
-    if(old){
-
-        old.remove();
-
-    }
-
-    const toast = document.createElement("div");
-
-    toast.id = "inventoryToast";
-
-    toast.className = "inventory-toast";
-
-    toast.innerHTML = `
-
-        <i data-lucide="circle-check-big"></i>
-
-        <span>${escapeHTML(message)}</span>
-
-    `;
-
-    document.body.appendChild(toast);
-
-    if(window.lucide){
-
-        lucide.createIcons();
-
-    }
-
-    setTimeout(()=>{
-
-        toast.classList.add("show");
-
-    },50);
-
-    setTimeout(()=>{
-
-        toast.remove();
-
-    },3000);
-
+    BioTrackToast.success("Inventory updated", message);
 }
 
 
@@ -998,7 +952,7 @@ async function importInventoryExcel(){
 
             else{
 
-                alert("Import Failed");
+                BioTrackToast.error("Inventory import failed", result.detail || result.message || "The spreadsheet could not be imported.");
 
             }
 
@@ -1010,7 +964,7 @@ async function importInventoryExcel(){
 
             console.error(error);
 
-            alert("Server Error");
+            BioTrackToast.error("Inventory import failed", error.message || "The server could not process the spreadsheet.");
 
         }
 

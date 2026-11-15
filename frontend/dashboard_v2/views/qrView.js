@@ -729,7 +729,7 @@ async function openQRPreview(assetId){
 
         if(!response.ok){
 
-            alert(result.detail || "Failed to generate QR");
+            BioTrackToast.error("QR generation failed", result.detail || "Unable to generate the QR code.");
 
             return;
 
@@ -771,7 +771,7 @@ async function openQRPreview(assetId){
 
         console.error(error);
 
-        alert("Unable to generate QR.");
+        BioTrackToast.error("QR generation failed", error.message || "Unable to generate the QR code.");
 
     }
 
@@ -793,7 +793,7 @@ function openGenerateQRModal(){
 
         if(!selectedQRAsset){
 
-            alert("Please select an asset.");
+            BioTrackToast.warning("Select an asset", "Choose an equipment record before generating its QR code.");
 
             return;
 

@@ -228,10 +228,10 @@ function validateUserForm() {
     const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const phone = /^(?:\+91|91)?[6-9][0-9]{9}$/;
     const fields = [newName, newDept, newRole, newEmail, newPhone, newUsername];
-    if (fields.some(field => !field.value.trim())) { alert("Complete all required fields."); return false; }
-    if (!email.test(newEmail.value.trim())) { alert("Enter a valid email address."); newEmail.focus(); return false; }
-    if (!phone.test(newPhone.value.replace(/[\s-]/g, ""))) { alert("Enter a valid Indian mobile number."); newPhone.focus(); return false; }
-    if ((!editingUserId || newPassword.value) && (newPassword.value.length < 12 || newPassword.value.length > 72 || !newPassword.value.trim())) { alert("Password must contain 12 to 72 characters and cannot be blank."); newPassword.focus(); return false; }
+    if (fields.some(field => !field.value.trim())) { BioTrackToast.warning("Required fields missing", "Complete all required user details."); return false; }
+    if (!email.test(newEmail.value.trim())) { BioTrackToast.warning("Invalid email", "Enter a valid email address."); newEmail.focus(); return false; }
+    if (!phone.test(newPhone.value.replace(/[\s-]/g, ""))) { BioTrackToast.warning("Invalid phone number", "Enter a valid Indian mobile number."); newPhone.focus(); return false; }
+    if ((!editingUserId || newPassword.value) && (newPassword.value.length < 12 || newPassword.value.length > 72 || !newPassword.value.trim())) { BioTrackToast.warning("Invalid password", "Password must contain 12 to 72 characters and cannot be blank."); newPassword.focus(); return false; }
     return true;
 }
 
@@ -253,7 +253,7 @@ async function registerUser() {
         if (typeof showSuccess === "function") showSuccess({ title: wasEditing ? "User updated" : "User registered", message: result.message || "The staff account was saved successfully.", buttonText: "Continue" });
         await loadUsers();
     } catch (error) {
-        alert(error.message || "Unable to save user.");
+        BioTrackToast.error("User not saved", error.message || "Unable to save this user.");
     } finally {
         saveButton?.classList.remove("is-loading");
         if (saveButton) saveButton.disabled = false;
@@ -274,8 +274,9 @@ async function deleteUser(id) {
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.detail || "Unable to delete user.");
         await loadUsers();
+        BioTrackToast.success("User deleted", "The staff account was removed successfully.");
     } catch (error) {
-        alert(error.message || "Unable to delete user.");
+        BioTrackToast.error("User not deleted", error.message || "Unable to delete this user.");
     }
 }
 

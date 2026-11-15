@@ -27,7 +27,7 @@ document.getElementById('generateQrBtn')?.addEventListener('click', async (e) =>
 generateBtn?.addEventListener('click', () => {
 
     if(!deviceSelect.value){
-        alert('Please select a device');
+        BioTrackToast.warning("Select a device", "Choose an equipment record before generating its QR code.");
         return;
     }
 

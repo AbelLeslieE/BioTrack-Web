@@ -423,7 +423,10 @@ function initializeAssetImport() {
 
         const teamSelect = document.getElementById("assetImportTeam");
         if (isAssetAdministrator() && !teamSelect?.value) {
-            alert("Select Biomedical, Electrical or IT before importing the spreadsheet.");
+            BioTrackToast.warning(
+                "Select a service team",
+                "Choose Biomedical, Electrical or IT before importing the spreadsheet.",
+            );
             teamSelect?.focus();
             return;
         }
@@ -465,10 +468,10 @@ function initializeAssetImport() {
                 throw new Error(detail);
             }
 
-            alert(
-                `Imported : ${result.imported}\n` +
-                `Skipped : ${result.skipped}\n` +
-                `Errors : ${result.errors}`
+            BioTrackToast.success(
+                "Asset import complete",
+                `${result.imported} imported · ${result.skipped} skipped · ${result.errors} errors`,
+                { duration: 7000 },
             );
 
             await loadAssets();
@@ -479,7 +482,7 @@ function initializeAssetImport() {
 
             console.error(error);
 
-            alert(error.message || "Import failed.");
+            BioTrackToast.error("Asset import failed", error.message || "The spreadsheet could not be imported.");
 
         }
 
@@ -706,7 +709,7 @@ async function openAssetQRGenerator(assetId = null) {
             assets = await response.json();
             assetsCache = Array.isArray(assets) ? assets : [];
         } catch (error) {
-            alert(error.message || "Unable to load assets.");
+            BioTrackToast.error("Assets unavailable", error.message || "Unable to load assets.");
             return;
         }
     }
@@ -769,8 +772,9 @@ async function openAssetQRGenerator(assetId = null) {
             // Registry KPI/table elements do not exist when this modal is opened
             // from Asset Details, so only refresh filters when that view is mounted.
             if (document.getElementById("assetTableBody")) applyAssetFilters();
+            BioTrackToast.success("QR code ready", "The equipment QR code was generated successfully.");
         } catch (error) {
-            alert(error.message || "Unable to generate QR code.");
+            BioTrackToast.error("QR generation failed", error.message || "Unable to generate QR code.");
             setGenerateLabel("Generate QR");
         } finally {
             generate.disabled = false;

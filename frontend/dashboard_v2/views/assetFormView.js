@@ -491,7 +491,7 @@ function saveBasicInformation() {
         document.getElementById("service_team")?.value || currentAssetServiceTeam();
 
     if (!assetFormData.service_team) {
-        alert("Select Biomedical, Electrical or IT as the service team.");
+        BioTrackToast.warning("Select a service team", "Choose Biomedical, Electrical or IT for this asset.");
         document.getElementById("service_team")?.focus();
         return false;
     }
@@ -1173,7 +1173,7 @@ async function saveAsset() {
 
         if (result.success) {
 
-            alert("Asset Saved Successfully!");
+            BioTrackToast.success("Asset saved", "The equipment record was added successfully.");
 
             navigate("assets");
 
@@ -1181,7 +1181,7 @@ async function saveAsset() {
 
         else {
 
-            alert("Failed to save asset.");
+            BioTrackToast.error("Asset not saved", result.detail || "Failed to save the asset.");
 
         }
 
@@ -1191,7 +1191,7 @@ async function saveAsset() {
 
         console.error(error);
 
-        alert("Server Error");
+        BioTrackToast.error("Server error", error.message || "The asset could not be saved.");
 
     }
 
@@ -1204,7 +1204,7 @@ function saveAndGenerateQR() {
 
     console.log(assetFormData);
 
-    alert("Asset Saved. QR Generation Coming Next.");
+    BioTrackToast.info("QR generation", "Save the asset, then generate its QR code from Asset Management.");
 
 }
 // ==========================================

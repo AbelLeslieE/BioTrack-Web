@@ -647,9 +647,7 @@ document.addEventListener(
 
             if (result.success) {
 
-                alert(
-                    "Changes Saved Successfully"
-                );
+                BioTrackToast.success("Changes saved", "The maintenance log was updated successfully.");
 
                 document
                     .getElementById(
@@ -665,10 +663,7 @@ document.addEventListener(
 
             else {
 
-                alert(
-                    result.message ||
-                    "Failed to save changes"
-                );
+                BioTrackToast.error("Changes not saved", result.message || "Failed to save changes.");
 
             }
 
@@ -678,9 +673,7 @@ document.addEventListener(
 
             console.error(error);
 
-            alert(
-                "Error saving changes"
-            );
+            BioTrackToast.error("Changes not saved", error.message || "An error occurred while saving changes.");
 
         }
 
@@ -730,9 +723,7 @@ document.addEventListener(
 
             if (result.success) {
 
-                alert(
-                    "Log Deleted Successfully"
-                );
+                BioTrackToast.success("Log deleted", "The maintenance log was deleted successfully.");
 
                 document
                     .getElementById(
@@ -748,10 +739,7 @@ document.addEventListener(
 
             else {
 
-                alert(
-                    result.message ||
-                    "Delete failed"
-                );
+                BioTrackToast.error("Log not deleted", result.message || "The maintenance log could not be deleted.");
 
             }
 
@@ -761,9 +749,7 @@ document.addEventListener(
 
             console.error(error);
 
-            alert(
-                "Error deleting log"
-            );
+            BioTrackToast.error("Log not deleted", error.message || "An error occurred while deleting the log.");
 
         }
 

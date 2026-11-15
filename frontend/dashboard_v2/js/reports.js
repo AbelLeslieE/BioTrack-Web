@@ -996,57 +996,7 @@ function registerReportsExport(id,type){
 ========================================================== */
 
 function showReportsToast(title,message,type="info"){
-
-    let toast=document.querySelector(".reports-toast");
-
-    if(!toast){
-
-        toast=document.createElement("div");
-
-        toast.className="reports-toast";
-
-        document.body.appendChild(toast);
-
-    }
-
-    let icon="fa-circle-info";
-
-    if(type==="success"){
-
-        icon="fa-circle-check";
-
-    }
-
-    if(type==="error"){
-
-        icon="fa-circle-xmark";
-
-    }
-
-    toast.innerHTML=`
-
-        <i class="fa-solid ${icon}"></i>
-
-        <div>
-
-            <strong>${escapeHTML(title)}</strong>
-
-            <p>${escapeHTML(message)}</p>
-
-        </div>
-
-    `;
-
-    toast.classList.add("show");
-
-    clearTimeout(window.reportsToastTimer);
-
-    window.reportsToastTimer=setTimeout(()=>{
-
-        toast.classList.remove("show");
-
-    },3000);
-
+    BioTrackToast.show({ title, message, type });
 }
 
 /* ==========================================================

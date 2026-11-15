@@ -306,7 +306,7 @@ async function openAssetEditor(assetId) {
         if (!dialog.open) dialog.showModal();
     } catch (error) {
         console.error(error);
-        alert(error.message || "Asset could not be opened for editing.");
+        BioTrackToast.error("Asset editor unavailable", error.message || "Asset could not be opened for editing.");
     }
 }
 
@@ -335,9 +335,11 @@ async function saveAssetEdits(event, assetId, originalServiceTeam) {
 
         document.getElementById("assetEditDialog")?.close();
         await loadAssetDetails(assetId);
+        BioTrackToast.success("Asset updated", "The equipment details were saved successfully.");
     } catch (error) {
         console.error(error);
         errorElement.textContent = error.message || "Asset could not be updated.";
+        BioTrackToast.error("Asset update failed", errorElement.textContent);
     } finally {
         submitButton.disabled = false;
         submitButton.querySelector("span").textContent = "Save Changes";

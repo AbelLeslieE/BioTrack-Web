@@ -73,7 +73,7 @@ async function loadPMDrawerData() {
         console.error(error);
         department.innerHTML = '<option value="">Could not load departments</option>';
         engineer.innerHTML = '<option value="">Could not load engineers</option>';
-        alert(error.message);
+        BioTrackToast.error("PM form unavailable", error.message);
     } finally {
         if (button) button.disabled = false;
     }
@@ -113,11 +113,11 @@ async function savePMSchedule() {
     const remarks = document.getElementById("pmRemarks").value.trim();
     const button = document.getElementById("pmScheduleButton");
     if (!department || !equipment || !engineer || !selectedPMDate) {
-        alert("Select a department, equipment and biomedical engineer before scheduling.");
+        BioTrackToast.warning("Complete the PM schedule", "Select a department, equipment and biomedical engineer.");
         return;
     }
     if (!Number.isInteger(frequency) || frequency <= 0) {
-        alert("Choose a valid PM frequency.");
+        BioTrackToast.warning("Invalid PM frequency", "Choose a frequency greater than zero.");
         return;
     }
     const payload = {
@@ -143,11 +143,11 @@ async function savePMSchedule() {
         if (typeof showSuccess === "function") {
             showSuccess({ title: "PM scheduled", message: "The department will now be able to approve or decline the planned visit.", buttonText: "Continue" });
         } else {
-            alert("Preventive maintenance scheduled successfully.");
+            BioTrackToast.success("PM scheduled", "The preventive-maintenance visit was scheduled successfully.");
         }
     } catch (error) {
         console.error(error);
-        alert(error.message);
+        BioTrackToast.error("PM schedule failed", error.message);
     } finally {
         button.disabled = false;
         button.textContent = "Schedule PM";

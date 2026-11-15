@@ -93,14 +93,14 @@ async function onQRCodeDetected(decodedText) {
         const result = await response.json().catch(() => ({}));
 
         if (!response.ok || !result.success || !result.asset?.id) {
-            alert(result.detail || result.message || "Asset not found.");
+            BioTrackToast.warning("Asset not found", result.detail || result.message || "No matching equipment record was found.");
             return;
         }
 
         openQRAssetProfile(result.asset.id);
     } catch (error) {
         console.error(error);
-        alert("Unable to locate this asset. Please try again.");
+        BioTrackToast.error("Scan lookup failed", "Unable to locate this asset. Please try again.");
     }
 }
 

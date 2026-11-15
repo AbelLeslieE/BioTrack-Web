@@ -147,7 +147,7 @@ async function submitDepartmentPMResponse() {
         renderDepartmentPMCalendar();
         renderDepartmentPMDetail();
     } catch (error) {
-        alert(error.message);
+        BioTrackToast.error("PM schedule unavailable", error.message || "Unable to load the PM schedule.");
     }
 }
 

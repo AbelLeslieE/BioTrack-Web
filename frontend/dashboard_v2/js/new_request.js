@@ -175,7 +175,7 @@ function clearForm() {
 
     }
 
-    showToast(
+    showRequestToast(
         "Form Cleared Successfully",
         "success"
     );
@@ -330,7 +330,7 @@ async function submitRequest() {
 
     if (!validateForm()) {
 
-        showToast(
+        showRequestToast(
             "Please complete all required fields",
             "error"
         );
@@ -464,7 +464,7 @@ async function submitRequest() {
 
         console.error(error);
 
-        showToast(
+        showRequestToast(
 
             error.message,
 
@@ -499,37 +499,7 @@ function initializeNavigation() {
 // TOAST
 // ==========================================
 
-function showToast(message, type = "success") {
-
-    const container =
-        document.getElementById("toastContainer");
-
-    if (!container) return;
-
-    const toast =
-        document.createElement("div");
-
-    toast.className =
-        `toast ${type}`;
-
-    toast.innerHTML = `
-
-        <span>
-
-            ${type === "success" ? "✓" : "✕"}
-
-        </span>
-
-        <span>${message}</span>
-
-    `;
-
-    container.appendChild(toast);
-
-    setTimeout(() => {
-
-        toast.remove();
-
-    }, 3000);
-
+function showRequestToast(message, type = "success") {
+    const title = type === "success" ? "Request updated" : "Request needs attention";
+    BioTrackToast.show({ title, message, type });
 }

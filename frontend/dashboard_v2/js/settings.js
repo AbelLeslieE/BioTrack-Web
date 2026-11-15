@@ -547,38 +547,8 @@ async function submitPasswordChange() {
 ========================================================== */
 
 function showToast(title, message, icon) {
-
-    let toast = document.querySelector(".toast");
-
-    if (!toast) {
-
-        toast = document.createElement("div");
-
-        toast.className = "toast";
-
-        document.body.appendChild(toast);
-    }
-
-    const iconElement = document.createElement("i");
-    iconElement.className = `fa-solid ${icon}`;
-    const copy = document.createElement("div");
-    const heading = document.createElement("h4");
-    const paragraph = document.createElement("p");
-    heading.textContent = title;
-    paragraph.textContent = message;
-    copy.append(heading, paragraph);
-    toast.replaceChildren(iconElement, copy);
-
-    toast.classList.add("show");
-
-    clearTimeout(window.toastTimer);
-
-    window.toastTimer = setTimeout(() => {
-
-        toast.classList.remove("show");
-
-    }, 3000);
-
+    const type = icon === "fa-circle-exclamation" ? "error" : "success";
+    BioTrackToast.show({ title, message, type });
 }
 
 

@@ -404,7 +404,7 @@ async function saveTicketChanges(){
 
         else{
 
-            alert(data.message);
+            BioTrackToast.error("Ticket not updated", data.message || "Unable to update the ticket.");
 
         }
 
@@ -414,7 +414,7 @@ async function saveTicketChanges(){
 
         console.error(error);
 
-        alert("Unable to update ticket.");
+        BioTrackToast.error("Ticket not updated", error.message || "Unable to update the ticket.");
 
     }
 
@@ -705,19 +705,8 @@ function getSparePartsPayload() {
 }
 
 function showSparePartsToast(message, type = "error") {
-    let toast = document.getElementById("sparePartsToast");
-    if (!toast) {
-        toast = document.createElement("div");
-        toast.id = "sparePartsToast";
-        document.body.appendChild(toast);
-    }
-    toast.className = `spare-parts-toast ${type}`;
-    toast.textContent = message;
-    requestAnimationFrame(() => toast.classList.add("show"));
-    clearTimeout(window.sparePartsToastTimer);
-    window.sparePartsToastTimer = setTimeout(() => {
-        toast.classList.remove("show");
-    }, 3500);
+    const title = type === "error" ? "Stock unavailable" : "Spare parts updated";
+    BioTrackToast.show({ title, message, type });
 }
 
 // ==========================================

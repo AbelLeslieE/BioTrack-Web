@@ -29,7 +29,7 @@ export function initializeAssetImport() {
 
         if (!allowedTypes.includes(file.type)) {
 
-            alert("Please select a valid Excel (.xlsx or .xls) file.");
+            BioTrackToast.warning("Invalid spreadsheet", "Select a valid Excel .xlsx or .xls file.");
 
             fileInput.value = "";
 
@@ -56,11 +56,10 @@ export function initializeAssetImport() {
 
             const result = await response.json();
 
-            alert(
-                `Import Complete\n\n` +
-                `Imported : ${result.imported}\n` +
-                `Skipped : ${result.skipped}\n` +
-                `Errors : ${result.errors}`
+            BioTrackToast.success(
+                "Asset import complete",
+                `${result.imported} imported · ${result.skipped} skipped · ${result.errors} errors`,
+                { duration: 7000 },
             );
 
             // Refresh assets and dashboard
@@ -76,7 +75,7 @@ export function initializeAssetImport() {
 
             console.error(error);
 
-            alert(error.message || "Import failed.");
+            BioTrackToast.error("Asset import failed", error.message || "The spreadsheet could not be imported.");
 
         } finally {
 
