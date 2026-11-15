@@ -449,6 +449,27 @@ body.dark-theme .downtime-dialog-close{color:#d3dfed;background:#22334c}
 body.dark-theme .downtime-input-grid label{color:#c4d1e1}
 body.dark-theme .downtime-input-grid input{color:var(--dark-text);background:#0e1a2c;border-color:#344862}
 body.dark-theme .downtime-dialog-note{color:#b5c5d8;background:#142a47}
+
+body.dark-theme .asset-edit-dialog{color:var(--dark-text);background:var(--dark-surface);border-color:var(--dark-border)}
+body.dark-theme .asset-edit-header{background:linear-gradient(135deg,#14243a,#101d31);border-color:var(--dark-border)}
+body.dark-theme .asset-edit-heading h2,
+body.dark-theme .asset-edit-section-title h3{color:var(--dark-text)}
+body.dark-theme .asset-edit-heading p,
+body.dark-theme .asset-edit-section-title p{color:var(--dark-muted)}
+body.dark-theme .asset-edit-close{color:var(--dark-text);background:#22334c}
+body.dark-theme .asset-edit-body{background:var(--dark-bg)}
+body.dark-theme .asset-edit-section{background:var(--dark-surface);border-color:var(--dark-border)}
+body.dark-theme .asset-edit-grid label{color:#c5d3e4}
+body.dark-theme .asset-edit-grid :is(input,select,textarea){color:var(--dark-text);background:#0e1a2c;border-color:#344862}
+body.dark-theme .asset-edit-grid select:disabled{color:#94a7bf;background:#17253a}
+body.dark-theme .asset-edit-check{background:#14243a;border-color:var(--dark-border)}
+body.dark-theme .asset-edit-check span{color:#c5d3e4!important}
+body.dark-theme .asset-edit-footer{background:var(--dark-surface);border-color:var(--dark-border)}
+body.dark-theme .asset-edit-cancel{color:#d0dced;background:#17263c;border-color:#40536d}
+body.dark-theme .asset-details-page .asset-image-card,
+body.dark-theme .asset-details-page .asset-image{background:#122138}
+body.dark-theme .asset-action-btn{color:#dce8f6;background:#16263d;border-color:#3a4d68}
+body.dark-theme .asset-qr-button{color:#fff;background:#2563eb;border-color:#2563eb}
 body.dark-theme .downtime-cancel-btn{color:#d3dfed;background:#17273e;border-color:#3b5271}
 
 /* Maintenance ticket details. */

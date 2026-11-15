@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.models.asset import Asset
-from backend.routes.asset_routes import get_asset, get_assets, upload_asset_excel
+from backend.routes.asset_routes import get_asset, get_assets, update_asset, upload_asset_excel
 from backend.services.service_team import team_for_user
 
 
@@ -20,6 +20,46 @@ class AssetRouteTests(unittest.TestCase):
         manager = SimpleNamespace(role="Manager")
         self.assertEqual(team_for_user(manager, "IT"), "IT")
         self.assertEqual(team_for_user(manager, "it"), "IT")
+
+    def test_manager_can_update_it_asset_details(self):
+        engine = create_engine("sqlite:///:memory:")
+        Asset.__table__.create(engine)
+        session = sessionmaker(bind=engine)()
+        try:
+            asset = Asset(
+                asset_code="IT-OLD",
+                equipment_no="OLD-1",
+                equipment_name="Old Switch",
+                service_team="IT",
+            )
+            session.add(asset)
+            session.commit()
+
+            result = update_asset(
+                asset.id,
+                {
+                    "asset_code": "IT-NEW",
+                    "equipment_no": "IT-001",
+                    "equipment_name": "Core Network Switch",
+                    "service_team": "IT",
+                    "manufacturer": "Cisco",
+                    "purchase_value": "1000",
+                    "tax_amount": "180",
+                    "calibration_required": False,
+                },
+                session,
+                SimpleNamespace(role="Manager", department=None),
+            )
+
+            self.assertTrue(result["success"])
+            session.refresh(asset)
+            self.assertEqual(asset.asset_code, "IT-NEW")
+            self.assertEqual(asset.equipment_name, "Core Network Switch")
+            self.assertEqual(asset.service_team, "IT")
+            self.assertEqual(asset.net_value, 1180)
+        finally:
+            session.close()
+            engine.dispose()
 
     @staticmethod
     def _asset_workbook(equipment_number="IT-TEST-001"):

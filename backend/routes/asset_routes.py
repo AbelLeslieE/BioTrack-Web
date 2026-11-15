@@ -326,7 +326,8 @@ def get_asset(
 # ==========================================
 
 from fastapi import Body
-from datetime import datetime
+from datetime import date, datetime
+from sqlalchemy.exc import IntegrityError
 
 @router.post("/", dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))])
 def create_asset(
@@ -419,3 +420,110 @@ def create_asset(
         "asset_id": asset.id
 
     }
+
+
+def _asset_date(value, field_name: str):
+    if value in (None, ""):
+        return None
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Enter a valid {field_name}.") from exc
+
+
+def _asset_float(value, field_name: str) -> float:
+    if value in (None, ""):
+        return 0.0
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=f"Enter a valid {field_name}.") from exc
+    if parsed < 0:
+        raise HTTPException(status_code=422, detail=f"{field_name.title()} cannot be negative.")
+    return parsed
+
+
+def _asset_optional_int(value, field_name: str):
+    if value in (None, ""):
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=f"Enter a valid {field_name}.") from exc
+    if parsed < 0:
+        raise HTTPException(status_code=422, detail=f"{field_name.title()} cannot be negative.")
+    return parsed
+
+
+@router.patch("/{asset_id}", dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))])
+def update_asset(
+    asset_id: int,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update an asset while preserving role and service-team ownership boundaries."""
+    asset = _assets_visible_to(db, current_user).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    asset_code = str(data.get("asset_code") or "").strip()
+    equipment_name = str(data.get("equipment_name") or "").strip()
+    equipment_no = str(data.get("equipment_no") or "").strip() or None
+    serial_number = str(data.get("serial_number") or "").strip() or None
+
+    if not asset_code:
+        raise HTTPException(status_code=422, detail="Asset code is required.")
+    if not equipment_name:
+        raise HTTPException(status_code=422, detail="Equipment name is required.")
+
+    duplicate_checks = [
+        (Asset.asset_code, asset_code, "asset code"),
+        (Asset.equipment_no, equipment_no, "equipment number"),
+        (Asset.serial_number, serial_number, "serial number"),
+    ]
+    for column, value, label in duplicate_checks:
+        if value and db.query(Asset.id).filter(column == value, Asset.id != asset_id).first():
+            raise HTTPException(status_code=409, detail=f"Another asset already uses this {label}.")
+
+    purchase_value = _asset_float(data.get("purchase_value"), "purchase value")
+    tax_amount = _asset_float(data.get("tax_amount"), "tax amount")
+
+    asset.asset_code = asset_code
+    asset.equipment_no = equipment_no
+    asset.equipment_name = equipment_name
+    asset.classification = str(data.get("classification") or "").strip() or None
+    asset.equipment_type = str(data.get("equipment_type") or "").strip() or None
+    asset.manufacturer = str(data.get("manufacturer") or "").strip() or None
+    asset.manufacturer_address = str(data.get("manufacturer_address") or "").strip() or None
+    asset.model = str(data.get("model") or "").strip() or None
+    asset.serial_number = serial_number
+    asset.manufacturing_year = _asset_optional_int(data.get("manufacturing_year"), "manufacturing year")
+    asset.maintained_by = str(data.get("maintained_by") or "").strip() or None
+    asset.service_team = team_for_user(
+        current_user,
+        data.get("service_team") or asset.service_team,
+    )
+    asset.supplier = str(data.get("supplier") or "").strip() or None
+    asset.purchase_value = purchase_value
+    asset.tax_amount = tax_amount
+    asset.net_value = purchase_value + tax_amount
+    asset.purchase_date = _asset_date(data.get("purchase_date"), "purchase date")
+    asset.installation_date = _asset_date(data.get("installation_date"), "installation date")
+    asset.warranty = str(data.get("warranty") or "").strip() or None
+    asset.department = str(data.get("department") or "").strip() or None
+    asset.location = str(data.get("location") or "").strip() or None
+    asset.status = str(data.get("status") or "Active").strip() or "Active"
+    asset.pm_frequency = _asset_optional_int(data.get("pm_frequency"), "PM frequency")
+    asset.calibration_required = bool(data.get("calibration_required"))
+    asset.remarks = str(data.get("remarks") or "").strip() or None
+    asset.updated_at = datetime.now()
+
+    try:
+        db.commit()
+        db.refresh(asset)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Asset code, equipment number and serial number must be unique.") from exc
+
+    return {"success": True, "asset_id": asset.id}
