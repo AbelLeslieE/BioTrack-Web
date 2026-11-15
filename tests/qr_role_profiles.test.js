@@ -10,6 +10,7 @@ function read(relativePath) {
 test("scanner routes successful scans into the role-aware QR profile", () => {
     const source = read("frontend/dashboard_v2/js/qr_scanner.js");
     assert.match(source, /openQRAssetProfile\(result\.asset\.id\)/);
+    assert.match(source, /\/api\/qr\/lookup\//);
     assert.doesNotMatch(source, /openAssetPage\(result\.asset\.id\)/);
 });
 
@@ -21,6 +22,8 @@ test("QR profile renders separate department, engineer and administrator workflo
     assert.match(source, /sessionStorage\.setItem\("qrMaintenancePrefill"/);
     assert.match(source, /\/complete-pm/);
     assert.match(source, /Warranty/);
+    assert.match(source, /This is not an asset of your department/);
+    assert.match(source, /can_start_maintenance_call/);
 });
 
 test("scanned maintenance request is prefilled and failure description is optional", () => {

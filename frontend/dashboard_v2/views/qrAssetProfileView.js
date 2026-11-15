@@ -79,21 +79,28 @@ function renderQRProfileHero(profile) {
 
 function renderDepartmentQRProfile(profile) {
     const asset = profile.asset;
+    const canStartCall = Boolean(profile.actions?.can_start_maintenance_call);
     return `
         <section class="qr-profile-section">
-            <div class="qr-profile-heading"><div><span>Equipment information</span><h2>Details available to your department</h2><p>Use this record to identify the equipment and request engineering support.</p></div><i data-lucide="building-2"></i></div>
+            <div class="qr-profile-heading"><div><span>Equipment information</span><h2>Scanned equipment details</h2><p>Use this record to identify the equipment${canStartCall ? " and request engineering support" : ""}.</p></div><i data-lucide="building-2"></i></div>
             <div class="qr-profile-facts is-department">
                 ${qrProfileFact("Equipment name", asset.equipment_name, "monitor")}
                 ${qrProfileFact("Model", asset.model, "cpu")}
                 ${qrProfileFact("Serial number", asset.serial_number, "barcode")}
+                ${qrProfileFact("Department", asset.department, "building-2")}
                 ${qrProfileFact("Location", asset.location, "map-pin")}
                 ${qrProfileFact("Last preventive maintenance", qrProfileDate(profile.maintenance.last_pm_date), "calendar-check")}
             </div>
-            <div class="qr-profile-callout">
-                <span><i data-lucide="wrench"></i></span>
-                <div><h3>Does this equipment need attention?</h3><p>Start a maintenance call with the asset identity, serial number, model and location filled automatically. The failure description is optional.</p></div>
-                <button type="button" onclick="startQRMaintenanceCall()"><i data-lucide="phone-call"></i> Start Maintenance Call</button>
-            </div>
+            ${canStartCall ? `
+                <div class="qr-profile-callout">
+                    <span><i data-lucide="wrench"></i></span>
+                    <div><h3>Does this equipment need attention?</h3><p>Start a maintenance call with the asset identity, serial number, model and location filled automatically. The failure description is optional.</p></div>
+                    <button type="button" onclick="startQRMaintenanceCall()"><i data-lucide="phone-call"></i> Start Maintenance Call</button>
+                </div>` : `
+                <div class="qr-profile-callout is-restricted" role="alert">
+                    <span><i data-lucide="shield-alert"></i></span>
+                    <div><h3>This is not an asset of your department</h3><p>You can view its identification details because you scanned the equipment QR code, but you cannot register a maintenance call for it. Contact the owning department if support is needed.</p></div>
+                </div>`}
         </section>`;
 }
 

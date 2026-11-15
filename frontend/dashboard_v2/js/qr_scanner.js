@@ -89,7 +89,7 @@ async function onQRCodeDetected(decodedText) {
 
     try {
         await closeQRScanner();
-        const response = await fetch(`/api/assets/code/${encodeURIComponent(decodedText)}`);
+        const response = await fetch(`/api/qr/lookup/${encodeURIComponent(decodedText)}`);
         const result = await response.json().catch(() => ({}));
 
         if (!response.ok || !result.success || !result.asset?.id) {

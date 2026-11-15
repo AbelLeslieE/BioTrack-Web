@@ -13,6 +13,7 @@ from backend.models.request import Request
 from backend.routes.qr_routes import (
     complete_qr_preventive_maintenance,
     get_qr_asset_profile,
+    lookup_qr_asset,
 )
 
 
@@ -116,13 +117,22 @@ class QRRoleProfileTests(unittest.TestCase):
         self.assertNotIn("purchase_value", result["asset"])
         self.assertNotIn("repairs", result["maintenance"])
 
-    def test_department_user_cannot_open_another_departments_asset(self):
+    def test_department_user_can_identify_scanned_external_asset_but_cannot_create_call(self):
+        user = self.user("User", department="Radiology")
+        lookup = lookup_qr_asset(self.asset.asset_code, self.db, user)
+        result = get_qr_asset_profile(self.asset.id, self.db, user)
+
+        self.assertEqual(lookup["asset"]["id"], self.asset.id)
+        self.assertEqual(result["view"], "department")
+        self.assertEqual(result["asset"]["equipment_name"], self.asset.equipment_name)
+        self.assertEqual(result["asset"]["department"], "ICU")
+        self.assertFalse(result["actions"]["can_start_maintenance_call"])
+        self.assertIsNone(result["ticket_defaults"])
+        self.assertEqual(result["access_notice"], "This is not an asset of your department.")
+
+    def test_engineer_qr_lookup_stays_limited_to_its_service_team(self):
         with self.assertRaises(HTTPException) as error:
-            get_qr_asset_profile(
-                self.asset.id,
-                self.db,
-                self.user("User", department="Radiology"),
-            )
+            lookup_qr_asset(self.asset.asset_code, self.db, self.user("BME"))
         self.assertEqual(error.exception.status_code, 404)
 
     def test_engineer_receives_service_history_only_for_their_team(self):

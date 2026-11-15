@@ -109,6 +109,12 @@ def _asset_identity(asset: Asset) -> dict:
     }
 
 
+def _same_department(current_user: User, asset: Asset) -> bool:
+    user_department = (current_user.department or "").strip().casefold()
+    asset_department = (asset.department or "").strip().casefold()
+    return bool(user_department and asset_department and user_department == asset_department)
+
+
 @router.post(
     "/generate/{asset_id}",
     dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))],
@@ -132,6 +138,27 @@ def generate_asset_qr(
     }
 
 
+@router.get("/lookup/{asset_code}")
+def lookup_qr_asset(
+    asset_code: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Resolve a scanned QR without adding other departments to asset lists."""
+    role = (current_user.role or "").casefold()
+    if role == "user":
+        query = db.query(Asset)
+    elif role in {"manager", "bme", "electrical", "it"}:
+        query = scope_to_team(db.query(Asset), Asset, current_user)
+    else:
+        raise HTTPException(status_code=403, detail="This role cannot scan equipment QR codes.")
+
+    asset = query.filter(Asset.asset_code == asset_code).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found for your portal.")
+    return {"success": True, "asset": {"id": asset.id}}
+
+
 @router.get("/profile/{asset_id}")
 def get_qr_asset_profile(
     asset_id: int,
@@ -139,23 +166,33 @@ def get_qr_asset_profile(
     current_user: User = Depends(get_current_user),
 ):
     """Return only the scanned-asset fields and actions permitted for this role."""
-    asset = _visible_asset(db, current_user, asset_id)
     role = (current_user.role or "").casefold()
+    if role == "user":
+        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if not asset:
+            raise HTTPException(status_code=404, detail="Asset not found.")
+    else:
+        asset = _visible_asset(db, current_user, asset_id)
     maintenance = _maintenance_data(db, asset)
     identity = _asset_identity(asset)
 
     if role == "user":
+        belongs_to_department = _same_department(current_user, asset)
         return {
             "view": "department",
             "asset": {
                 key: identity[key]
                 for key in (
                     "id", "asset_code", "equipment_no", "equipment_name", "model",
-                    "serial_number", "image_path", "location", "status",
+                    "serial_number", "image_path", "location", "department", "status",
                 )
             },
             "maintenance": {"last_pm_date": maintenance["last_pm_date"]},
-            "actions": {"can_start_maintenance_call": True, "can_complete_pm": False},
+            "actions": {
+                "can_start_maintenance_call": belongs_to_department,
+                "can_complete_pm": False,
+            },
+            "access_notice": None if belongs_to_department else "This is not an asset of your department.",
             "ticket_defaults": {
                 "department": current_user.department or asset.department or "",
                 "location": asset.location or "",
@@ -163,7 +200,7 @@ def get_qr_asset_profile(
                 "equipment_name": asset.equipment_name,
                 "make_model": " / ".join(value for value in (asset.manufacturer, asset.model) if value),
                 "service_team": asset.service_team,
-            },
+            } if belongs_to_department else None,
         }
 
     if role in {"bme", "electrical", "it"}:
