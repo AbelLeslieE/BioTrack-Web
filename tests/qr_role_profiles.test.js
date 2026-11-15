@@ -28,6 +28,8 @@ test("scanned maintenance request is prefilled and failure description is option
     const validationBlock = source.slice(source.indexOf("function validateForm"), source.indexOf("function initializeSubmitButton"));
     assert.match(source, /applyQRMaintenancePrefill/);
     assert.match(source, /qrMaintenancePrefill/);
+    assert.match(source, /field\.readOnly = Boolean\(suppliedValue\)/);
+    assert.match(source, /Not stored on this asset — please add it\./);
     assert.doesNotMatch(validationBlock, /failureDescription/);
 
     const partial = read("frontend/dashboard_v2/partials/new_request.html");

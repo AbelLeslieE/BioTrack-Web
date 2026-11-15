@@ -1008,3 +1008,17 @@ textarea{
     background: #f1f5f9;
     cursor: not-allowed;
 }
+
+.page-container :is(input, select).qr-prefill-missing {
+    border-color: #f59e0b;
+    background: #fffbeb;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, .12);
+}
+
+.qr-missing-field-hint {
+    display: block;
+    margin-top: 7px;
+    color: #b45309;
+    font-size: 12px;
+    font-weight: 700;
+}

@@ -513,3 +513,5 @@ body.dark-theme .qr-admin-details{background:#344862;border-color:#344862}body.d
 body.dark-theme .qr-pm-confirm-dialog{color:var(--dark-text);background:var(--dark-surface);border:1px solid var(--dark-border)}body.dark-theme .qr-pm-confirm-dialog p{color:var(--dark-muted)}body.dark-theme .qr-pm-cancel{color:#d3dfed;background:#17273e;border-color:#3b5271}
 body.dark-theme .qr-request-prefill-banner{color:#d1fae5;background:#12352e;border-color:#237b62}body.dark-theme .qr-request-prefill-banner p{color:#9dd9c5}
 body.dark-theme .page-container input[readonly],body.dark-theme .page-container select:disabled{color:#a8bad0!important;background:#17253a!important;border-color:#344862!important}
+body.dark-theme .page-container :is(input,select).qr-prefill-missing{color:#fef3c7!important;background:#33270f!important;border-color:#d97706!important;box-shadow:0 0 0 3px rgba(245,158,11,.13)!important}
+body.dark-theme .qr-missing-field-hint{color:#fbbf24!important}

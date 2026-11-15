@@ -65,21 +65,54 @@ function applyQRMaintenancePrefill() {
         serviceTeam: prefill.service_team,
     };
 
+    const lockableFields = new Set([
+        "departmentSearch",
+        "locationRoom",
+        "equipmentIdentifier",
+        "equipmentName",
+        "makeModel",
+    ]);
+
     Object.entries(values).forEach(([id, value]) => {
         const field = document.getElementById(id);
-        if (!field || value === null || value === undefined) return;
-        field.value = value;
+        if (!field) return;
+
+        const suppliedValue = String(value ?? "").trim();
+        if (suppliedValue) field.value = suppliedValue;
         field.classList.remove("input-error");
+
+        if (!lockableFields.has(id)) return;
+        const isDepartmentAccountField = id === "departmentSearch"
+            && (localStorage.getItem("role") || "").toLowerCase() === "user";
+        field.readOnly = Boolean(suppliedValue) || isDepartmentAccountField;
+        field.classList.toggle("qr-prefill-locked", field.readOnly);
+        field.classList.toggle("qr-prefill-missing", !field.readOnly);
+
+        const existingHint = field.parentElement?.querySelector(".qr-missing-field-hint");
+        if (existingHint) existingHint.remove();
+        if (!field.readOnly) {
+            const hint = document.createElement("small");
+            hint.className = "qr-missing-field-hint";
+            hint.textContent = "Not stored on this asset — please add it.";
+            field.insertAdjacentElement("afterend", hint);
+        }
     });
 
-    ["departmentSearch", "locationRoom", "equipmentIdentifier", "equipmentName", "makeModel"]
-        .forEach(id => {
-            const field = document.getElementById(id);
-            if (field) field.readOnly = true;
-        });
-
     const serviceTeam = document.getElementById("serviceTeam");
-    if (serviceTeam) serviceTeam.disabled = true;
+    if (serviceTeam) {
+        const hasServiceTeam = ["Biomedical", "Electrical", "IT"].includes(prefill.service_team);
+        serviceTeam.disabled = hasServiceTeam;
+        serviceTeam.classList.toggle("qr-prefill-locked", hasServiceTeam);
+        serviceTeam.classList.toggle("qr-prefill-missing", !hasServiceTeam);
+        const existingHint = serviceTeam.parentElement?.querySelector(".qr-missing-field-hint");
+        if (existingHint) existingHint.remove();
+        if (!hasServiceTeam) {
+            const hint = document.createElement("small");
+            hint.className = "qr-missing-field-hint";
+            hint.textContent = "No service team is stored — please select one.";
+            serviceTeam.insertAdjacentElement("afterend", hint);
+        }
+    }
 
     const problemCategory = document.getElementById("problemCategory");
     if (problemCategory && !problemCategory.value) problemCategory.value = "Breakdown";
@@ -89,7 +122,7 @@ function applyQRMaintenancePrefill() {
         const banner = document.createElement("div");
         banner.id = "qrRequestPrefillBanner";
         banner.className = "qr-request-prefill-banner";
-        banner.innerHTML = '<span aria-hidden="true">✓</span><div><strong>Equipment added from QR scan</strong><p>Identification and location are locked to the scanned asset. Add the problem details you know; the failure description is optional.</p></div>';
+        banner.innerHTML = '<span aria-hidden="true">✓</span><div><strong>Equipment added from QR scan</strong><p>Recorded equipment values are locked. Missing values are highlighted and can be added before you submit; the failure description is optional.</p></div>';
         page.querySelector(".page-header")?.insertAdjacentElement("afterend", banner);
     }
 }
