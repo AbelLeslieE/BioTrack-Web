@@ -22,6 +22,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
             console.log(response.status);
 
+            if (typeof clearDashboardIdentity === "function") {
+                clearDashboardIdentity();
+            }
+
             window.location.href = "/";
 
         }

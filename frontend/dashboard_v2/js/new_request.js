@@ -399,6 +399,14 @@ async function submitRequest() {
 
         const data = await response.json();
 
+        if (response.status === 401 && typeof expireDashboardSession === "function") {
+
+            await expireDashboardSession(data.detail);
+
+            return;
+
+        }
+
         if (!response.ok) {
 
             throw new Error(data.detail || "Unable to save request");

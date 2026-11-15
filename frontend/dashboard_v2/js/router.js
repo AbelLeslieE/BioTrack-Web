@@ -150,7 +150,12 @@ function navigate(page) {
 // SIDEBAR EVENTS
 // ==========================================
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+
+    if (typeof validateDashboardSession === "function") {
+        const sessionIsValid = await validateDashboardSession();
+        if (!sessionIsValid) return;
+    }
 
     const role = normalizeDashboardRole(localStorage.getItem("role"));
     const homePage = ROLE_HOME_PAGES[role];

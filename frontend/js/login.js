@@ -10,6 +10,13 @@ const passwordInput = document.getElementById("password");
 const togglePassword = document.getElementById("togglePassword");
 const submitButton = form.querySelector("button[type='submit']");
 
+const loginNotice = sessionStorage.getItem("biotrackLoginNotice");
+if (loginNotice) {
+    msg.style.color = "#dc2626";
+    msg.textContent = loginNotice;
+    sessionStorage.removeItem("biotrackLoginNotice");
+}
+
 // ==========================================
 // SLOW CONNECTION FALLBACK
 // ==========================================
