@@ -11,6 +11,7 @@ from fastapi import (
 )
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from backend.database import get_db
 
@@ -111,6 +112,12 @@ def get_inventory(
 # CREATE INVENTORY ITEM
 # ==========================================
 
+def _required_inventory_text(data: dict, field: str, label: str) -> str:
+    value = str(data.get(field) or "").strip()
+    if not value:
+        raise HTTPException(status_code=422, detail=f"{label} is required.")
+    return value
+
 @router.post("/")
 def create_inventory_item(
 
@@ -123,9 +130,9 @@ def create_inventory_item(
 
     item = Inventory(
 
-        bpk_number=data.get("bpk_number"),
+        bpk_number=_required_inventory_text(data, "bpk_number", "BPK number"),
 
-        item_name=data.get("item_name"),
+        item_name=_required_inventory_text(data, "item_name", "Item name"),
 
         category=data.get("category"),
 
@@ -155,11 +162,13 @@ def create_inventory_item(
 
     )
 
-    db.add(item)
-
-    db.commit()
-
-    db.refresh(item)
+    try:
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="An inventory item with this BPK number already exists.") from exc
 
     return {
 
@@ -193,8 +202,8 @@ def update_inventory_item(
             detail="Inventory item not found"
         )
 
-    item.bpk_number = data.get("bpk_number")
-    item.item_name = data.get("item_name")
+    item.bpk_number = _required_inventory_text(data, "bpk_number", "BPK number")
+    item.item_name = _required_inventory_text(data, "item_name", "Item name")
     item.category = data.get("category")
     item.manufacturer = data.get("manufacturer")
     item.supplier = data.get("supplier")
@@ -209,8 +218,13 @@ def update_inventory_item(
     item.batch_number = data.get("batch_number")
     item.purchase_price = data.get("purchase_price", 0)
     item.remarks = data.get("remarks")
+    item.service_team = team_for_user(current_user, data.get("service_team") or item.service_team)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="An inventory item with this BPK number already exists.") from exc
 
     return {
         "success": True
@@ -240,9 +254,15 @@ def delete_inventory_item(
             detail="Inventory item not found"
         )
 
-    db.delete(item)
-
-    db.commit()
+    try:
+        db.delete(item)
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="This inventory item is linked to maintenance records and cannot be deleted.",
+        ) from exc
 
     return {
 

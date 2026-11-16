@@ -103,6 +103,11 @@ function navigate(page) {
         void closeQRScanner();
     }
 
+    if (page !== "inventory") {
+        if (typeof closeInventoryModal === "function") closeInventoryModal();
+        if (typeof closeInventoryDeleteDialog === "function") closeInventoryDeleteDialog();
+    }
+
     // Check page exists
     if (!Pages[page]) {
 

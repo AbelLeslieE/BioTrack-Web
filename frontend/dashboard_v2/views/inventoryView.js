@@ -266,7 +266,8 @@ async function renderInventory() {
     .getElementById("addInventoryBtn")
     .addEventListener("click", () => {
 
-        BioTrackToast.info("Inventory", "Use the inventory form to add a new stock item.");
+        currentInventoryId = null;
+        openInventoryModal();
 
     });
 
@@ -307,6 +308,8 @@ async function loadInventory() {
     catch (error) {
 
         console.error(error);
+
+        BioTrackToast.error("Inventory unavailable", error.message || "Unable to load inventory items.");
 
         inventoryData = [];
 
@@ -498,6 +501,12 @@ function renderInventoryTable(data) {
 
                         onclick="editInventory(${Number(item.id)})"
 
+                        type="button"
+
+                        aria-label="Edit ${escapeHTML(item.item_name || item.bpk_number || "inventory item")}"
+
+                        title="Edit item"
+
                     >
 
                         <i data-lucide="square-pen"></i>
@@ -509,6 +518,12 @@ function renderInventoryTable(data) {
                         class="table-btn delete-btn"
 
                         onclick="deleteInventory(${Number(item.id)})"
+
+                        type="button"
+
+                        aria-label="Delete ${escapeHTML(item.item_name || item.bpk_number || "inventory item")}"
+
+                        title="Delete item"
 
                     >
 
@@ -645,15 +660,203 @@ function editInventory(id) {
 
 
 // ==========================================
+// ADD / EDIT INVENTORY MODAL
+// ==========================================
+
+function inventoryFieldValue(value) {
+    return escapeHTML(value ?? "");
+}
+
+function inventoryTeamOptions(selectedTeam = "Biomedical") {
+    return ["Biomedical", "Electrical", "IT"]
+        .map(team => `<option value="${team}" ${team === selectedTeam ? "selected" : ""}>${team}</option>`)
+        .join("");
+}
+
+function openInventoryModal(item = null) {
+    closeInventoryModal();
+
+    const editing = Boolean(item);
+    currentInventoryId = editing ? Number(item.id) : null;
+    const role = typeof normalizeDashboardRole === "function"
+        ? normalizeDashboardRole(localStorage.getItem("role"))
+        : String(localStorage.getItem("role") || "").toLowerCase();
+    const canSelectTeam = role === "admin";
+    const selectedTeam = item?.service_team || (
+        role === "electrical" ? "Electrical" : role === "it" ? "IT" : "Biomedical"
+    );
+
+    const overlay = document.createElement("div");
+    overlay.id = "inventoryModalOverlay";
+    overlay.className = "inventory-modal-overlay";
+    overlay.setAttribute("role", "presentation");
+    overlay.innerHTML = `
+        <section class="inventory-modal" role="dialog" aria-modal="true" aria-labelledby="inventoryModalTitle">
+            <form id="inventoryItemForm">
+                <header class="modal-header">
+                    <div class="modal-header-copy">
+                        <h2 id="inventoryModalTitle">${editing ? "Edit inventory item" : "Add inventory item"}</h2>
+                        <p>${editing ? "Update stock, supplier and storage details." : "Register a spare part or consumable."}</p>
+                    </div>
+                    <button class="modal-close" type="button" aria-label="Close inventory form">
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="inv_bpk">BPK number <span aria-hidden="true">*</span></label>
+                            <input id="inv_bpk" required maxlength="160" value="${inventoryFieldValue(item?.bpk_number)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_name">Item name <span aria-hidden="true">*</span></label>
+                            <input id="inv_name" required maxlength="240" value="${inventoryFieldValue(item?.item_name)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_category">Category</label>
+                            <input id="inv_category" maxlength="160" value="${inventoryFieldValue(item?.category)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_team">Service team</label>
+                            <select id="inv_team" ${canSelectTeam ? "" : "disabled"}>
+                                ${inventoryTeamOptions(selectedTeam)}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_manufacturer">Manufacturer</label>
+                            <input id="inv_manufacturer" maxlength="200" value="${inventoryFieldValue(item?.manufacturer)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_supplier">Supplier</label>
+                            <input id="inv_supplier" maxlength="200" value="${inventoryFieldValue(item?.supplier)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_unit">Unit</label>
+                            <input id="inv_unit" maxlength="80" placeholder="e.g. pieces" value="${inventoryFieldValue(item?.unit)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_batch">Batch number</label>
+                            <input id="inv_batch" maxlength="160" value="${inventoryFieldValue(item?.batch_number)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_stock">Current stock</label>
+                            <input id="inv_stock" type="number" min="0" step="1" required value="${inventoryFieldValue(item?.current_stock ?? 0)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_min">Minimum stock</label>
+                            <input id="inv_min" type="number" min="0" step="1" required value="${inventoryFieldValue(item?.minimum_stock ?? 5)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_max">Maximum stock</label>
+                            <input id="inv_max" type="number" min="0" step="1" required value="${inventoryFieldValue(item?.maximum_stock ?? 100)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_price">Purchase price</label>
+                            <input id="inv_price" type="number" min="0" step="0.01" value="${inventoryFieldValue(item?.purchase_price ?? 0)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_location">Location</label>
+                            <input id="inv_location" maxlength="200" value="${inventoryFieldValue(item?.location)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_rack">Rack</label>
+                            <input id="inv_rack" maxlength="120" value="${inventoryFieldValue(item?.rack)}">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="inv_remarks">Remarks</label>
+                            <textarea id="inv_remarks" rows="3" maxlength="1000">${inventoryFieldValue(item?.remarks)}</textarea>
+                        </div>
+                    </div>
+                </div>
+                <footer class="modal-footer">
+                    <button class="secondary-btn" type="button" id="cancelInventoryModal">Cancel</button>
+                    <button class="success-btn" type="submit" id="saveInventoryButton">
+                        <i data-lucide="save"></i>
+                        <span>${editing ? "Save changes" : "Add item"}</span>
+                    </button>
+                </footer>
+            </form>
+        </section>
+    `;
+
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", event => {
+        if (event.target === overlay) closeInventoryModal();
+    });
+    overlay.querySelector(".modal-close").addEventListener("click", closeInventoryModal);
+    overlay.querySelector("#cancelInventoryModal").addEventListener("click", closeInventoryModal);
+    overlay.querySelector("#inventoryItemForm").addEventListener("submit", event => {
+        event.preventDefault();
+        void saveInventoryItem(currentInventoryId);
+    });
+    document.addEventListener("keydown", closeInventoryModalOnEscape);
+
+    if (window.lucide) lucide.createIcons();
+    window.setTimeout(() => overlay.querySelector("#inv_bpk")?.focus(), 0);
+}
+
+function closeInventoryModalOnEscape(event) {
+    if (event.key === "Escape") closeInventoryModal();
+}
+
+function closeInventoryModal() {
+    document.getElementById("inventoryModalOverlay")?.remove();
+    document.removeEventListener("keydown", closeInventoryModalOnEscape);
+}
+
+
+// ==========================================
 // DELETE INVENTORY
 // ==========================================
 
-async function deleteInventory(id) {
-
-    if (!confirm("Delete this inventory item?")) {
-
+function deleteInventory(id) {
+    const item = inventoryData.find(entry => Number(entry.id) === Number(id));
+    if (!item) {
+        BioTrackToast.error("Inventory item not found", "Refresh the inventory and try again.");
         return;
+    }
 
+    closeInventoryDeleteDialog();
+    const overlay = document.createElement("div");
+    overlay.id = "inventoryDeleteOverlay";
+    overlay.className = "inventory-modal-overlay";
+    overlay.setAttribute("role", "presentation");
+    overlay.innerHTML = `
+        <section class="inventory-modal inventory-delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="inventoryDeleteTitle" aria-describedby="inventoryDeleteDescription">
+            <div class="inventory-delete-icon" aria-hidden="true"><i data-lucide="trash-2"></i></div>
+            <h2 id="inventoryDeleteTitle">Delete inventory item?</h2>
+            <p id="inventoryDeleteDescription"><strong>${escapeHTML(item.item_name || item.bpk_number)}</strong> will be permanently removed from inventory.</p>
+            <div class="inventory-delete-actions">
+                <button class="secondary-btn" type="button" id="cancelInventoryDelete">Keep item</button>
+                <button class="danger-btn" type="button" id="confirmInventoryDelete"><i data-lucide="trash-2"></i> Delete item</button>
+            </div>
+        </section>
+    `;
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", event => {
+        if (event.target === overlay) closeInventoryDeleteDialog();
+    });
+    overlay.querySelector("#cancelInventoryDelete").addEventListener("click", closeInventoryDeleteDialog);
+    overlay.querySelector("#confirmInventoryDelete").addEventListener("click", () => confirmDeleteInventory(id));
+    document.addEventListener("keydown", closeInventoryDeleteOnEscape);
+    if (window.lucide) lucide.createIcons();
+    overlay.querySelector("#cancelInventoryDelete")?.focus();
+}
+
+function closeInventoryDeleteOnEscape(event) {
+    if (event.key === "Escape") closeInventoryDeleteDialog();
+}
+
+function closeInventoryDeleteDialog() {
+    document.getElementById("inventoryDeleteOverlay")?.remove();
+    document.removeEventListener("keydown", closeInventoryDeleteOnEscape);
+}
+
+async function confirmDeleteInventory(id) {
+    const button = document.getElementById("confirmInventoryDelete");
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Deleting…";
     }
 
     try {
@@ -662,10 +865,16 @@ async function deleteInventory(id) {
         if (!response.ok || !result.success) {
             throw new Error(result.detail || "Unable to delete this inventory item.");
         }
+        closeInventoryDeleteDialog();
         showInventoryToast("Inventory item deleted.");
         await loadInventory();
     } catch (error) {
         BioTrackToast.error("Inventory item not deleted", error.message || "Unable to delete this inventory item.");
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i data-lucide="trash-2"></i> Delete item';
+            if (window.lucide) lucide.createIcons();
+        }
     }
 
 }
@@ -716,7 +925,13 @@ async function saveInventoryItem(id = null) {
             document.getElementById("inv_rack").value,
 
         remarks:
-            document.getElementById("inv_remarks").value
+            document.getElementById("inv_remarks").value,
+
+        batch_number:
+            document.getElementById("inv_batch").value,
+
+        service_team:
+            document.getElementById("inv_team").value
 
     };
 
@@ -733,6 +948,11 @@ async function saveInventoryItem(id = null) {
         : "POST";
 
     try {
+        const saveButton = document.getElementById("saveInventoryButton");
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.querySelector("span").textContent = id ? "Saving…" : "Adding…";
+        }
         const response = await fetch(url, {
             method,
             headers: { "Content-Type": "application/json" },
@@ -747,6 +967,11 @@ async function saveInventoryItem(id = null) {
         await loadInventory();
     } catch (error) {
         BioTrackToast.error("Inventory item not saved", error.message || "Unable to save this inventory item.");
+        const saveButton = document.getElementById("saveInventoryButton");
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.querySelector("span").textContent = id ? "Save changes" : "Add item";
+        }
     }
 
 }
