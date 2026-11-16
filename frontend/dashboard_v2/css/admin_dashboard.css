@@ -231,7 +231,7 @@
 .admin-team-card.is-biomedical{border-top:4px solid #2563eb}
 .admin-team-card.is-electrical{border-top:4px solid #f59e0b}
 .admin-team-card.is-it{border-top:4px solid #8b5cf6}
-.admin-team-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.admin-team-card-header{display:flex;align-items:center;justify-content:space-between;gap:14px}
 .admin-team-identity{display:flex;align-items:center;gap:10px}
 .admin-team-icon{
     display:grid;
@@ -252,7 +252,7 @@
 .is-it .admin-team-icon{background:#f3e8ff;color:#7c3aed}
 .admin-team-identity span{display:block;color:#718096;font-size:11px;font-weight:700}
 .admin-team-identity h3{margin-top:2px;color:#1e293b;font-size:15px}
-.admin-team-state{padding:6px 8px;border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap}
+.admin-team-state{align-self:center;padding:6px 8px;border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap}
 .admin-team-state.is-healthy{color:#047857;background:#ecfdf5}
 .admin-team-state.is-attention{color:#b45309;background:#fff7ed}
 .admin-team-primary{display:flex;align-items:baseline;gap:9px;margin:22px 0 17px}

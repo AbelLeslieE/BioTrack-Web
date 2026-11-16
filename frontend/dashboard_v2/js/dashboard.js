@@ -47,7 +47,7 @@ function renderAdminTeams(teams) {
         return `
           <article class="admin-team-card is-${style.className}">
             <header class="admin-team-card-header">
-              <div class="admin-team-identity"><span class="admin-team-icon"><i data-lucide="${style.icon}"></i></span><div><span>${adminEscape(team.team)} department</span><h3>${adminEscape(team.team)} Services</h3></div></div>
+              <div class="admin-team-identity"><span class="admin-team-icon">${adminTeamIconSvg(style.className)}</span><div><span>${adminEscape(team.team)} department</span><h3>${adminEscape(team.team)} Services</h3></div></div>
               <span class="admin-team-state ${attention ? "is-attention" : "is-healthy"}">${attention ? "Needs review" : "On track"}</span>
             </header>
             <div class="admin-team-primary"><strong>${team.active_calls || 0}</strong><span>Active maintenance calls</span></div>
@@ -109,9 +109,20 @@ function renderAdminDashboardError(message) {
 
 function adminTeamStyle(team) {
     const value = String(team || "Biomedical").toLowerCase();
-    if (value === "electrical") return { className: "electrical", icon: "plug-zap" };
-    if (value === "it") return { className: "it", icon: "server-cog" };
-    return { className: "biomedical", icon: "monitor-heart" };
+    if (value === "electrical") return { className: "electrical" };
+    if (value === "it") return { className: "it" };
+    return { className: "biomedical" };
+}
+
+function adminTeamIconSvg(team) {
+    const shared = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"';
+    if (team === "electrical") {
+        return `<svg ${shared}><path d="M8 2v5M16 2v5M6 7h12v3a6 6 0 0 1-12 0V7Z"/><path d="M12 16v6M9 22h6"/></svg>`;
+    }
+    if (team === "it") {
+        return `<svg ${shared}><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01M11 7.5h6M11 16.5h6"/></svg>`;
+    }
+    return `<svg ${shared}><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 11h2l1.4-3 3.1 6 1.4-3H18M9 22h6M12 18v4"/></svg>`;
 }
 
 function adminStatusClass(value) {

@@ -30,11 +30,13 @@ test("settings cards use independent columns without the empty profile gap", () 
     assert.match(settingsStyles, /\.settings-column\s*\{[\s\S]*?flex-direction:column/);
 });
 
-test("department cards use clear engineering equipment icons", () => {
+test("department cards use aligned inline engineering icons", () => {
     const dashboardSource = fs.readFileSync(path.join(root, "frontend/dashboard_v2/js/dashboard.js"), "utf8");
     const dashboardStyles = fs.readFileSync(path.join(root, "frontend/dashboard_v2/css/admin_dashboard.css"), "utf8");
-    assert.match(dashboardSource, /className: "biomedical", icon: "monitor-heart"/);
-    assert.match(dashboardSource, /className: "electrical", icon: "plug-zap"/);
-    assert.match(dashboardSource, /className: "it", icon: "server-cog"/);
+    assert.match(dashboardSource, /function adminTeamIconSvg/);
+    assert.match(dashboardSource, /adminTeamIconSvg\(style\.className\)/);
+    assert.match(dashboardSource, /<rect x="3" y="4" width="18" height="14"/);
+    assert.doesNotMatch(dashboardSource, /data-lucide="\$\{style\.icon\}"/);
     assert.match(dashboardStyles, /\.admin-team-icon svg\s*\{[\s\S]*?width:24px[\s\S]*?stroke-width:2\.4/);
+    assert.match(dashboardStyles, /\.admin-team-card-header\{display:flex;align-items:center/);
 });
