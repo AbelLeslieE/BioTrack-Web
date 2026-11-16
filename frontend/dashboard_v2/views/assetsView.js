@@ -72,15 +72,7 @@ function renderAssets() {
 
             <div class="asset-hero-right">
 
-            <div class="quick-actions-card">
-
-                <div class="quick-actions-header">
-
-                    <h3>Quick Actions</h3>
-
-                    <p>Frequently used asset operations</p>
-
-                </div>
+            <div class="quick-actions-card" aria-label="Asset quick actions">
 
                 <div class="asset-actions">
 

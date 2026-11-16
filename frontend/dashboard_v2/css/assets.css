@@ -5,7 +5,7 @@
 .asset-page{
     display:flex;
     flex-direction:column;
-    gap:28px;
+    gap:22px;
 }
 
 /* ==========================================
@@ -236,11 +236,11 @@ PREMIUM HERO
 
     justify-content:space-between;
 
-    align-items:flex-start;
+    align-items:center;
 
-    gap:40px;
+    gap:24px;
 
-    padding:40px;
+    padding:22px 24px;
 
     background:linear-gradient(
         135deg,
@@ -250,7 +250,7 @@ PREMIUM HERO
 
     border:1px solid #e7edf7;
 
-    border-radius:28px;
+    border-radius:20px;
 
     box-shadow:
         0 20px 45px rgba(15,23,42,.06);
@@ -259,7 +259,11 @@ PREMIUM HERO
 
 .asset-hero-left{
 
-    max-width:760px;
+    flex:1 1 520px;
+
+    min-width:0;
+
+    max-width:780px;
 
 }
 
@@ -271,7 +275,7 @@ PREMIUM HERO
 
     gap:8px;
 
-    padding:8px 16px;
+    padding:6px 12px;
 
     border-radius:999px;
 
@@ -279,19 +283,19 @@ PREMIUM HERO
 
     color:#2563eb;
 
-    font-size:13px;
+    font-size:11px;
 
     font-weight:700;
 
     letter-spacing:.5px;
 
-    margin-bottom:18px;
+    margin-bottom:9px;
 
 }
 
 .asset-hero h1{
 
-    font-size:48px;
+    font-size:32px;
 
     font-weight:800;
 
@@ -299,7 +303,7 @@ PREMIUM HERO
 
     color:#0f172a;
 
-    margin-bottom:18px;
+    margin:0 0 7px;
 
 }
 
@@ -307,11 +311,13 @@ PREMIUM HERO
 
     max-width:700px;
 
-    font-size:17px;
+    font-size:14px;
 
-    line-height:1.8;
+    line-height:1.5;
 
     color:#64748b;
+
+    margin-bottom:0;
 
 }
 
@@ -332,23 +338,23 @@ HERO ACTION PANEL
 
 .asset-hero-right{
 
-    width:340px;
+    width:auto;
 
-    flex-shrink:0;
+    flex:1 1 680px;
 
 }
 
 .quick-actions-card{
 
-    background:#ffffff;
+    background:transparent;
 
-    border:1px solid #e8edf5;
+    border:0;
 
-    border-radius:24px;
+    border-radius:0;
 
-    padding:26px;
+    padding:0;
 
-    box-shadow:0 16px 35px rgba(15,23,42,.06);
+    box-shadow:none;
 
 }
 
@@ -380,15 +386,27 @@ HERO ACTION PANEL
 
     display:flex;
 
-    flex-direction:column;
+    flex-direction:row;
 
-    gap:14px;
+    justify-content:flex-end;
+
+    gap:8px;
 
 }
 
 .hero-btn{
 
-    width:100%;
+    width:auto;
+
+    min-height:42px;
+
+    padding:10px 14px;
+
+    border-radius:11px;
+
+    font-size:13px;
+
+    white-space:nowrap;
 
     justify-content:center;
 
@@ -397,16 +415,17 @@ HERO ACTION PANEL
 .asset-import-team-label{
     display:flex;
     flex-direction:column;
-    gap:7px;
+    gap:4px;
     color:#526583;
-    font-size:12px;
+    font-size:10px;
     font-weight:800;
     text-align:left;
 }
 
 .asset-import-team-label select{
-    width:100%;
-    padding:11px 12px;
+    width:160px;
+    min-height:42px;
+    padding:9px 10px;
     border:1px solid #d6e0ed;
     border-radius:10px;
     color:#1e293b;

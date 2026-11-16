@@ -76,11 +76,12 @@ body{font-size:14px}
 
 @media (max-width:1200px){
     .asset-kpis,.inventory-kpis,.engineer-kpis,.maintenance-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .asset-hero{align-items:stretch;gap:24px;padding:30px}
+    .asset-hero{align-items:stretch;flex-direction:column;gap:16px;padding:22px 24px}
     .asset-hero-right{width:100%}
-    .asset-actions{flex-direction:row}
-    .quick-actions-card{padding:20px}
-    .asset-hero h1,.page-header h1{font-size:clamp(31px,4vw,42px)}
+    .asset-actions{justify-content:flex-start;flex-direction:row}
+    .quick-actions-card{padding:0}
+    .asset-hero h1{font-size:30px}
+    .page-header h1{font-size:clamp(31px,4vw,42px)}
     .engineer-dashboard{padding:24px}
 }
 
@@ -191,6 +192,7 @@ body{font-size:14px}
     .page-badge,.asset-badge{padding:7px 11px;font-size:11px}
     .asset-actions,.page-actions,.header-actions{flex-direction:column}
     .asset-actions button,.page-actions button,.header-actions button{width:100%}
+    .asset-import-team-label,.asset-import-team-label select{width:100%}
     .users-page-header{flex-direction:column}.users-page-header .add-btn{width:100%}
     .asset-card{align-items:flex-start;gap:13px;padding:16px}
     .asset-card .card-icon,.kpi-icon{width:46px;height:46px}

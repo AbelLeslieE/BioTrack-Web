@@ -223,7 +223,7 @@ body.dark-theme .asset-hero p,
 body.dark-theme .pm-header p,
 body.dark-theme .reports-header p{color:var(--dark-muted)!important}
 body.dark-theme .asset-badge{color:#93c5fd;background:#162e51}
-body.dark-theme .quick-actions-card{background:#0d1a2d!important;border-color:#344862!important}
+body.dark-theme .quick-actions-card{background:transparent!important;border-color:transparent!important;box-shadow:none!important}
 body.dark-theme .quick-actions-card :is(h3,p){color:var(--dark-text)}
 body.dark-theme .quick-actions-card p{color:var(--dark-muted)}
 body.dark-theme .asset-import-team-label{color:var(--dark-muted)}
