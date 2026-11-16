@@ -37,6 +37,14 @@ def _number(value) -> float:
     return 0.0 if math.isnan(parsed) else parsed
 
 
+def _duplicate_key(value) -> str:
+    """Normalize unique spreadsheet identifiers before duplicate checks."""
+    cleaned = _optional_text(value)
+    if not cleaned:
+        return ""
+    return " ".join(cleaned.casefold().split())
+
+
 def import_assets_from_excel(file, db, service_team="Biomedical"):
     imported = 0
     skipped = 0
@@ -50,14 +58,14 @@ def import_assets_from_excel(file, db, service_team="Biomedical"):
         # within one service team. Keeping the sets in memory also catches a
         # duplicate that occurs twice in the same spreadsheet.
         known_equipment_numbers = {
-            cleaned
+            normalized
             for (value,) in db.query(Asset.equipment_no).filter(Asset.equipment_no.isnot(None)).all()
-            if (cleaned := _optional_text(value))
+            if (normalized := _duplicate_key(value))
         }
         known_serial_numbers = {
-            cleaned
+            normalized
             for (value,) in db.query(Asset.serial_number).filter(Asset.serial_number.isnot(None)).all()
-            if (cleaned := _optional_text(value))
+            if (normalized := _duplicate_key(value))
         }
 
         for _, row in dataframe.iterrows():
@@ -66,8 +74,10 @@ def import_assets_from_excel(file, db, service_team="Biomedical"):
                 continue
 
             serial_number = _optional_text(row.get("Manuf.SlNo"))
-            if equipment_no in known_equipment_numbers or (
-                serial_number and serial_number in known_serial_numbers
+            equipment_key = _duplicate_key(equipment_no)
+            serial_key = _duplicate_key(serial_number)
+            if equipment_key in known_equipment_numbers or (
+                serial_key and serial_key in known_serial_numbers
             ):
                 skipped += 1
                 continue
@@ -92,9 +102,9 @@ def import_assets_from_excel(file, db, service_team="Biomedical"):
                     tax_amount=_number(row.get("Tax Amount")),
                 )
                 db.add(asset)
-                known_equipment_numbers.add(equipment_no)
-                if serial_number:
-                    known_serial_numbers.add(serial_number)
+                known_equipment_numbers.add(equipment_key)
+                if serial_key:
+                    known_serial_numbers.add(serial_key)
                 imported += 1
             except (TypeError, ValueError):
                 errors += 1

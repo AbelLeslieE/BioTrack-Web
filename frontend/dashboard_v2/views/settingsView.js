@@ -849,6 +849,27 @@ function renderSettings() {
 
 `;
 
+    const settingsGrid = pageContent.querySelector(".settings-grid");
+    if (settingsGrid) {
+        const leftColumn = document.createElement("div");
+        const rightColumn = document.createElement("div");
+        leftColumn.className = "settings-column settings-column-left";
+        rightColumn.className = "settings-column settings-column-right";
+
+        ["profile", "security", "backup"].forEach(id => {
+            const card = settingsGrid.querySelector(`#${id}`);
+            if (card) leftColumn.appendChild(card);
+        });
+        ["notifications", "preferences", "about"].forEach(id => {
+            const card = settingsGrid.querySelector(`#${id}`);
+            if (card) rightColumn.appendChild(card);
+        });
+
+        const passwordModal = settingsGrid.querySelector("#passwordModal");
+        settingsGrid.replaceChildren(leftColumn, rightColumn);
+        if (passwordModal) pageContent.querySelector(".settings-content")?.appendChild(passwordModal);
+    }
+
     // Re-create Lucide icons after injecting HTML
     if (window.lucide) {
         lucide.createIcons();

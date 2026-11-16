@@ -108,6 +108,14 @@ function navigate(page) {
         if (typeof closeInventoryDeleteDialog === "function") closeInventoryDeleteDialog();
     }
 
+    if (page !== "assets" && typeof closeAssetManagementDialog === "function") {
+        closeAssetManagementDialog();
+    }
+
+    if (page !== "reports" && typeof cleanupReportsSchedules === "function") {
+        cleanupReportsSchedules();
+    }
+
     // Check page exists
     if (!Pages[page]) {
 

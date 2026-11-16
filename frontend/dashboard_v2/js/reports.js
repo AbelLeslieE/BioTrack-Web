@@ -6,6 +6,8 @@
    API
 ========================================================== */
 
+let reportScheduleTimers = [];
+
 async function reportsApi(url){
 
     const response = await fetch(url);
@@ -887,29 +889,9 @@ function createReportsDowntimeChart(){
 
 function initializeReportsExport(){
 
-    registerReportsExport(
-
-        "reportsPdfBtn",
-
-        "PDF"
-
-    );
-
-    registerReportsExport(
-
-        "reportsExcelBtn",
-
-        "Excel"
-
-    );
-
-    registerReportsExport(
-
-        "reportsCsvBtn",
-
-        "CSV"
-
-    );
+    registerReportsExport("reportsPdfBtn", "pdf");
+    registerReportsExport("reportsExcelBtn", "xlsx");
+    registerReportsExport("reportsCsvBtn", "csv");
 
     const scheduleButton=document.getElementById(
 
@@ -923,24 +905,70 @@ function initializeReportsExport(){
 
             "click",
 
-            ()=>{
-
-                showReportsToast(
-
-                    "Report Scheduled",
-
-                    "Automatic report scheduling configured successfully.",
-
-                    "success"
-
-                );
-
-            }
+            openReportsScheduleDialog
 
         );
 
     }
 
+    void loadAndArmReportSchedules();
+
+}
+
+function currentReportsFilters(){
+    const normalize = (value, allPrefix) => value && !value.toLowerCase().startsWith(allPrefix) ? value : "";
+    return {
+        start_date:getReportsValue("reportsStartDate"),
+        end_date:getReportsValue("reportsEndDate"),
+        department:normalize(getReportsValue("reportsDepartment"), "all department"),
+        location:normalize(getReportsValue("reportsLocation"), "all location"),
+        equipment:normalize(getReportsValue("reportsEquipment"), "all equipment"),
+    };
+}
+
+function reportsExportUrl(type,filters=currentReportsFilters()){
+    const params=new URLSearchParams();
+    Object.entries(filters||{}).forEach(([key,value])=>{if(value)params.set(key,value);});
+    const query=params.toString();
+    return `/api/reports/export/${type}${query?`?${query}`:""}`;
+}
+
+async function downloadReportsExport(type,button=null,filters=currentReportsFilters(),notify=true){
+    const labels={pdf:"PDF",xlsx:"Excel",csv:"CSV"};
+    const original=button?.innerHTML;
+    if(button){
+        button.disabled=true;
+        button.innerHTML='<span class="reports-loader"></span> Generating...';
+    }
+    try{
+        const response=await fetch(reportsExportUrl(type,filters));
+        if(!response.ok){
+            const result=await response.json().catch(()=>({}));
+            throw new Error(result.detail||`Unable to generate the ${labels[type]||type} report.`);
+        }
+        const blob=await response.blob();
+        const disposition=response.headers.get("Content-Disposition")||"";
+        const filenameMatch=disposition.match(/filename="?([^";]+)"?/i);
+        const filename=filenameMatch?.[1]||`BioTrack-report.${type}`;
+        const url=URL.createObjectURL(blob);
+        const anchor=document.createElement("a");
+        anchor.href=url;
+        anchor.download=filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+        if(notify)showReportsToast(`${labels[type]||type} report ready`,`${filename} was downloaded.`,"success");
+        return true;
+    }catch(error){
+        showReportsToast("Report export failed",error.message||"The report could not be generated.","error");
+        return false;
+    }finally{
+        if(button){
+            button.disabled=false;
+            button.innerHTML=original;
+        }
+    }
 }
 
 function registerReportsExport(id,type){
@@ -953,42 +981,104 @@ function registerReportsExport(id,type){
 
         "click",
 
-        ()=>{
-
-            const original=button.innerHTML;
-
-            button.disabled=true;
-
-            button.innerHTML=`
-
-                <span class="reports-loader"></span>
-
-                Exporting...
-
-            `;
-
-            setTimeout(()=>{
-
-                button.disabled=false;
-
-                button.innerHTML=original;
-
-                showReportsToast(
-
-                    `${type} Export`,
-
-                    `${type} report generated successfully.`,
-
-                    "success"
-
-                );
-
-            },1800);
-
-        }
+        ()=>downloadReportsExport(type,button)
 
     );
 
+}
+
+function localDateTimeInputValue(date){
+    const local=new Date(date.getTime()-date.getTimezoneOffset()*60000);
+    return local.toISOString().slice(0,16);
+}
+
+function closeReportsScheduleDialog(){
+    document.getElementById("reportsScheduleOverlay")?.remove();
+}
+
+function cleanupReportsSchedules(){
+    closeReportsScheduleDialog();
+    reportScheduleTimers.forEach(timer=>window.clearTimeout(timer));
+    reportScheduleTimers=[];
+}
+
+function openReportsScheduleDialog(){
+    closeReportsScheduleDialog();
+    const firstRun=new Date(Date.now()+60*60*1000);
+    firstRun.setMinutes(Math.ceil(firstRun.getMinutes()/15)*15,0,0);
+    const overlay=document.createElement("div");
+    overlay.id="reportsScheduleOverlay";
+    overlay.className="reports-schedule-overlay";
+    overlay.innerHTML=`
+        <section class="reports-schedule-dialog" role="dialog" aria-modal="true" aria-labelledby="reportsScheduleTitle">
+            <header><span><i class="fa-solid fa-calendar-days"></i></span><div><h2 id="reportsScheduleTitle">Schedule a report</h2><p>Save a recurring export. BioTrack will download it when Reports is open at the scheduled time.</p></div><button type="button" class="reports-schedule-close" aria-label="Close">×</button></header>
+            <form id="reportsScheduleForm">
+                <label>Report format<select id="scheduledReportFormat"><option value="pdf">PDF</option><option value="xlsx">Excel</option><option value="csv">CSV</option></select></label>
+                <label>Frequency<select id="scheduledReportFrequency"><option value="once">One time</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
+                <label class="is-wide">First run<input id="scheduledReportDate" type="datetime-local" required value="${localDateTimeInputValue(firstRun)}"></label>
+                <div class="reports-schedule-filter-note is-wide"><i class="fa-solid fa-filter"></i><span>The current report filters will be saved with this schedule.</span></div>
+                <footer class="is-wide"><button type="button" class="reports-btn-secondary" id="cancelReportSchedule">Cancel</button><button type="submit" class="reports-btn-primary" id="saveReportSchedule"><i class="fa-solid fa-calendar-check"></i> Save schedule</button></footer>
+            </form>
+        </section>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector(".reports-schedule-close").onclick=closeReportsScheduleDialog;
+    overlay.querySelector("#cancelReportSchedule").onclick=closeReportsScheduleDialog;
+    overlay.addEventListener("click",event=>{if(event.target===overlay)closeReportsScheduleDialog();});
+    overlay.querySelector("#reportsScheduleForm").onsubmit=saveReportSchedule;
+}
+
+async function saveReportSchedule(event){
+    event.preventDefault();
+    const button=document.getElementById("saveReportSchedule");
+    button.disabled=true;
+    try{
+        const response=await fetch("/api/reports/schedules",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                report_format:getReportsValue("scheduledReportFormat"),
+                frequency:getReportsValue("scheduledReportFrequency"),
+                next_run_at:getReportsValue("scheduledReportDate"),
+                filters:currentReportsFilters(),
+            }),
+        });
+        const result=await response.json().catch(()=>({}));
+        if(!response.ok||!result.success)throw new Error(result.detail||"Unable to save this report schedule.");
+        closeReportsScheduleDialog();
+        showReportsToast("Report scheduled",`First export: ${new Date(result.next_run_at).toLocaleString()}.`,"success");
+        await loadAndArmReportSchedules();
+    }catch(error){
+        showReportsToast("Schedule not saved",error.message||"Unable to save this report schedule.","error");
+        button.disabled=false;
+    }
+}
+
+async function runScheduledReport(schedule){
+    const downloaded=await downloadReportsExport(schedule.report_format,null,schedule.filters,false);
+    if(!downloaded)return;
+    const response=await fetch(`/api/reports/schedules/${Number(schedule.id)}/complete`,{method:"POST"});
+    if(response.ok){
+        showReportsToast("Scheduled report ready",`${String(schedule.report_format).toUpperCase()} report downloaded automatically.`,"success");
+        await loadAndArmReportSchedules();
+    }
+}
+
+async function loadAndArmReportSchedules(){
+    reportScheduleTimers.forEach(timer=>window.clearTimeout(timer));
+    reportScheduleTimers=[];
+    try{
+        const response=await fetch("/api/reports/schedules");
+        if(!response.ok)return;
+        const schedules=await response.json();
+        schedules.forEach(schedule=>{
+            const delay=new Date(schedule.next_run_at).getTime()-Date.now();
+            if(delay>2147483647)return;
+            const timer=window.setTimeout(()=>runScheduledReport(schedule),Math.max(0,delay));
+            reportScheduleTimers.push(timer);
+        });
+    }catch(error){
+        console.error("Unable to arm report schedules",error);
+    }
 }
 
 /* ==========================================================

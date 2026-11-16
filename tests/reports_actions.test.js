@@ -1,0 +1,31 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const root = path.resolve(__dirname, "..");
+const reports = fs.readFileSync(path.join(root, "frontend/dashboard_v2/js/reports.js"), "utf8");
+const settings = fs.readFileSync(path.join(root, "frontend/dashboard_v2/views/settingsView.js"), "utf8");
+const settingsStyles = fs.readFileSync(path.join(root, "frontend/dashboard_v2/css/settings.css"), "utf8");
+
+test("report buttons download real PDF Excel and CSV exports", () => {
+    assert.match(reports, /registerReportsExport\("reportsPdfBtn", "pdf"\)/);
+    assert.match(reports, /registerReportsExport\("reportsExcelBtn", "xlsx"\)/);
+    assert.match(reports, /registerReportsExport\("reportsCsvBtn", "csv"\)/);
+    assert.match(reports, /fetch\(reportsExportUrl\(type,filters\)\)/);
+    assert.doesNotMatch(reports, /setTimeout\(\(\)=>\{[\s\S]*?report generated successfully/);
+});
+
+test("schedule report opens a persistent schedule workflow", () => {
+    assert.match(reports, /function openReportsScheduleDialog/);
+    assert.match(reports, /fetch\("\/api\/reports\/schedules"/);
+    assert.match(reports, /function loadAndArmReportSchedules/);
+    assert.match(reports, /runScheduledReport/);
+});
+
+test("settings cards use independent columns without the empty profile gap", () => {
+    assert.match(settings, /settings-column-left/);
+    assert.match(settings, /\["profile", "security", "backup"\]/);
+    assert.match(settings, /\["notifications", "preferences", "about"\]/);
+    assert.match(settingsStyles, /\.settings-column\s*\{[\s\S]*?flex-direction:column/);
+});

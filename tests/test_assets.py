@@ -11,7 +11,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.models.asset import Asset
-from backend.routes.asset_routes import create_asset, get_asset, get_assets, update_asset, upload_asset_excel
+from backend.models.asset_document import AssetDocument
+from backend.models.asset_history import AssetHistory
+from backend.models.asset_spare import AssetSpare
+from backend.models.pm_history import PMHistory
+from backend.models.pm_schedule import PMSchedule
+from backend.routes.asset_routes import bulk_delete_assets, create_asset, get_asset, get_assets, update_asset, upload_asset_excel
 from backend.services.excel_import_service import import_assets_from_excel
 from backend.services.service_team import team_for_user
 
@@ -149,6 +154,75 @@ class AssetRouteTests(unittest.TestCase):
             self.assertEqual(result["imported"], 1)
             self.assertEqual(result["skipped"], 1)
             self.assertEqual(session.query(Asset).count(), 1)
+        finally:
+            session.close()
+            engine.dispose()
+
+    def test_excel_upload_skips_case_and_whitespace_duplicates(self):
+        engine = create_engine("sqlite:///:memory:")
+        Asset.__table__.create(engine)
+        session = sessionmaker(bind=engine)()
+        workbook = BytesIO()
+        dataframe = pd.DataFrame([
+            {"Equipment No": "  bio-201  ", "Equipment": "Monitor duplicate", "Manuf.SlNo": " ser-201 "},
+            {"Equipment No": "BIO-202", "Equipment": "Monitor serial duplicate", "Manuf.SlNo": "SER-201"},
+        ])
+        with pd.ExcelWriter(workbook, engine="openpyxl") as writer:
+            dataframe.to_excel(writer, index=False, startrow=6)
+        workbook.seek(0)
+
+        try:
+            session.add(Asset(asset_code="BT-BIO-201", equipment_no="BIO-201", equipment_name="Existing", serial_number="SER-201"))
+            session.commit()
+            result = import_assets_from_excel(workbook, session, "Biomedical")
+            self.assertTrue(result["success"])
+            self.assertEqual(result["imported"], 0)
+            self.assertEqual(result["skipped"], 2)
+            self.assertEqual(session.query(Asset).count(), 1)
+        finally:
+            session.close()
+            engine.dispose()
+
+    def test_manager_bulk_delete_removes_assets_and_child_records(self):
+        engine = create_engine("sqlite:///:memory:")
+        for table in (
+            Asset.__table__,
+            PMSchedule.__table__,
+            PMHistory.__table__,
+            AssetDocument.__table__,
+            AssetHistory.__table__,
+            AssetSpare.__table__,
+        ):
+            table.create(engine)
+        session = sessionmaker(bind=engine)()
+        manager = SimpleNamespace(role="Manager", username="admin", department=None)
+
+        try:
+            first = Asset(asset_code="DUP-A", equipment_name="Duplicate monitor")
+            second = Asset(asset_code="DUP-B", equipment_name="Duplicate monitor")
+            session.add_all([first, second])
+            session.flush()
+            schedule = PMSchedule(asset_id=second.id, scheduled_date=pd.Timestamp("2026-12-01").date(), frequency_days=30)
+            session.add(schedule)
+            session.flush()
+            session.add(PMHistory(asset_id=second.id, pm_schedule_id=schedule.id))
+            session.add(AssetHistory(asset_id=second.id, action="Imported"))
+            session.add(AssetSpare(asset_id=second.id, part_name="Fuse"))
+            session.add(AssetDocument(asset_id=second.id, document_name="Manual", file_path="manual.pdf"))
+            session.commit()
+            first_id = first.id
+            second_id = second.id
+
+            result = bulk_delete_assets({"asset_ids": [second_id]}, session, manager)
+            self.assertTrue(result["success"])
+            self.assertEqual(result["deleted"], 1)
+            self.assertIsNotNone(session.get(Asset, first_id))
+            self.assertIsNone(session.get(Asset, second_id))
+            self.assertEqual(session.query(PMSchedule).count(), 0)
+            self.assertEqual(session.query(PMHistory).count(), 0)
+            self.assertEqual(session.query(AssetHistory).count(), 0)
+            self.assertEqual(session.query(AssetSpare).count(), 0)
+            self.assertEqual(session.query(AssetDocument).count(), 0)
         finally:
             session.close()
             engine.dispose()

@@ -21,3 +21,4 @@ from backend.models.pm_history import PMHistory
 # ==========================================
 
 from backend.models.inventory import Inventory
+from backend.models.report_schedule import ReportSchedule

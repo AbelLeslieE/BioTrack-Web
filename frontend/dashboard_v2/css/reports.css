@@ -1254,3 +1254,54 @@
     line-height:1;
 
 }
+
+.reports-schedule-overlay{
+    position:fixed;
+    inset:0;
+    z-index:2800;
+    display:grid;
+    place-items:center;
+    padding:20px;
+    background:rgba(15,23,42,.64);
+    backdrop-filter:blur(5px);
+}
+
+.reports-schedule-dialog{
+    width:min(620px,100%);
+    overflow:hidden;
+    border:1px solid #dce5f1;
+    border-radius:22px;
+    background:#fff;
+    box-shadow:0 28px 85px rgba(15,23,42,.34);
+}
+
+.reports-schedule-dialog>header{
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+    padding:22px 24px;
+    border-bottom:1px solid #e2e8f0;
+}
+
+.reports-schedule-dialog>header>span{display:grid;width:44px;height:44px;flex:0 0 auto;place-items:center;border-radius:13px;background:#eaf1ff;color:#2563eb}
+.reports-schedule-dialog>header>div{flex:1}
+.reports-schedule-dialog h2{margin:0;color:#0f172a;font-size:22px}
+.reports-schedule-dialog header p{margin:5px 0 0;color:#64748b;font-size:13px;line-height:1.5}
+.reports-schedule-close{width:36px;height:36px;border:0;border-radius:10px;background:#f1f5f9;color:#475569;font-size:23px;cursor:pointer}
+.reports-schedule-dialog form{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:22px 24px 24px}
+.reports-schedule-dialog label{display:grid;gap:7px;color:#334155;font-size:13px;font-weight:800}
+.reports-schedule-dialog :is(input,select){width:100%;min-height:46px;padding:0 13px;border:1px solid #cbd5e1;border-radius:11px;background:#fff;color:#0f172a;font:inherit}
+.reports-schedule-dialog .is-wide{grid-column:1/-1}
+.reports-schedule-filter-note{display:flex;align-items:center;gap:9px;padding:11px 13px;border-radius:10px;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:700}
+.reports-schedule-dialog footer{display:flex;justify-content:flex-end;gap:10px;padding-top:4px}
+.reports-schedule-dialog footer button{min-width:145px}
+.reports-schedule-dialog button:disabled{opacity:.6;cursor:wait}
+
+@media(max-width:600px){
+    .reports-schedule-overlay{padding:10px}
+    .reports-schedule-dialog form{grid-template-columns:1fr;padding:18px}
+    .reports-schedule-dialog .is-wide{grid-column:auto}
+    .reports-schedule-dialog>header{padding:18px}
+    .reports-schedule-dialog footer{flex-direction:column-reverse}
+    .reports-schedule-dialog footer button{width:100%}
+}

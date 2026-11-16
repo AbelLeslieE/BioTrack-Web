@@ -9,14 +9,21 @@ from fastapi import (
     File,
     Form,
     Query,
-    HTTPException
+    HTTPException,
+    Body,
 )
 from sqlalchemy.orm import Session
 from sqlalchemy import false
+from sqlalchemy.exc import SQLAlchemyError
 
 from backend.database import get_db
 from backend.services.excel_import_service import import_assets_from_excel
 from backend.models.asset import Asset
+from backend.models.asset_document import AssetDocument
+from backend.models.asset_history import AssetHistory
+from backend.models.asset_spare import AssetSpare
+from backend.models.pm_history import PMHistory
+from backend.models.pm_schedule import PMSchedule
 from backend.auth import get_current_user, require_roles
 from backend.models.user import User
 from backend.services.service_team import scope_to_team, team_for_user
@@ -239,6 +246,61 @@ def get_department_assets(
         }
         for asset in assets
     ]
+
+
+# ==========================================
+# ADMINISTRATOR BULK DELETE
+# ==========================================
+
+@router.post("/bulk-delete", dependencies=[Depends(require_roles("Manager"))])
+def bulk_delete_assets(
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Permanently remove administrator-selected assets and their direct child records."""
+    raw_ids = data.get("asset_ids")
+    if not isinstance(raw_ids, list):
+        raise HTTPException(status_code=422, detail="Select one or more assets to delete.")
+
+    try:
+        asset_ids = sorted({int(value) for value in raw_ids if int(value) > 0})
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="The asset selection is invalid.") from exc
+
+    if not asset_ids:
+        raise HTTPException(status_code=422, detail="Select one or more assets to delete.")
+    if len(asset_ids) > 1000:
+        raise HTTPException(status_code=422, detail="Delete no more than 1,000 assets at a time.")
+
+    assets = db.query(Asset).filter(Asset.id.in_(asset_ids)).all()
+    found_ids = {asset.id for asset in assets}
+    if not found_ids:
+        raise HTTPException(status_code=404, detail="None of the selected assets were found.")
+
+    try:
+        # Delete child rows explicitly because older databases may not have
+        # every ON DELETE CASCADE constraint applied.
+        db.query(PMHistory).filter(PMHistory.asset_id.in_(found_ids)).delete(synchronize_session=False)
+        db.query(PMSchedule).filter(PMSchedule.asset_id.in_(found_ids)).delete(synchronize_session=False)
+        db.query(AssetDocument).filter(AssetDocument.asset_id.in_(found_ids)).delete(synchronize_session=False)
+        db.query(AssetHistory).filter(AssetHistory.asset_id.in_(found_ids)).delete(synchronize_session=False)
+        db.query(AssetSpare).filter(AssetSpare.asset_id.in_(found_ids)).delete(synchronize_session=False)
+        db.query(Asset).filter(Asset.id.in_(found_ids)).delete(synchronize_session=False)
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="One or more selected assets could not be deleted. Refresh the registry and try again.",
+        ) from exc
+
+    return {
+        "success": True,
+        "deleted": len(found_ids),
+        "deleted_ids": sorted(found_ids),
+        "missing": len(asset_ids) - len(found_ids),
+    }
 # ==========================================
 # GET SINGLE ASSET
 # ==========================================
@@ -326,7 +388,6 @@ def get_asset(
 # CREATE NEW ASSET
 # ==========================================
 
-from fastapi import Body
 from datetime import date, datetime
 from sqlalchemy.exc import IntegrityError
 

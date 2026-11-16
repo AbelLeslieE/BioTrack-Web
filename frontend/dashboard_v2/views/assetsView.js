@@ -2,6 +2,7 @@
 let assetsCache = [];
 let filteredAssets = [];
 let selectedAssetServiceTeam = "";
+let selectedAssetIds = new Set();
 const assetsPagination = { page: 1, pageSize: 25 };
 
 function canManageAssetQR() {
@@ -34,6 +35,7 @@ function renderAssets() {
 
     const registryCopy = assetRegistryCopy();
     selectedAssetServiceTeam = isAssetAdministrator() ? "" : assetRoleServiceTeam();
+    selectedAssetIds = new Set();
 
     pageContent.innerHTML = `
 
@@ -325,6 +327,21 @@ function renderAssets() {
 
         </div>
 
+        ${isAssetAdministrator() ? `
+            <section class="asset-bulk-toolbar" aria-label="Bulk asset actions">
+                <div class="asset-bulk-summary">
+                    <span class="asset-bulk-icon"><i data-lucide="list-checks"></i></span>
+                    <span><strong id="assetSelectionCount">0 selected</strong><small>Select rows, find duplicate records, or remove several assets together.</small></span>
+                </div>
+                <div class="asset-bulk-actions">
+                    <button type="button" id="assetSelectFilteredBtn" class="asset-bulk-secondary"><i data-lucide="check-check"></i> Select all</button>
+                    <button type="button" id="assetClearSelectionBtn" class="asset-bulk-secondary" disabled><i data-lucide="x"></i> Deselect all</button>
+                    <button type="button" id="assetFindDuplicatesBtn" class="asset-bulk-secondary"><i data-lucide="copy-check"></i> Find duplicates</button>
+                    <button type="button" id="assetDeleteSelectedBtn" class="asset-bulk-danger" disabled><i data-lucide="trash-2"></i> Delete selected</button>
+                </div>
+            </section>
+        ` : ""}
+
 
         <!-- ==========================================
              TABLE
@@ -337,6 +354,8 @@ function renderAssets() {
                 <thead>
 
                     <tr>
+
+                        ${isAssetAdministrator() ? '<th class="asset-select-column"><input id="assetSelectPage" type="checkbox" aria-label="Select all assets on this page"></th>' : ""}
 
                         <th>Equipment No</th>
 
@@ -364,7 +383,7 @@ function renderAssets() {
 
                     <tr>
 
-                        <td colspan="9" class="empty-table">
+                        <td colspan="${isAssetAdministrator() ? 10 : 9}" class="empty-table">
 
                             No assets found.
 
@@ -392,6 +411,7 @@ function renderAssets() {
     initializeAssetQR();
     initializeAssetModeSwitcher();
     initializeAssetFilters();
+    initializeAssetBulkActions();
     loadAssets();
 }
 
@@ -520,6 +540,8 @@ async function loadAssets() {
         const assets = await response.json();
 
         assetsCache = Array.isArray(assets) ? assets : [];
+        const availableIds = new Set(assetsCache.map(asset => Number(asset.id)));
+        selectedAssetIds = new Set([...selectedAssetIds].filter(id => availableIds.has(id)));
         populateAssetFilters(assetsCache);
         applyAssetFilters();
 
@@ -528,6 +550,8 @@ async function loadAssets() {
     catch (error) {
 
         console.error(error);
+
+        BioTrackToast.error("Assets unavailable", "Unable to load the asset registry.");
 
     }
 
@@ -540,6 +564,66 @@ function initializeAssetFilters() {
             if (!element) return;
             element.addEventListener(element.tagName === "INPUT" ? "input" : "change", applyAssetFilters);
         });
+}
+
+function initializeAssetBulkActions() {
+    if (!isAssetAdministrator()) return;
+
+    document.getElementById("assetSelectFilteredBtn")?.addEventListener("click", () => {
+        filteredAssets.forEach(asset => selectedAssetIds.add(Number(asset.id)));
+        populateAssetTable(filteredAssets);
+    });
+    document.getElementById("assetClearSelectionBtn")?.addEventListener("click", () => {
+        selectedAssetIds.clear();
+        populateAssetTable(filteredAssets);
+    });
+    document.getElementById("assetFindDuplicatesBtn")?.addEventListener("click", openAssetDuplicateReview);
+    document.getElementById("assetDeleteSelectedBtn")?.addEventListener("click", () => {
+        openAssetDeleteDialog([...selectedAssetIds], "Delete selected assets?");
+    });
+    document.getElementById("assetSelectPage")?.addEventListener("change", event => {
+        toggleVisibleAssetSelection(event.target.checked);
+    });
+    updateAssetBulkControls();
+}
+
+function getVisibleAssetPageItems() {
+    return TablePagination.pageItems(filteredAssets, assetsPagination);
+}
+
+function toggleAssetSelection(assetId, selected) {
+    const id = Number(assetId);
+    if (selected) selectedAssetIds.add(id);
+    else selectedAssetIds.delete(id);
+    updateAssetBulkControls();
+}
+
+function toggleVisibleAssetSelection(selected) {
+    getVisibleAssetPageItems().forEach(asset => {
+        const id = Number(asset.id);
+        if (selected) selectedAssetIds.add(id);
+        else selectedAssetIds.delete(id);
+    });
+    populateAssetTable(filteredAssets);
+}
+
+function updateAssetBulkControls() {
+    if (!isAssetAdministrator()) return;
+    const count = selectedAssetIds.size;
+    const selectionLabel = document.getElementById("assetSelectionCount");
+    if (selectionLabel) selectionLabel.textContent = `${count} selected`;
+    const clearButton = document.getElementById("assetClearSelectionBtn");
+    const deleteButton = document.getElementById("assetDeleteSelectedBtn");
+    if (clearButton) clearButton.disabled = count === 0;
+    if (deleteButton) deleteButton.disabled = count === 0;
+
+    const selectPage = document.getElementById("assetSelectPage");
+    if (selectPage) {
+        const visibleIds = getVisibleAssetPageItems().map(asset => Number(asset.id));
+        const selectedVisible = visibleIds.filter(id => selectedAssetIds.has(id)).length;
+        selectPage.checked = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+        selectPage.indeterminate = selectedVisible > 0 && selectedVisible < visibleIds.length;
+    }
 }
 
 function initializeAssetModeSwitcher() {
@@ -619,7 +703,7 @@ function populateAssetTable(assets) {
 
         table.innerHTML = `
             <tr>
-                <td colspan="9" class="empty-table">
+                <td colspan="${isAssetAdministrator() ? 10 : 9}" class="empty-table">
                     No assets found.
                 </td>
             </tr>
@@ -633,6 +717,8 @@ function populateAssetTable(assets) {
             "assets"
         );
 
+        updateAssetBulkControls();
+
         return;
 
     }
@@ -645,6 +731,8 @@ function populateAssetTable(assets) {
 
         table.innerHTML += `
             <tr>
+
+                ${isAssetAdministrator() ? `<td class="asset-select-column"><input type="checkbox" ${selectedAssetIds.has(Number(asset.id)) ? "checked" : ""} onchange="toggleAssetSelection(${Number(asset.id)}, this.checked)" aria-label="Select ${escapeHTML(asset.equipment_name || asset.asset_code || "asset")}"></td>` : ""}
 
                 <td>${escapeHTML(asset.equipment_no ?? "")}</td>
 
@@ -687,8 +775,204 @@ function populateAssetTable(assets) {
         "assets"
     );
 
+    updateAssetBulkControls();
+
     if (window.lucide) lucide.createIcons();
 
+}
+
+function normalizeAssetDuplicateValue(value) {
+    const normalized = String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+    return ["", "-", "na", "n/a", "none", "null", "unknown"].includes(normalized) ? "" : normalized;
+}
+
+function findDuplicateAssetGroups() {
+    const parent = new Map(assetsCache.map(asset => [Number(asset.id), Number(asset.id)]));
+    const reasonsByPair = [];
+    const find = id => {
+        const current = parent.get(id);
+        if (current === id) return id;
+        const root = find(current);
+        parent.set(id, root);
+        return root;
+    };
+    const union = (left, right) => {
+        const leftRoot = find(left);
+        const rightRoot = find(right);
+        if (leftRoot !== rightRoot) parent.set(rightRoot, leftRoot);
+    };
+
+    const duplicateMaps = [
+        ["Asset code", asset => normalizeAssetDuplicateValue(asset.asset_code)],
+        ["Equipment number", asset => normalizeAssetDuplicateValue(asset.equipment_no)],
+        ["Serial number", asset => normalizeAssetDuplicateValue(asset.serial_number)],
+    ];
+
+    duplicateMaps.forEach(([label, keyFor]) => {
+        const groups = new Map();
+        assetsCache.forEach(asset => {
+            const key = keyFor(asset);
+            if (!key) return;
+            const matches = groups.get(key) || [];
+            matches.push(Number(asset.id));
+            groups.set(key, matches);
+        });
+        groups.forEach(ids => {
+            if (ids.length < 2) return;
+            ids.slice(1).forEach(id => union(ids[0], id));
+            reasonsByPair.push({ ids, label });
+        });
+    });
+
+    // When identifiers are missing, an exact match across the descriptive
+    // equipment fields is presented as a possible duplicate for manual review.
+    const detailGroups = new Map();
+    assetsCache.forEach(asset => {
+        if (normalizeAssetDuplicateValue(asset.serial_number) || normalizeAssetDuplicateValue(asset.equipment_no)) return;
+        const parts = [asset.equipment_name, asset.manufacturer, asset.model, asset.department, asset.location]
+            .map(normalizeAssetDuplicateValue);
+        if (!parts[0] || !parts[2] || parts.filter(Boolean).length < 3) return;
+        const key = parts.join("|");
+        const matches = detailGroups.get(key) || [];
+        matches.push(Number(asset.id));
+        detailGroups.set(key, matches);
+    });
+    detailGroups.forEach(ids => {
+        if (ids.length < 2) return;
+        ids.slice(1).forEach(id => union(ids[0], id));
+        reasonsByPair.push({ ids, label: "Matching equipment details" });
+    });
+
+    const components = new Map();
+    assetsCache.forEach(asset => {
+        const id = Number(asset.id);
+        const root = find(id);
+        const component = components.get(root) || [];
+        component.push(asset);
+        components.set(root, component);
+    });
+
+    return [...components.values()]
+        .filter(group => group.length > 1)
+        .map(group => {
+            const groupIds = new Set(group.map(asset => Number(asset.id)));
+            const reasons = [...new Set(reasonsByPair
+                .filter(entry => entry.ids.some(id => groupIds.has(id)))
+                .map(entry => entry.label))];
+            return {
+                assets: group.sort((a, b) => Number(a.id) - Number(b.id)),
+                reasons,
+            };
+        })
+        .sort((a, b) => Number(a.assets[0].id) - Number(b.assets[0].id));
+}
+
+function closeAssetManagementDialog() {
+    document.getElementById("assetManagementOverlay")?.remove();
+    document.body.classList.remove("asset-management-dialog-open");
+}
+
+function openAssetDuplicateReview() {
+    const groups = findDuplicateAssetGroups();
+    if (!groups.length) {
+        BioTrackToast.success("No duplicates found", "Asset codes, equipment numbers and serial numbers are unique.");
+        return;
+    }
+
+    closeAssetManagementDialog();
+    const overlay = document.createElement("div");
+    overlay.id = "assetManagementOverlay";
+    overlay.className = "asset-management-overlay";
+    overlay.innerHTML = `
+        <section class="asset-management-dialog asset-duplicate-dialog" role="dialog" aria-modal="true" aria-labelledby="assetDuplicateTitle">
+            <header><span><i data-lucide="copy-check"></i></span><div><h2 id="assetDuplicateTitle">Review duplicate assets</h2><p>BioTrack will keep the oldest record in each group. Uncheck anything that should remain.</p></div><button type="button" class="asset-management-close" aria-label="Close"><i data-lucide="x"></i></button></header>
+            <div class="asset-duplicate-list">
+                ${groups.map((group, groupIndex) => `
+                    <article class="asset-duplicate-group">
+                        <div class="asset-duplicate-group-heading"><strong>Duplicate group ${groupIndex + 1}</strong><span>${escapeHTML(group.reasons.join(" · "))}</span></div>
+                        ${group.assets.map((asset, index) => `
+                            <label class="asset-duplicate-row ${index === 0 ? "is-kept" : ""}">
+                                <input type="checkbox" class="asset-duplicate-choice" value="${Number(asset.id)}" ${index === 0 ? "disabled" : "checked"}>
+                                <span><strong>${escapeHTML(asset.equipment_name || "Unnamed equipment")}</strong><small>${escapeHTML(asset.asset_code || asset.equipment_no || `Asset ${asset.id}`)} · ${escapeHTML(asset.serial_number || "No serial number")} · ${escapeHTML(asset.service_team || "Biomedical")}</small></span>
+                                <em>${index === 0 ? "Keep" : "Remove"}</em>
+                            </label>
+                        `).join("")}
+                    </article>
+                `).join("")}
+            </div>
+            <footer><button type="button" class="asset-dialog-secondary" id="cancelDuplicateReview">Cancel</button><button type="button" class="asset-dialog-danger" id="removeDuplicateAssets"><i data-lucide="trash-2"></i> Remove selected duplicates</button></footer>
+        </section>
+    `;
+    document.body.appendChild(overlay);
+    document.body.classList.add("asset-management-dialog-open");
+    overlay.querySelector(".asset-management-close").onclick = closeAssetManagementDialog;
+    overlay.querySelector("#cancelDuplicateReview").onclick = closeAssetManagementDialog;
+    overlay.addEventListener("click", event => { if (event.target === overlay) closeAssetManagementDialog(); });
+    overlay.querySelector("#removeDuplicateAssets").onclick = () => {
+        const duplicateIds = [...overlay.querySelectorAll(".asset-duplicate-choice:checked")]
+            .map(input => Number(input.value));
+        if (!duplicateIds.length) {
+            BioTrackToast.warning("No duplicates selected", "Select at least one duplicate record to remove.");
+            return;
+        }
+        closeAssetManagementDialog();
+        openAssetDeleteDialog(duplicateIds, "Remove selected duplicates?");
+    };
+    if (window.lucide) lucide.createIcons();
+}
+
+function openAssetDeleteDialog(assetIds, title = "Delete selected assets?") {
+    const ids = [...new Set(assetIds.map(Number).filter(Boolean))];
+    if (!ids.length) return;
+    const assets = ids.map(id => assetsCache.find(asset => Number(asset.id) === id)).filter(Boolean);
+
+    closeAssetManagementDialog();
+    const overlay = document.createElement("div");
+    overlay.id = "assetManagementOverlay";
+    overlay.className = "asset-management-overlay";
+    overlay.innerHTML = `
+        <section class="asset-management-dialog asset-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="assetDeleteTitle" aria-describedby="assetDeleteDescription">
+            <div class="asset-delete-icon"><i data-lucide="trash-2"></i></div>
+            <h2 id="assetDeleteTitle">${escapeHTML(title)}</h2>
+            <p id="assetDeleteDescription">${ids.length} asset record${ids.length === 1 ? "" : "s"} and related PM details will be permanently deleted.</p>
+            <div class="asset-delete-preview">${assets.slice(0, 6).map(asset => `<span><strong>${escapeHTML(asset.equipment_name || "Unnamed equipment")}</strong><small>${escapeHTML(asset.asset_code || asset.equipment_no || `Asset ${asset.id}`)}</small></span>`).join("")}${assets.length > 6 ? `<em>+ ${assets.length - 6} more</em>` : ""}</div>
+            <footer><button type="button" class="asset-dialog-secondary" id="cancelAssetDelete">Cancel</button><button type="button" class="asset-dialog-danger" id="confirmAssetDelete"><i data-lucide="trash-2"></i> Delete ${ids.length}</button></footer>
+        </section>
+    `;
+    document.body.appendChild(overlay);
+    document.body.classList.add("asset-management-dialog-open");
+    overlay.querySelector("#cancelAssetDelete").onclick = closeAssetManagementDialog;
+    overlay.addEventListener("click", event => { if (event.target === overlay) closeAssetManagementDialog(); });
+    overlay.querySelector("#confirmAssetDelete").onclick = () => deleteSelectedAssets(ids);
+    if (window.lucide) lucide.createIcons();
+}
+
+async function deleteSelectedAssets(assetIds) {
+    const button = document.getElementById("confirmAssetDelete");
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Deleting…";
+    }
+    try {
+        const response = await fetch("/api/assets/bulk-delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ asset_ids: assetIds }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) throw new Error(result.detail || "The selected assets could not be deleted.");
+        result.deleted_ids.forEach(id => selectedAssetIds.delete(Number(id)));
+        closeAssetManagementDialog();
+        BioTrackToast.success("Assets deleted", `${result.deleted} asset record${result.deleted === 1 ? " was" : "s were"} removed.`);
+        await loadAssets();
+    } catch (error) {
+        BioTrackToast.error("Assets not deleted", error.message || "The selected assets could not be deleted.");
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = `<i data-lucide="trash-2"></i> Delete ${assetIds.length}`;
+            if (window.lucide) lucide.createIcons();
+        }
+    }
 }
 
 async function openAssetQRGenerator(assetId = null) {
