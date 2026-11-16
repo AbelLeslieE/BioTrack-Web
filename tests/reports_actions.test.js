@@ -29,3 +29,10 @@ test("settings cards use independent columns without the empty profile gap", () 
     assert.match(settings, /\["notifications", "preferences", "about"\]/);
     assert.match(settingsStyles, /\.settings-column\s*\{[\s\S]*?flex-direction:column/);
 });
+
+test("department cards use a clear biomedical icon", () => {
+    const dashboardSource = fs.readFileSync(path.join(root, "frontend/dashboard_v2/js/dashboard.js"), "utf8");
+    const dashboardStyles = fs.readFileSync(path.join(root, "frontend/dashboard_v2/css/admin_dashboard.css"), "utf8");
+    assert.match(dashboardSource, /className: "biomedical", icon: "stethoscope"/);
+    assert.match(dashboardStyles, /\.admin-team-icon svg\s*\{[\s\S]*?stroke-width:2\.25/);
+});

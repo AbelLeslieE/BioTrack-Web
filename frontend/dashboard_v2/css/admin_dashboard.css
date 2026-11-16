@@ -234,7 +234,12 @@
 .admin-team-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .admin-team-identity{display:flex;align-items:center;gap:10px}
 .admin-team-icon{display:grid;width:37px;height:37px;place-items:center;border-radius:12px}
-.admin-team-icon svg{width:19px;height:19px}
+.admin-team-icon svg{
+    display:block;
+    width:20px;
+    height:20px;
+    stroke-width:2.25;
+}
 .is-biomedical .admin-team-icon{background:#eaf1ff;color:#2563eb}
 .is-electrical .admin-team-icon{background:#fff7df;color:#d97706}
 .is-it .admin-team-icon{background:#f3e8ff;color:#7c3aed}

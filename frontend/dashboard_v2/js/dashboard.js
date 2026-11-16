@@ -111,7 +111,7 @@ function adminTeamStyle(team) {
     const value = String(team || "Biomedical").toLowerCase();
     if (value === "electrical") return { className: "electrical", icon: "zap" };
     if (value === "it") return { className: "it", icon: "monitor-cog" };
-    return { className: "biomedical", icon: "heart-pulse" };
+    return { className: "biomedical", icon: "stethoscope" };
 }
 
 function adminStatusClass(value) {
