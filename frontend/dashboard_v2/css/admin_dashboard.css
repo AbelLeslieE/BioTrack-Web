@@ -250,7 +250,7 @@
 .is-biomedical .admin-team-icon{background:#eaf1ff;color:#2563eb}
 .is-electrical .admin-team-icon{background:#fff7df;color:#d97706}
 .is-it .admin-team-icon{background:#f3e8ff;color:#7c3aed}
-.admin-team-identity span{display:block;color:#718096;font-size:11px;font-weight:700}
+.admin-team-identity>div>span{display:block;color:#718096;font-size:11px;font-weight:700}
 .admin-team-identity h3{margin-top:2px;color:#1e293b;font-size:15px}
 .admin-team-state{align-self:center;padding:6px 8px;border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap}
 .admin-team-state.is-healthy{color:#047857;background:#ecfdf5}

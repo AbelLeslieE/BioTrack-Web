@@ -39,4 +39,6 @@ test("department cards use aligned inline engineering icons", () => {
     assert.doesNotMatch(dashboardSource, /data-lucide="\$\{style\.icon\}"/);
     assert.match(dashboardStyles, /\.admin-team-icon svg\s*\{[\s\S]*?width:24px[\s\S]*?stroke-width:2\.4/);
     assert.match(dashboardStyles, /\.admin-team-card-header\{display:flex;align-items:center/);
+    assert.match(dashboardStyles, /\.admin-team-identity>div>span\{/);
+    assert.doesNotMatch(dashboardStyles, /\.admin-team-identity span\{/);
 });
