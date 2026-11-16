@@ -109,9 +109,9 @@ function renderAdminDashboardError(message) {
 
 function adminTeamStyle(team) {
     const value = String(team || "Biomedical").toLowerCase();
-    if (value === "electrical") return { className: "electrical", icon: "zap" };
-    if (value === "it") return { className: "it", icon: "monitor-cog" };
-    return { className: "biomedical", icon: "stethoscope" };
+    if (value === "electrical") return { className: "electrical", icon: "plug-zap" };
+    if (value === "it") return { className: "it", icon: "server-cog" };
+    return { className: "biomedical", icon: "monitor-heart" };
 }
 
 function adminStatusClass(value) {
