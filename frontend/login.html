@@ -344,6 +344,11 @@
 
                     </div>
 
+                    <label class="remember-option" for="rememberMe">
+                        <input id="rememberMe" type="checkbox">
+                        <span>Remember me</span>
+                    </label>
+
                     <!-- Message -->
 
                     <div
@@ -360,13 +365,20 @@
 
                         class="login-btn"
 
-                        type="submit">
+                        type="submit"
+
+                        aria-describedby="loginProgress">
 
                         <i class="fa-solid fa-arrow-right-to-bracket"></i>
 
                         LOGIN
 
                     </button>
+
+                    <span id="loginProgress" class="login-progress" role="status" aria-live="polite" hidden>
+                        <span class="login-progress-spinner" aria-hidden="true"></span>
+                        Logging in…
+                    </span>
 
                 </form>
 

@@ -8,7 +8,21 @@ const msg = document.getElementById("message");
 const usernameInput = document.getElementById("username");
 const passwordInput = document.getElementById("password");
 const togglePassword = document.getElementById("togglePassword");
+const rememberMe = document.getElementById("rememberMe");
 const submitButton = form.querySelector("button[type='submit']");
+const loginProgress = document.getElementById("loginProgress");
+const rememberedUsername = localStorage.getItem("biotrackRememberedUsername") || "";
+
+if (rememberedUsername) {
+    usernameInput.value = rememberedUsername;
+    rememberMe.checked = true;
+}
+
+function setLoginLoading(isLoading) {
+    submitButton.disabled = isLoading;
+    submitButton.setAttribute("aria-busy", String(isLoading));
+    loginProgress.hidden = !isLoading;
+}
 
 const loginNotice = sessionStorage.getItem("biotrackLoginNotice");
 if (loginNotice) {
@@ -127,7 +141,8 @@ form.addEventListener("submit", async (e) => {
         activateLowBandwidthLogin("The connection is slower than usual. Still trying to sign you in…");
     }, BACKGROUND_WAIT_MS);
 
-    submitButton.disabled = true;
+    let loginSucceeded = false;
+    setLoginLoading(true);
 
     try {
 
@@ -146,6 +161,14 @@ form.addEventListener("submit", async (e) => {
         const data = await res.json().catch(() => ({}));
 
         if (res.ok) {
+
+            loginSucceeded = true;
+
+            if (rememberMe.checked) {
+                localStorage.setItem("biotrackRememberedUsername", body.username);
+            } else {
+                localStorage.removeItem("biotrackRememberedUsername");
+            }
 
             let role = (data.role || "").toLowerCase();
 
@@ -191,7 +214,7 @@ form.addEventListener("submit", async (e) => {
     } finally {
 
         clearTimeout(slowRequestTimer);
-        submitButton.disabled = false;
+        if (!loginSucceeded) setLoginLoading(false);
 
     }
 
