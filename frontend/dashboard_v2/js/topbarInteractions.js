@@ -125,5 +125,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.addEventListener("keydown", event => { if (event.key === "Escape") closePopups(); });
     window.addEventListener("resize", closePopups);
-    window.addEventListener("scroll", closePopups, true);
+    window.addEventListener("scroll", event => {
+        const scrollTarget = event.target;
+        if (activePopup && scrollTarget instanceof Element && activePopup.contains(scrollTarget)) return;
+        closePopups();
+    }, true);
 });

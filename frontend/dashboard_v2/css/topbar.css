@@ -317,14 +317,15 @@
 .topbar-popover.is-account-menu{width:210px}
 .topbar-search-empty{margin:8px;padding:8px;color:#64748b;font-size:13px;line-height:1.5}
 .topbar-alert-heading{display:block;padding:10px 12px 0;color:#172554;font-size:14px}
-.topbar-popover.is-notification-center{width:min(430px,calc(100vw - 24px));max-height:min(78vh,680px);padding:0;overflow:hidden;border-radius:18px}
-.notification-center-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 18px;border-bottom:1px solid #e7edf5;background:#fff}
+.topbar-popover.is-notification-center{display:flex;width:min(430px,calc(100vw - 24px));height:min(680px,calc(100vh - var(--topbar-height,80px) - 24px));height:min(680px,calc(100dvh - var(--topbar-height,80px) - 24px));max-height:none;flex-direction:column;padding:0;overflow:hidden;overscroll-behavior:contain;border-radius:18px}
+.topbar-popover.is-notification-center[hidden]{display:none}
+.notification-center-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex:0 0 auto;padding:17px 18px;border-bottom:1px solid #e7edf5;background:#fff}
 .notification-center-header>div{display:flex;min-width:0;flex-direction:column;gap:3px}
 .notification-center-header strong{color:#112347;font-size:16px}
 .notification-center-header span{color:#71809a;font-size:12px}
 .notification-center-header button,.notification-center-footer button{border:0;background:transparent;color:#2563eb;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
 .notification-center-header button:disabled{color:#aab4c5;cursor:default}
-.notification-permission-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;margin:12px;padding:12px;border:1px solid #bfdbfe;border-radius:14px;background:#eff6ff}
+.notification-permission-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;flex:0 0 auto;margin:12px;padding:12px;border:1px solid #bfdbfe;border-radius:14px;background:#eff6ff}
 .notification-permission-card>span{display:grid;width:38px;height:38px;place-items:center;border-radius:11px;background:#dbeafe;color:#2563eb}
 .notification-permission-card svg{width:18px;height:18px}
 .notification-permission-card div{min-width:0}
@@ -332,7 +333,11 @@
 .notification-permission-card p{margin:3px 0 0;color:#5e6f8b;font-size:11px;line-height:1.4}
 .notification-permission-card>button{padding:8px 11px;border:0;border-radius:9px;background:#2563eb;color:#fff;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
 .notification-permission-card>button:disabled{opacity:.6;cursor:wait}
-.notification-center-list{max-height:440px;overflow:auto;padding:4px 8px}
+.notification-center-list{flex:1 1 auto;min-height:0;max-height:none;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:4px 8px 10px}
+.notification-center-list::-webkit-scrollbar{width:9px}
+.notification-center-list::-webkit-scrollbar-track{background:transparent}
+.notification-center-list::-webkit-scrollbar-thumb{border:2px solid transparent;border-radius:999px;background:#c3cede;background-clip:padding-box}
+.notification-center-list::-webkit-scrollbar-thumb:hover{background:#94a3b8;background-clip:padding-box}
 .notification-center-item{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:11px;width:100%;padding:12px 10px;border:0;border-radius:12px;background:#f8fbff;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:.18s ease}
 .notification-center-item+.notification-center-item{margin-top:4px}
 .notification-center-item:hover,.notification-center-item:focus-visible{background:#edf4ff;outline:none}
@@ -342,8 +347,8 @@
 .notification-center-item.is-warning .notification-center-icon{background:#ffedd5;color:#ea580c}
 .notification-center-icon svg{width:18px;height:18px}
 .notification-center-copy{display:flex;min-width:0;flex-direction:column;gap:3px}
-.notification-center-copy strong{overflow:hidden;color:#172554;font-size:13px;text-overflow:ellipsis;white-space:nowrap}
-.notification-center-copy small{display:-webkit-box;overflow:hidden;color:#63728c;font-size:11px;line-height:1.45;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.notification-center-copy strong{color:#172554;font-size:13px;line-height:1.35;overflow-wrap:anywhere;white-space:normal}
+.notification-center-copy small{display:block;color:#63728c;font-size:11px;line-height:1.5;overflow-wrap:anywhere;white-space:normal}
 .notification-center-copy time{color:#94a3b8;font-size:10px;font-style:normal}
 .notification-center-dot{width:7px;height:7px;margin-top:6px;border-radius:999px;background:#2563eb;box-shadow:0 0 0 3px #dbeafe}
 .notification-center-item.is-read .notification-center-dot{visibility:hidden}
@@ -351,7 +356,7 @@
 .notification-center-empty svg{width:34px;height:34px;margin-bottom:10px;color:#16a34a}
 .notification-center-empty strong{color:#172554;font-size:14px}
 .notification-center-empty p{max-width:280px;margin:5px 0 0;font-size:12px;line-height:1.5}
-.notification-center-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 17px;border-top:1px solid #e7edf5;background:#f8fafc}
+.notification-center-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:0 0 auto;padding:12px 17px;border-top:1px solid #e7edf5;background:#f8fafc}
 .notification-center-footer span{display:flex;align-items:center;gap:6px;color:#71809a;font-size:10px}
 .notification-center-footer svg{width:13px;height:13px}
 /* ==========================================
@@ -432,9 +437,11 @@
 
     }
 
-    .topbar-popover.is-notification-center{position:fixed!important;right:8px!important;left:8px!important;top:calc(var(--topbar-height) + 7px)!important;width:auto;max-height:calc(100vh - var(--topbar-height) - 15px)}
-    .notification-center-list{max-height:calc(100vh - 315px)}
+    .topbar-popover.is-notification-center{position:fixed!important;right:8px!important;left:8px!important;top:calc(var(--topbar-height) + 7px)!important;width:auto;height:calc(100vh - var(--topbar-height) - 15px);height:calc(100dvh - var(--topbar-height) - 15px);max-height:none}
+    .notification-center-header{padding:14px}
+    .notification-center-list{max-height:none;padding-inline:6px}
     .notification-permission-card{grid-template-columns:auto minmax(0,1fr);padding:10px}
     .notification-permission-card>button{grid-column:1/-1;width:100%}
+    .notification-center-footer{align-items:flex-start;flex-direction:column;padding:10px 14px}
 
 }
