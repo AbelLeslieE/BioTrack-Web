@@ -8,6 +8,9 @@ const source = fs.readFileSync(path.join(root, "frontend/dashboard_v2/views/main
 const styles = fs.readFileSync(path.join(root, "frontend/dashboard_v2/css/maintenance.css"), "utf8");
 const darkStyles = fs.readFileSync(path.join(root, "frontend/dashboard_v2/css/dark_theme.css"), "utf8");
 const sidebar = fs.readFileSync(path.join(root, "frontend/dashboard_v2/js/sidebar.js"), "utf8");
+const departmentSource = fs.readFileSync(path.join(root, "frontend/dashboard_v2/views/myRequestsView.js"), "utf8");
+const departmentStyles = fs.readFileSync(path.join(root, "frontend/dashboard_v2/css/my_requests.css"), "utf8");
+const dashboard = fs.readFileSync(path.join(root, "frontend/dashboard_v2/dashboard.html"), "utf8");
 
 test("call management adapts its service desk to every engineering portal", () => {
     assert.match(source, /Hospital operations control/);
@@ -43,4 +46,26 @@ test("portal sidebars use discipline-specific call management icons", () => {
     assert.match(sidebar, /data-lucide="stethoscope"/);
     assert.match(sidebar, /data-lucide="plug-zap"/);
     assert.match(sidebar, /data-lucide="server-cog"/);
+});
+
+test("department users receive the redesigned maintenance request centre", () => {
+    assert.match(departmentSource, /Department service desk/);
+    assert.match(departmentSource, /New maintenance request/);
+    assert.match(departmentSource, /my-requests-status-tabs/);
+    assert.match(departmentSource, /data-status-mode="active"/);
+    assert.match(departmentSource, /myRequestsPriorityFilter/);
+    assert.match(departmentSource, /myrequest-equipment/);
+    assert.match(departmentSource, /credentials: "same-origin"/);
+    assert.match(departmentSource, /setInterval[\s\S]*60000/);
+    assert.match(dashboard, /my_requests\.css\?v=2/);
+    assert.match(dashboard, /myRequestsView\.js\?v=2/);
+});
+
+test("department request centre has responsive and dark-mode coverage", () => {
+    assert.match(departmentStyles, /my-requests-command-hero/);
+    assert.match(departmentStyles, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+    assert.match(departmentStyles, /@media\(max-width:680px\)/);
+    assert.match(departmentStyles, /\.myrequest-table td::before/);
+    assert.match(darkStyles, /Department-user maintenance request centre/);
+    assert.match(darkStyles, /body\.dark-theme \.my-requests-workspace/);
 });

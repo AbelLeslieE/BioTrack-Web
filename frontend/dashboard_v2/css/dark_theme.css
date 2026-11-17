@@ -611,3 +611,49 @@ body.dark-theme .maintenance-empty-state p{color:#9fb0c6!important}
     body.dark-theme .maintenance-table tr{background:#101d31!important;border-color:#30445f!important}
     body.dark-theme .maintenance-table td::before{color:#8295ad}
 }
+
+/* Department-user maintenance request centre. */
+body.dark-theme .myrequest-card,
+body.dark-theme .my-requests-workspace{
+    color:var(--dark-text)!important;
+    background:var(--dark-surface)!important;
+    border-color:var(--dark-border)!important;
+    box-shadow:0 14px 34px rgba(0,0,0,.22)!important;
+}
+body.dark-theme .myrequest-card:hover{background:var(--dark-surface-2)!important;border-color:#45658d!important}
+body.dark-theme .myrequest-info small{color:#9fb0c6!important}
+body.dark-theme .myrequest-info strong{color:#f2f7ff!important}
+body.dark-theme .myrequest-info em{color:#8295ad!important}
+body.dark-theme .my-requests-workspace-heading h2{color:var(--dark-text)!important}
+body.dark-theme .my-requests-workspace-heading p{color:var(--dark-muted)!important}
+body.dark-theme .my-requests-result-count{color:#bfdbfe;background:#172f55;border-color:#315b91}
+body.dark-theme .my-requests-status-tabs button{color:#b9c9dd;background:#14243a;border-color:#30445f}
+body.dark-theme .my-requests-status-tabs button:hover{color:#fff;background:#1a3152;border-color:#45658d}
+body.dark-theme .my-requests-status-tabs button.is-active{color:#fff;background:#2563eb;border-color:#3b82f6}
+body.dark-theme .my-requests-status-tabs button span{color:#c6d3e4;background:#243650}
+body.dark-theme .my-requests-status-tabs button.is-active span{color:#1d4ed8;background:#fff}
+body.dark-theme .myrequest-search input,
+body.dark-theme .myrequest-filters select,
+body.dark-theme #myRequestsClear{color:var(--dark-text);background:#0e1a2c;border-color:#344862}
+body.dark-theme .myrequest-search input::placeholder{color:#74869f}
+body.dark-theme .myrequest-filters label>span{color:#8295ad}
+body.dark-theme #myRequestsClear:hover{color:#fff;background:#1b3150;border-color:#45658d}
+body.dark-theme .myrequest-table-card,
+body.dark-theme .myrequest-table{background:var(--dark-surface)!important;border-color:var(--dark-border)!important}
+body.dark-theme .myrequest-table th{color:#9fb0c6;background:#0e1a2c;border-color:#2d405a}
+body.dark-theme .myrequest-table td{color:#d9e5f4;background:var(--dark-surface)!important;border-color:#273a54}
+body.dark-theme .myrequest-table tbody tr:hover td{background:#14243a!important}
+body.dark-theme .myrequest-ticket>strong,
+body.dark-theme .myrequest-equipment strong,
+body.dark-theme .myrequest-downtime strong{color:#eef5ff!important}
+body.dark-theme .myrequest-equipment small,
+body.dark-theme .myrequest-date,
+body.dark-theme .myrequest-downtime{color:#9fb0c6!important}
+body.dark-theme .myrequest-equipment>span{color:#93c5fd;background:#172f55}
+body.dark-theme .my-requests-empty strong{color:#eef5ff!important}
+body.dark-theme .my-requests-empty span,
+body.dark-theme .my-requests-loading{color:#9fb0c6!important}
+@media(max-width:680px){
+    body.dark-theme .myrequest-table tr{background:#101d31!important;border-color:#30445f!important;box-shadow:none!important}
+    body.dark-theme .myrequest-table td::before{color:#8295ad}
+}
