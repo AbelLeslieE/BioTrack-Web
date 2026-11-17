@@ -213,6 +213,7 @@ def get_maintenance(
                 "service_team": call.service_team,
                 "equipment": call.equipment_name,
                 "department": call.department,
+                "location": call.location,
                 "received": call.call_received_datetime.strftime("%d %b %Y %I:%M %p")
                 if call.call_received_datetime
                 else "",

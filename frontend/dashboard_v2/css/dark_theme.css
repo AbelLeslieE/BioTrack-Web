@@ -560,3 +560,54 @@ body.dark-theme .qr-request-prefill-banner{color:#d1fae5;background:#12352e;bord
 body.dark-theme .page-container input[readonly],body.dark-theme .page-container select:disabled{color:#a8bad0!important;background:#17253a!important;border-color:#344862!important}
 body.dark-theme .page-container :is(input,select).qr-prefill-missing{color:#fef3c7!important;background:#33270f!important;border-color:#d97706!important;box-shadow:0 0 0 3px rgba(245,158,11,.13)!important}
 body.dark-theme .qr-missing-field-hint{color:#fbbf24!important}
+
+/* Role-aware call management command centre. */
+body.dark-theme .maintenance-metric,
+body.dark-theme .maintenance-workspace{
+    color:var(--dark-text)!important;
+    background:var(--dark-surface)!important;
+    border-color:var(--dark-border)!important;
+    box-shadow:0 14px 34px rgba(0,0,0,.22)!important;
+}
+body.dark-theme .maintenance-metric:hover{background:var(--dark-surface-2)!important;border-color:#45658d!important}
+body.dark-theme .maintenance-metric small{color:#9fb0c6!important}
+body.dark-theme .maintenance-metric strong{color:#f2f7ff!important}
+body.dark-theme .maintenance-metric em{color:#8295ad!important}
+body.dark-theme .maintenance-workspace-header h2{color:var(--dark-text)!important}
+body.dark-theme .maintenance-workspace-header p{color:var(--dark-muted)!important}
+body.dark-theme .maintenance-downtime-summary{background:#251d42!important;border-color:#55427f!important}
+body.dark-theme .maintenance-downtime-summary>span{color:#c4b5fd;background:#38275d}
+body.dark-theme .maintenance-downtime-summary small{color:#b6aad0!important}
+body.dark-theme .maintenance-downtime-summary strong{color:#ede9fe!important}
+body.dark-theme .maintenance-status-tabs button{color:#b9c9dd;background:#14243a;border-color:#30445f}
+body.dark-theme .maintenance-status-tabs button:hover{color:#fff;background:#1a3152;border-color:#45658d}
+body.dark-theme .maintenance-status-tabs button.is-active{color:#fff;background:#2563eb;border-color:#3b82f6}
+body.dark-theme .maintenance-status-tabs em{color:#c6d3e4;background:#243650}
+body.dark-theme .maintenance-status-tabs button.is-active em{color:#1d4ed8;background:#fff}
+body.dark-theme .maintenance-toolbar{background:#0e1a2c!important;border-color:var(--dark-border)!important}
+body.dark-theme .maintenance-search-field,
+body.dark-theme .maintenance-select-field,
+body.dark-theme .maintenance-clear-button{color:#9fb0c6;background:#14243a;border-color:#344862}
+body.dark-theme .maintenance-search-field :is(input),
+body.dark-theme .maintenance-select-field select{color:var(--dark-text);background:transparent}
+body.dark-theme .maintenance-search-field input::placeholder{color:#74869f}
+body.dark-theme .maintenance-clear-button:hover{color:#fff;background:#1b3150;border-color:#45658d}
+body.dark-theme .maintenance-table-card,
+body.dark-theme .maintenance-table tbody tr{background:var(--dark-surface)!important}
+body.dark-theme .maintenance-table th{color:#9fb0c6;background:#0e1a2c;border-color:#2d405a}
+body.dark-theme .maintenance-table td{color:#d9e5f4;border-color:#273a54}
+body.dark-theme .maintenance-table tbody tr:hover{background:#14243a!important}
+body.dark-theme :is(.maintenance-request-cell,.maintenance-equipment-cell,.maintenance-team-cell) strong{color:#eef5ff!important}
+body.dark-theme :is(.maintenance-request-cell,.maintenance-equipment-cell,.maintenance-team-cell) small{color:#9fb0c6!important}
+body.dark-theme .maintenance-date-cell,
+body.dark-theme .maintenance-downtime-value,
+body.dark-theme .downtime-value-trigger{color:#bdcadd!important}
+body.dark-theme .maintenance-open-button{color:#bfdbfe;background:#172f55;border-color:#315b91}
+body.dark-theme .maintenance-open-button:hover{color:#fff;background:#2563eb;border-color:#3b82f6}
+body.dark-theme .maintenance-empty-state strong,
+body.dark-theme .maintenance-loading-state strong{color:#eef5ff!important}
+body.dark-theme .maintenance-empty-state p{color:#9fb0c6!important}
+@media(max-width:680px){
+    body.dark-theme .maintenance-table tr{background:#101d31!important;border-color:#30445f!important}
+    body.dark-theme .maintenance-table td::before{color:#8295ad}
+}

@@ -19,7 +19,7 @@ const adminMenu = `
 </a>
 
 <a href="#" class="nav-item" data-page="callManagement">
-    <i data-lucide="clipboard-list"></i>
+    <i data-lucide="radio-tower"></i>
     <span>Call Management</span>
 </a>
 
@@ -75,7 +75,7 @@ const engineerMenu = `
     <span>Dashboard</span>
 </a>
 <a href="#" class="nav-item" data-page="callManagement">
-    <i data-lucide="clipboard-list"></i>
+    <i data-lucide="stethoscope"></i>
     <span>Call Management</span>
 </a>
 <a href="#" class="nav-item" data-page="pm">
@@ -121,7 +121,7 @@ const electricalMenu = `
 </a>
 
 <a href="#" class="nav-item" data-page="callManagement">
-    <i data-lucide="clipboard-list"></i>
+    <i data-lucide="plug-zap"></i>
     <span>Electrical Calls</span>
 </a>
 
@@ -153,7 +153,7 @@ const itMenu = `
 </a>
 
 <a href="#" class="nav-item" data-page="callManagement">
-    <i data-lucide="clipboard-list"></i>
+    <i data-lucide="server-cog"></i>
     <span>IT Calls</span>
 </a>
 
