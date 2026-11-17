@@ -94,6 +94,14 @@ function renderAssets() {
 
                     </button>` : ""}
 
+                    ${canManageAssetQR() ? `<button
+                        id="assetRelocationRequestsBtn"
+                        class="btn-secondary hero-btn">
+
+                        <i data-lucide="route"></i> Relocation Requests
+
+                    </button>` : ""}
+
                     <button
                         id="importExcelBtn"
                         class="btn-secondary hero-btn">
@@ -409,6 +417,7 @@ function renderAssets() {
     initializeAssetImport();
     initializeAddAsset();
     initializeAssetQR();
+    initializeAssetRelocations();
     initializeAssetModeSwitcher();
     initializeAssetFilters();
     initializeAssetBulkActions();
@@ -418,6 +427,11 @@ function renderAssets() {
 function initializeAssetQR() {
     const button = document.getElementById("assetQrBtn");
     if (button) button.onclick = () => openAssetQRGenerator();
+}
+
+function initializeAssetRelocations() {
+    const button = document.getElementById("assetRelocationRequestsBtn");
+    if (button) button.onclick = () => window.AssetRelocation?.openQueue();
 }
 
 // ==========================================

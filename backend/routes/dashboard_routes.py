@@ -13,6 +13,7 @@ from backend.models.user import User
 from backend.models.asset import Asset
 from backend.models.inventory import Inventory
 from backend.models.pm_schedule import PMSchedule
+from backend.models.asset_relocation_request import AssetRelocationRequest
 from backend.auth import get_current_user, require_roles
 
 from datetime import date, datetime
@@ -367,6 +368,25 @@ def notification_feed(
                 request.fixed_datetime or request.engineer_start_datetime or request.call_received_datetime,
             )
 
+        relocation_requests = (
+            db.query(AssetRelocationRequest)
+            .filter(AssetRelocationRequest.requested_by == current_user.username)
+            .order_by(AssetRelocationRequest.id.desc())
+            .limit(8)
+            .all()
+        )
+        for relocation in relocation_requests:
+            asset = db.get(Asset, relocation.asset_id)
+            add_item(
+                f"relocation:{relocation.id}:{relocation.status}",
+                "relocation",
+                f"Relocation request · {relocation.status}",
+                f"{asset.equipment_name if asset else 'Asset'} to {relocation.target_department}{f' · {relocation.target_location}' if relocation.target_location else ''}.",
+                "myAssets",
+                "warning" if relocation.status == "Pending" else "info",
+                relocation.reviewed_at or relocation.created_at,
+            )
+
         if current_user.department:
             schedules = (
                 db.query(PMSchedule)
@@ -401,6 +421,21 @@ def notification_feed(
             request_query = request_query.filter(Request.service_team == service_team)
             inventory_query = inventory_query.filter(Inventory.service_team == service_team)
             asset_query = asset_query.filter(Asset.service_team == service_team)
+
+        relocation_query = db.query(AssetRelocationRequest).filter(AssetRelocationRequest.status == "Pending")
+        if service_team:
+            relocation_query = relocation_query.filter(AssetRelocationRequest.service_team == service_team)
+        for relocation in relocation_query.order_by(AssetRelocationRequest.id.desc()).limit(8).all():
+            asset = db.get(Asset, relocation.asset_id)
+            add_item(
+                f"relocation:{relocation.id}:pending",
+                "relocation",
+                "Asset relocation approval needed",
+                f"{asset.equipment_name if asset else 'Asset'}: {relocation.from_department or 'Unassigned'} → {relocation.target_department}.",
+                "assets",
+                "warning",
+                relocation.created_at,
+            )
 
         critical_requests = (
             request_query

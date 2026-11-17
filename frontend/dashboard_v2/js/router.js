@@ -112,6 +112,10 @@ function navigate(page) {
         closeAssetManagementDialog();
     }
 
+    if (!["assets", "myAssets"].includes(page) && typeof closeAssetRelocationDialog === "function") {
+        closeAssetRelocationDialog();
+    }
+
     if (page !== "reports" && typeof cleanupReportsSchedules === "function") {
         cleanupReportsSchedules();
     }

@@ -11,6 +11,7 @@
         maintenance: "calendar-clock",
         asset: "monitor-x",
         request: "clipboard-list",
+        relocation: "route",
     };
     let notifications = [];
     let refreshTimer = null;

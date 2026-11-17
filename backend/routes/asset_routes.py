@@ -22,12 +22,14 @@ from backend.models.asset import Asset
 from backend.models.asset_document import AssetDocument
 from backend.models.asset_history import AssetHistory
 from backend.models.asset_spare import AssetSpare
+from backend.models.asset_relocation_request import AssetRelocationRequest
 from backend.models.pm_history import PMHistory
 from backend.models.pm_schedule import PMSchedule
 from backend.auth import get_current_user, require_roles
 from backend.models.user import User
 from backend.services.service_team import scope_to_team, team_for_user
 from backend.services.qr_service import qr_url_for_asset_code
+from datetime import datetime
 
 
 # ==========================================
@@ -243,9 +245,178 @@ def get_department_assets(
             "location": asset.location,
             "status": asset.status,
             "pm_frequency": asset.pm_frequency,
+            "service_team": asset.service_team,
         }
         for asset in assets
     ]
+
+
+def _relocation_payload(item: AssetRelocationRequest, asset: Asset | None) -> dict:
+    return {
+        "id": item.id,
+        "asset_id": item.asset_id,
+        "asset_code": asset.asset_code if asset else None,
+        "equipment_name": asset.equipment_name if asset else "Removed asset",
+        "requested_by": item.requested_by,
+        "requester_department": item.requester_department,
+        "service_team": item.service_team,
+        "from_department": item.from_department,
+        "from_location": item.from_location,
+        "target_department": item.target_department,
+        "target_location": item.target_location,
+        "reason": item.reason,
+        "status": item.status,
+        "reviewed_by": item.reviewed_by,
+        "review_note": item.review_note,
+        "created_at": item.created_at,
+        "reviewed_at": item.reviewed_at,
+    }
+
+
+@router.get("/relocation-requests/mine", dependencies=[Depends(require_roles("User"))])
+def get_my_asset_relocation_requests(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    requests = (
+        db.query(AssetRelocationRequest)
+        .filter(AssetRelocationRequest.requested_by == current_user.username)
+        .order_by(AssetRelocationRequest.id.desc())
+        .all()
+    )
+    assets = {
+        asset.id: asset
+        for asset in db.query(Asset).filter(Asset.id.in_([item.asset_id for item in requests])).all()
+    } if requests else {}
+    return [_relocation_payload(item, assets.get(item.asset_id)) for item in requests]
+
+
+@router.post("/relocation-requests", dependencies=[Depends(require_roles("User"))])
+def create_asset_relocation_request(
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        asset_id = int(data.get("asset_id"))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Select an asset to relocate.") from exc
+
+    asset = db.get(Asset, asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found.")
+
+    user_department = str(current_user.department or "").strip()
+    asset_department = str(asset.department or "").strip()
+    if not user_department or user_department.casefold() != asset_department.casefold():
+        raise HTTPException(status_code=403, detail="You can request relocation only for an asset assigned to your department.")
+
+    target_department = str(data.get("target_department") or "").strip()
+    target_location = str(data.get("target_location") or "").strip()
+    reason = str(data.get("reason") or "").strip()
+    if not target_department:
+        raise HTTPException(status_code=422, detail="Select the destination department.")
+    if len(target_department) > 255 or len(target_location) > 255 or len(reason) > 2000:
+        raise HTTPException(status_code=422, detail="The relocation details are too long.")
+    if target_department.casefold() == asset_department.casefold() and not target_location:
+        raise HTTPException(status_code=422, detail="Enter the destination room or location.")
+    if (
+        target_department.casefold() == asset_department.casefold()
+        and target_location.casefold() == str(asset.location or "").strip().casefold()
+    ):
+        raise HTTPException(status_code=422, detail="Choose a different department or room.")
+
+    pending = (
+        db.query(AssetRelocationRequest)
+        .filter(
+            AssetRelocationRequest.asset_id == asset.id,
+            AssetRelocationRequest.status == "Pending",
+        )
+        .first()
+    )
+    if pending:
+        raise HTTPException(status_code=409, detail="A relocation request is already pending for this asset.")
+
+    request = AssetRelocationRequest(
+        asset_id=asset.id,
+        requested_by=current_user.username,
+        requester_department=user_department,
+        service_team=asset.service_team or "Biomedical",
+        from_department=asset.department,
+        from_location=asset.location,
+        target_department=target_department,
+        target_location=target_location or None,
+        reason=reason or None,
+    )
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+    return {"success": True, "request": _relocation_payload(request, asset)}
+
+
+@router.get(
+    "/relocation-requests",
+    dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))],
+)
+def get_asset_relocation_requests(
+    status: str | None = Query(default="Pending"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(AssetRelocationRequest)
+    if current_user.role != "Manager":
+        query = query.filter(AssetRelocationRequest.service_team == team_for_user(current_user))
+    if status and status.casefold() != "all":
+        query = query.filter(AssetRelocationRequest.status == status.title())
+    requests = query.order_by(AssetRelocationRequest.id.desc()).all()
+    assets = {
+        asset.id: asset
+        for asset in db.query(Asset).filter(Asset.id.in_([item.asset_id for item in requests])).all()
+    } if requests else {}
+    return [_relocation_payload(item, assets.get(item.asset_id)) for item in requests]
+
+
+@router.patch(
+    "/relocation-requests/{request_id}",
+    dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))],
+)
+def review_asset_relocation_request(
+    request_id: int,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(AssetRelocationRequest).filter(AssetRelocationRequest.id == request_id)
+    if current_user.role != "Manager":
+        query = query.filter(AssetRelocationRequest.service_team == team_for_user(current_user))
+    request = query.first()
+    if not request:
+        raise HTTPException(status_code=404, detail="Relocation request not found for your engineering team.")
+    if request.status != "Pending":
+        raise HTTPException(status_code=409, detail=f"This request is already {request.status.lower()}.")
+
+    decision = str(data.get("decision") or "").strip().casefold()
+    if decision not in {"approve", "reject"}:
+        raise HTTPException(status_code=422, detail="Choose approve or reject.")
+    review_note = str(data.get("review_note") or "").strip()
+    if len(review_note) > 2000:
+        raise HTTPException(status_code=422, detail="The review note is too long.")
+
+    asset = db.get(Asset, request.asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="The requested asset no longer exists.")
+    if decision == "approve":
+        asset.department = request.target_department
+        asset.location = request.target_location or None
+        request.status = "Approved"
+    else:
+        request.status = "Rejected"
+    request.reviewed_by = current_user.username
+    request.review_note = review_note or None
+    request.reviewed_at = datetime.now()
+    db.commit()
+    db.refresh(request)
+    return {"success": True, "request": _relocation_payload(request, asset)}
 
 
 # ==========================================
@@ -286,6 +457,7 @@ def bulk_delete_assets(
         db.query(AssetDocument).filter(AssetDocument.asset_id.in_(found_ids)).delete(synchronize_session=False)
         db.query(AssetHistory).filter(AssetHistory.asset_id.in_(found_ids)).delete(synchronize_session=False)
         db.query(AssetSpare).filter(AssetSpare.asset_id.in_(found_ids)).delete(synchronize_session=False)
+        db.query(AssetRelocationRequest).filter(AssetRelocationRequest.asset_id.in_(found_ids)).delete(synchronize_session=False)
         db.query(Asset).filter(Asset.id.in_(found_ids)).delete(synchronize_session=False)
         db.commit()
     except SQLAlchemyError as exc:

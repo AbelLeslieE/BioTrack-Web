@@ -262,6 +262,16 @@ body.dark-theme .asset-duplicate-row.is-kept{background:#0d2b27}
 body.dark-theme .asset-duplicate-row small,body.dark-theme .asset-duplicate-group-heading span{color:var(--dark-muted)}
 body.dark-theme .asset-delete-preview span{background:#101d31;border-color:var(--dark-border)}
 body.dark-theme .asset-delete-preview small{color:var(--dark-muted)}
+body.dark-theme .relocation-request-dialog,body.dark-theme .relocation-queue-dialog{background:var(--dark-surface);border-color:var(--dark-border)}
+body.dark-theme .relocation-asset-summary,body.dark-theme .relocation-queue-card{background:#101d31;border-color:var(--dark-border)}
+body.dark-theme .relocation-current-location,body.dark-theme .relocation-route{background:#17273e}
+body.dark-theme :is(.relocation-asset-summary strong,.relocation-current-location strong,.relocation-queue-heading strong,.relocation-route strong,.relocation-queue-card>p strong,.relocation-empty-state strong){color:var(--dark-text)}
+body.dark-theme :is(.relocation-asset-summary small,.relocation-current-location span,.relocation-queue-heading small,.relocation-route span,.relocation-queue-card>p,.relocation-empty-state p){color:var(--dark-muted)}
+body.dark-theme :is(.relocation-request-form input,.relocation-request-form select,.relocation-request-form textarea,.relocation-queue-card textarea){color:var(--dark-text);background:#0e1a2c;border-color:#344862}
+body.dark-theme .relocation-form-note{color:#bfdbfe;background:#162e51}
+body.dark-theme .relocation-reject-button{color:#fecdd3;background:#3b1720;border-color:#7f1d2d}
+body.dark-theme .department-relocate-button{color:#bfdbfe;background:#162e51;border-color:#315b91}
+body.dark-theme .department-relocate-button:disabled{color:#70829a;background:#17273e;border-color:var(--dark-border)}
 body.dark-theme .asset-team-badge.is-biomedical{color:#6ee7b7;background:#10352f}
 body.dark-theme .asset-team-badge.is-electrical{color:#fcd34d;background:#3b2d13}
 body.dark-theme .asset-team-badge.is-it{color:#d8b4fe;background:#30204e}

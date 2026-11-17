@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.models.asset import Asset
+from backend.models.asset_relocation_request import AssetRelocationRequest
 from backend.models.inventory import Inventory
 from backend.models.pm_schedule import PMSchedule
 from backend.models.request import Request
@@ -16,7 +17,7 @@ from backend.routes.dashboard_routes import notification_feed
 class NotificationFeedTests(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite:///:memory:")
-        for table in (User.__table__, Asset.__table__, Inventory.__table__, Request.__table__, PMSchedule.__table__):
+        for table in (User.__table__, Asset.__table__, Inventory.__table__, Request.__table__, PMSchedule.__table__, AssetRelocationRequest.__table__):
             table.create(self.engine)
         self.session = sessionmaker(bind=self.engine)()
 

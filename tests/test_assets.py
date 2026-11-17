@@ -14,9 +14,21 @@ from backend.models.asset import Asset
 from backend.models.asset_document import AssetDocument
 from backend.models.asset_history import AssetHistory
 from backend.models.asset_spare import AssetSpare
+from backend.models.asset_relocation_request import AssetRelocationRequest
 from backend.models.pm_history import PMHistory
 from backend.models.pm_schedule import PMSchedule
-from backend.routes.asset_routes import bulk_delete_assets, create_asset, get_asset, get_assets, update_asset, upload_asset_excel
+from backend.routes.asset_routes import (
+    bulk_delete_assets,
+    create_asset,
+    create_asset_relocation_request,
+    get_asset,
+    get_asset_relocation_requests,
+    get_assets,
+    get_my_asset_relocation_requests,
+    review_asset_relocation_request,
+    update_asset,
+    upload_asset_excel,
+)
 from backend.services.excel_import_service import import_assets_from_excel
 from backend.services.service_team import team_for_user
 
@@ -192,6 +204,7 @@ class AssetRouteTests(unittest.TestCase):
             AssetDocument.__table__,
             AssetHistory.__table__,
             AssetSpare.__table__,
+            AssetRelocationRequest.__table__,
         ):
             table.create(engine)
         session = sessionmaker(bind=engine)()
@@ -223,6 +236,58 @@ class AssetRouteTests(unittest.TestCase):
             self.assertEqual(session.query(AssetHistory).count(), 0)
             self.assertEqual(session.query(AssetSpare).count(), 0)
             self.assertEqual(session.query(AssetDocument).count(), 0)
+            self.assertEqual(session.query(AssetRelocationRequest).count(), 0)
+        finally:
+            session.close()
+            engine.dispose()
+
+    def test_department_relocation_request_is_scoped_and_updates_only_after_approval(self):
+        engine = create_engine("sqlite:///:memory:")
+        Asset.__table__.create(engine)
+        AssetRelocationRequest.__table__.create(engine)
+        session = sessionmaker(bind=engine)()
+        user = SimpleNamespace(role="User", username="dia", department="Nephrology")
+        electrical = SimpleNamespace(role="Electrical", username="electrician", department="Engineering")
+        biomedical = SimpleNamespace(role="BME", username="biomed", department="Engineering")
+
+        try:
+            asset = Asset(
+                asset_code="EL-MOVE-1",
+                equipment_name="Isolation transformer",
+                service_team="Electrical",
+                department="Nephrology",
+                location="Room 12",
+            )
+            session.add(asset)
+            session.commit()
+
+            created = create_asset_relocation_request(
+                {
+                    "asset_id": asset.id,
+                    "target_department": "Radiology",
+                    "target_location": "Imaging Room 2",
+                    "reason": "Required beside the new scanner.",
+                },
+                session,
+                user,
+            )
+            self.assertTrue(created["success"])
+            self.assertEqual(asset.department, "Nephrology")
+            self.assertEqual(len(get_asset_relocation_requests("Pending", session, electrical)), 1)
+            self.assertEqual(get_asset_relocation_requests("Pending", session, biomedical), [])
+
+            request_id = created["request"]["id"]
+            reviewed = review_asset_relocation_request(
+                request_id,
+                {"decision": "approve", "review_note": "Move cleared."},
+                session,
+                electrical,
+            )
+            self.assertEqual(reviewed["request"]["status"], "Approved")
+            session.refresh(asset)
+            self.assertEqual(asset.department, "Radiology")
+            self.assertEqual(asset.location, "Imaging Room 2")
+            self.assertEqual(get_my_asset_relocation_requests(session, user)[0]["status"], "Approved")
         finally:
             session.close()
             engine.dispose()

@@ -1,5 +1,6 @@
 let departmentAssets = [];
 let filteredDepartmentAssets = [];
+let departmentRelocationRequests = [];
 const departmentAssetsPagination = { page: 1, pageSize: 10 };
 
 async function renderMyAssets() {
@@ -9,7 +10,7 @@ async function renderMyAssets() {
                 <div>
                     <span class="department-module-kicker"><i data-lucide="building-2"></i> Department Assets</span>
                     <h1>My Assets</h1>
-                    <p id="myAssetsDescription">View the equipment assigned to your department.</p>
+                    <p id="myAssetsDescription">View department equipment and request an engineering-approved move to another department or room.</p>
                 </div>
                 <div class="department-module-actions">
                     <button id="refreshMyAssets" class="department-action-button"><i data-lucide="refresh-cw"></i> Refresh</button>
@@ -49,10 +50,16 @@ async function renderMyAssets() {
 async function loadMyAssets() {
     const body = document.getElementById("myAssetsBody");
     try {
-        const response = await fetch("/api/assets/department/mine");
+        const [response, relocationResponse] = await Promise.all([
+            fetch("/api/assets/department/mine"),
+            fetch("/api/assets/relocation-requests/mine"),
+        ]);
         if (!response.ok) throw new Error("Unable to load your department's assets.");
+        if (!relocationResponse.ok) throw new Error("Unable to load relocation requests.");
         departmentAssets = await response.json();
+        departmentRelocationRequests = await relocationResponse.json();
         if (!Array.isArray(departmentAssets)) departmentAssets = [];
+        if (!Array.isArray(departmentRelocationRequests)) departmentRelocationRequests = [];
         populateMyAssetsFilters();
         updateMyAssetsSummary();
         applyMyAssetsFilters(false);
@@ -106,7 +113,9 @@ function renderMyAssetsTable() {
         return;
     }
     const assets = TablePagination.pageItems(filteredDepartmentAssets, departmentAssetsPagination);
-    body.innerHTML = assets.map(asset => `
+    body.innerHTML = assets.map(asset => {
+        const pendingMove = departmentRelocationRequests.find(item => Number(item.asset_id) === Number(asset.id) && item.status === "Pending");
+        return `
         <tr>
             <td><strong>${escapeMyAssetsHtml(asset.asset_code || asset.equipment_no || "-")}</strong></td>
             <td>${escapeMyAssetsHtml(asset.equipment_name || "-")}</td>
@@ -114,13 +123,19 @@ function renderMyAssetsTable() {
             <td>${escapeMyAssetsHtml([asset.manufacturer, asset.model].filter(Boolean).join(" / ") || "-")}</td>
             <td>${escapeMyAssetsHtml(asset.location || "-")}</td>
             <td><span class="department-status ${departmentStatusClass(asset.status)}">${escapeMyAssetsHtml(asset.status || "Unknown")}</span></td>
-            <td><button class="department-view-button" data-asset-id="${asset.id}">View</button></td>
+            <td><div class="department-asset-actions"><button class="department-view-button" data-asset-id="${asset.id}">View</button><button class="department-relocate-button" data-relocate-asset="${asset.id}" ${pendingMove ? "disabled" : ""}><i data-lucide="route"></i>${pendingMove ? "Move requested" : "Request move"}</button></div></td>
         </tr>
-    `).join("");
+    `;
+    }).join("");
     body.querySelectorAll("[data-asset-id]").forEach(button => button.addEventListener("click", () => {
         currentAssetId = Number(button.dataset.assetId);
         navigate("assetDetails");
     }));
+    body.querySelectorAll("[data-relocate-asset]").forEach(button => button.addEventListener("click", () => {
+        const asset = departmentAssets.find(item => Number(item.id) === Number(button.dataset.relocateAsset));
+        if (asset) window.AssetRelocation?.openRequest(asset);
+    }));
+    if (window.lucide) window.lucide.createIcons();
     TablePagination.render(document.getElementById("myAssetsPagination"), departmentAssetsPagination, filteredDepartmentAssets.length, renderMyAssetsTable, "assets");
 }
 
