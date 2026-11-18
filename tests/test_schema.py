@@ -28,6 +28,7 @@ class SchemaTests(unittest.TestCase):
                 "devices",
                 "inventory",
                 "requests",
+                "ward_boy_tasks",
                 "pm_schedules",
                 "pm_history",
                 "departments",

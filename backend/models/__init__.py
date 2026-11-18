@@ -9,6 +9,7 @@ from backend.models.asset_document import AssetDocument
 from backend.models.asset_history import AssetHistory
 from backend.models.asset_spare import AssetSpare
 from backend.models.asset_relocation_request import AssetRelocationRequest
+from backend.models.ward_boy_task import WardBoyTask
 
 from backend.models.department import Department
 from backend.models.manufacturer import Manufacturer

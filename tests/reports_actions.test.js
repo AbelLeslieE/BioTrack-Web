@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const reports = fs.readFileSync(path.join(root, "frontend/dashboard_v2/js/reports.js"), "utf8");
+const reportsView = fs.readFileSync(path.join(root, "frontend/dashboard_v2/views/reportsView.js"), "utf8");
 const settings = fs.readFileSync(path.join(root, "frontend/dashboard_v2/views/settingsView.js"), "utf8");
 const settingsStyles = fs.readFileSync(path.join(root, "frontend/dashboard_v2/css/settings.css"), "utf8");
 
@@ -14,6 +15,9 @@ test("report buttons download real PDF Excel and CSV exports", () => {
     assert.match(reports, /registerReportsExport\("reportsCsvBtn", "csv"\)/);
     assert.match(reports, /fetch\(reportsExportUrl\(type,filters\)\)/);
     assert.doesNotMatch(reports, /setTimeout\(\(\)=>\{[\s\S]*?report generated successfully/);
+    assert.match(reportsView, /reports-executive-pdf/);
+    assert.match(reportsView, /Executive PDF/);
+    assert.match(reportsView, /Charts, KPIs &amp; call register/);
 });
 
 test("schedule report opens a persistent schedule workflow", () => {

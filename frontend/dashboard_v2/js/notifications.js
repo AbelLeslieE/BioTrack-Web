@@ -12,6 +12,7 @@
         asset: "monitor-x",
         request: "clipboard-list",
         relocation: "route",
+        "ward-boy": "truck",
     };
     let notifications = [];
     let refreshTimer = null;

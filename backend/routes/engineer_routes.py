@@ -12,6 +12,8 @@ from backend.models.asset import Asset
 from backend.models.inventory import Inventory
 from backend.models.request import Request
 from backend.models.user import User
+from backend.models.ward_boy_task import WardBoyTask
+from backend.services.ward_boy_service import serialize_ward_boy_task
 
 
 ENGINEER_ROLES = ("Manager", "BME", "Electrical", "IT")
@@ -171,6 +173,13 @@ def get_ticket(
     if not ticket:
         raise HTTPException(status_code=404, detail="Maintenance call not found.")
 
+    ward_boy_tasks = (
+        db.query(WardBoyTask)
+        .filter(WardBoyTask.request_id == ticket.id)
+        .order_by(WardBoyTask.requested_at.asc())
+        .all()
+    )
+
     return {
         "id": ticket.id,
         "ticket": ticket.ticket_number,
@@ -192,6 +201,7 @@ def get_ticket(
         "downtime": ticket.final_downtime_hours or 0,
         "spare_parts": _saved_spare_parts(ticket.spare_parts),
         "stock_deducted": ticket.stock_deducted,
+        "ward_boy_tasks": [serialize_ward_boy_task(task, ticket) for task in ward_boy_tasks],
     }
 
 

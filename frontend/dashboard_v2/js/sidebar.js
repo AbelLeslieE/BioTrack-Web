@@ -214,6 +214,17 @@ const userMenu = `
 </a>
 
 `;
+
+const wardBoyMenu = `
+<a href="#" class="nav-item active" data-page="wardBoyDashboard">
+    <i data-lucide="truck"></i>
+    <span>Transport Jobs</span>
+</a>
+<a href="#" class="nav-item" data-page="settings">
+    <i data-lucide="settings"></i>
+    <span>Settings</span>
+</a>
+`;
  
 // ==========================================
 // LOAD MENU
@@ -251,6 +262,11 @@ document.addEventListener("DOMContentLoaded", () => {
         case "it":
 
             sidebar.innerHTML = itMenu;
+            break;
+
+        case "wardboy":
+
+            sidebar.innerHTML = wardBoyMenu;
             break;
 
         default:

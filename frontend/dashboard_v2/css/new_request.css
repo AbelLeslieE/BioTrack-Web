@@ -1022,3 +1022,69 @@ textarea{
     font-size: 12px;
     font-weight: 700;
 }
+
+.ward-boy-assistance-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 28px 50px minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
+    margin-top: 22px;
+    padding: 18px;
+    border: 1px solid #cbd5e1;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #f8fafc, #eff6ff);
+    cursor: pointer;
+    transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.ward-boy-assistance-card:hover {
+    border-color: #60a5fa;
+    box-shadow: 0 12px 28px rgba(37, 99, 235, .1);
+    transform: translateY(-1px);
+}
+
+.ward-boy-assistance-card > input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.ward-boy-assistance-check {
+    display: grid;
+    width: 26px;
+    height: 26px;
+    place-items: center;
+    border: 2px solid #94a3b8;
+    border-radius: 8px;
+    background: #fff;
+    color: transparent;
+}
+
+.ward-boy-assistance-card > input:checked + .ward-boy-assistance-check {
+    border-color: #2563eb;
+    background: #2563eb;
+    color: #fff;
+}
+
+.ward-boy-assistance-check svg { width: 17px; height: 17px; stroke-width: 3; }
+
+.ward-boy-assistance-icon {
+    display: grid;
+    width: 50px;
+    height: 50px;
+    place-items: center;
+    border-radius: 14px;
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.ward-boy-assistance-icon svg { width: 25px; height: 25px; }
+.ward-boy-assistance-copy strong { display: block; margin-bottom: 4px; color: #0f172a; font-size: 16px; }
+.ward-boy-assistance-copy small { display: block; color: #64748b; line-height: 1.5; }
+
+@media (max-width: 560px) {
+    .ward-boy-assistance-card { grid-template-columns: 26px 42px minmax(0, 1fr); padding: 15px; }
+    .ward-boy-assistance-icon { width: 42px; height: 42px; }
+}

@@ -14,6 +14,7 @@ from backend.models.asset import Asset
 from backend.models.inventory import Inventory
 from backend.models.pm_schedule import PMSchedule
 from backend.models.asset_relocation_request import AssetRelocationRequest
+from backend.models.ward_boy_task import WardBoyTask
 from backend.auth import get_current_user, require_roles
 
 from datetime import date, datetime
@@ -348,7 +349,39 @@ def notification_feed(
             "created_at": created_at.isoformat() if created_at else datetime.now().isoformat(),
         })
 
-    if role == "user":
+    if role == "wardboy":
+        ward_tasks = (
+            db.query(WardBoyTask)
+            .filter(
+                (WardBoyTask.status == "Pending")
+                | (
+                    (WardBoyTask.assigned_to_username == current_user.username)
+                    & (WardBoyTask.status == "Accepted")
+                )
+            )
+            .order_by(WardBoyTask.requested_at.desc())
+            .limit(20)
+            .all()
+        )
+        request_ids = [task.request_id for task in ward_tasks]
+        requests_by_id = {
+            request.id: request
+            for request in db.query(Request).filter(Request.id.in_(request_ids or [-1])).all()
+        }
+        for task in ward_tasks:
+            request = requests_by_id.get(task.request_id)
+            if not request:
+                continue
+            add_item(
+                f"ward-boy:{task.id}:{task.status}",
+                "ward-boy",
+                f"{task.movement_type} · {request.ticket_number or f'Call #{request.id}'}",
+                f"{request.equipment_name or 'Equipment'}: {task.source_location} → {task.destination_location}.",
+                "wardBoyDashboard",
+                "critical" if (request.priority or "").lower() == "critical" else "warning",
+                task.accepted_at or task.requested_at,
+            )
+    elif role == "user":
         requests = (
             db.query(Request)
             .filter(Request.created_by == current_user.username)
@@ -366,6 +399,29 @@ def notification_feed(
                 "myRequests",
                 priority,
                 request.fixed_datetime or request.engineer_start_datetime or request.call_received_datetime,
+            )
+
+        request_ids = [request.id for request in requests]
+        transport_tasks = (
+            db.query(WardBoyTask)
+            .filter(WardBoyTask.request_id.in_(request_ids or [-1]))
+            .order_by(WardBoyTask.requested_at.desc())
+            .limit(8)
+            .all()
+        )
+        requests_by_id = {request.id: request for request in requests}
+        for task in transport_tasks:
+            request = requests_by_id.get(task.request_id)
+            if not request:
+                continue
+            add_item(
+                f"ward-boy:{task.id}:{task.status}",
+                "ward-boy",
+                f"Ward Boy {task.movement_type.lower()} · {task.status}",
+                f"{request.equipment_name or 'Equipment'} transport is {task.status.lower()}.",
+                "myRequests",
+                "warning" if task.status == "Pending" else "info",
+                task.completed_at or task.accepted_at or task.requested_at,
             )
 
         relocation_requests = (
@@ -421,6 +477,23 @@ def notification_feed(
             request_query = request_query.filter(Request.service_team == service_team)
             inventory_query = inventory_query.filter(Inventory.service_team == service_team)
             asset_query = asset_query.filter(Asset.service_team == service_team)
+
+        transport_query = db.query(WardBoyTask).join(Request, WardBoyTask.request_id == Request.id)
+        if service_team:
+            transport_query = transport_query.filter(Request.service_team == service_team)
+        for task in transport_query.order_by(WardBoyTask.requested_at.desc()).limit(6).all():
+            request = db.get(Request, task.request_id)
+            if not request:
+                continue
+            add_item(
+                f"ward-boy:{task.id}:{task.status}",
+                "ward-boy",
+                f"Transport {task.movement_type.lower()} · {task.status}",
+                f"{request.equipment_name or 'Equipment'}: {task.source_location} → {task.destination_location}.",
+                "callManagement",
+                "warning" if task.status == "Pending" else "info",
+                task.completed_at or task.accepted_at or task.requested_at,
+            )
 
         relocation_query = db.query(AssetRelocationRequest).filter(AssetRelocationRequest.status == "Pending")
         if service_team:

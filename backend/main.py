@@ -21,6 +21,7 @@ from backend.create_default_admin import create_default_admin
 from backend.routes.pm_routes import router as pm_router, department_user_router
 from backend.routes.inventory_routes import router as inventory_router
 from backend.routes.settings_routes import router as settings_router
+from backend.routes.ward_boy_routes import router as ward_boy_router
 from backend.auth import validate_auth_config
 from backend.storage import QR_DIRECTORY
 # ==========================================
@@ -101,6 +102,7 @@ app.include_router(department_user_router)
 app.include_router(inventory_router)
 app.include_router(report_router)
 app.include_router(settings_router)
+app.include_router(ward_boy_router)
 # ==========================================
 # ROUTES
 # ==========================================

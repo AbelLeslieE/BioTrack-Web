@@ -152,7 +152,8 @@ function clearForm() {
         .querySelectorAll("input:not([readonly]), textarea")
         .forEach(field => {
 
-            field.value = "";
+            if (field.type === "checkbox") field.checked = false;
+            else field.value = "";
 
             field.classList.remove("input-error");
 
@@ -391,7 +392,10 @@ async function submitRequest() {
                     document.getElementById("serviceTeam").value,
 
                 failure_description:
-                    document.getElementById("failureDescription").value
+                    document.getElementById("failureDescription").value,
+
+                request_ward_boy_pickup:
+                    Boolean(document.getElementById("wardBoyAssistance")?.checked)
 
             })
 
@@ -422,7 +426,9 @@ async function submitRequest() {
 
             title: "Request Submitted",
 
-            message: `Your maintenance request (${data.ticket_number}) has been submitted successfully.`,
+            message: data.ward_boy_pickup_requested
+                ? `Your maintenance request (${data.ticket_number}) was submitted and a Ward Boy pickup job is now available.`
+                : `Your maintenance request (${data.ticket_number}) has been submitted successfully.`,
 
             buttonText: "Create Another Request",
 

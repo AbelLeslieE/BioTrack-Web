@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT,
     email TEXT,
     phone TEXT,
-    role TEXT NOT NULL CHECK (role IN ('Manager', 'BME', 'Electrical', 'IT', 'User')),
+    role TEXT NOT NULL CHECK (role IN ('Manager', 'BME', 'Electrical', 'IT', 'User', 'WardBoy')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -178,6 +178,26 @@ CREATE TABLE IF NOT EXISTS requests (
     stock_deducted BOOLEAN NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS ward_boy_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id INTEGER NOT NULL,
+    movement_type TEXT NOT NULL CHECK (movement_type IN ('Pickup', 'Return')),
+    status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Accepted', 'Completed')),
+    source_location TEXT NOT NULL,
+    destination_location TEXT NOT NULL,
+    notes TEXT DEFAULT '',
+    requested_by_username TEXT NOT NULL,
+    requested_by_name TEXT NOT NULL,
+    requested_by_role TEXT NOT NULL,
+    assigned_to_username TEXT,
+    assigned_to_name TEXT,
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    accepted_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    UNIQUE (request_id, movement_type),
+    FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS pm_schedules (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     asset_id INTEGER NOT NULL,
@@ -249,5 +269,7 @@ CREATE INDEX IF NOT EXISTS ix_assets_service_team ON assets(service_team);
 CREATE INDEX IF NOT EXISTS ix_inventory_service_team ON inventory(service_team);
 CREATE INDEX IF NOT EXISTS ix_requests_created_by ON requests(created_by);
 CREATE INDEX IF NOT EXISTS ix_requests_service_team ON requests(service_team);
+CREATE INDEX IF NOT EXISTS ix_ward_boy_tasks_request_id ON ward_boy_tasks(request_id);
+CREATE INDEX IF NOT EXISTS ix_ward_boy_tasks_status ON ward_boy_tasks(status);
 CREATE INDEX IF NOT EXISTS ix_pm_schedules_asset_id ON pm_schedules(asset_id);
 

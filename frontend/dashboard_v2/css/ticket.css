@@ -482,3 +482,61 @@ transform:translateY(0);
 }
 
 }
+
+/* Ward Boy transport workflow */
+.ticket-transport-card { display: grid; gap: 20px; }
+.ticket-transport-heading { display: flex; align-items: center; gap: 14px; }
+.ticket-transport-heading > span {
+    display: grid; width: 48px; height: 48px; flex: 0 0 48px; place-items: center;
+    border-radius: 14px; background: #e0f2fe; color: #0284c7;
+}
+.ticket-transport-heading svg { width: 25px; height: 25px; }
+.ticket-transport-heading h2 { margin: 0 0 4px; }
+.ticket-transport-heading p { margin: 0; color: #64748b; }
+.ticket-transport-list { display: grid; gap: 10px; }
+.ticket-transport-job {
+    display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 12px;
+    padding: 14px; border: 1px solid #dbe4f0; border-radius: 14px; background: #f8fafc;
+}
+.ticket-transport-job-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 12px; background: #dbeafe; color: #2563eb; }
+.ticket-transport-job strong { color: #0f172a; }
+.ticket-transport-job p { display: flex; align-items: center; gap: 7px; margin: 4px 0; color: #475569; }
+.ticket-transport-job p svg { width: 15px; height: 15px; }
+.ticket-transport-job small { color: #64748b; }
+.ticket-transport-status { padding: 7px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+.ticket-transport-status.is-pending { background: #fef3c7; color: #92400e; }
+.ticket-transport-status.is-accepted { background: #dbeafe; color: #1d4ed8; }
+.ticket-transport-status.is-completed { background: #dcfce7; color: #15803d; }
+.ticket-transport-empty { margin: 0; padding: 14px; border: 1px dashed #cbd5e1; border-radius: 12px; color: #64748b; }
+.ticket-transport-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.ticket-transport-button {
+    display: inline-flex; align-items: center; gap: 9px; min-height: 46px; padding: 0 17px;
+    border: 0; border-radius: 12px; color: #fff; font: inherit; font-weight: 800; cursor: pointer;
+}
+.ticket-transport-button svg { width: 19px; height: 19px; }
+.ticket-transport-button.is-pickup { background: #0284c7; }
+.ticket-transport-button.is-return { background: #16a34a; }
+.ticket-return-choice {
+    display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 12px; align-items: center; flex: 1 1 360px;
+    min-height: 60px; padding: 13px 15px; border: 1px solid #bfdbfe; border-radius: 14px; background: #eff6ff; cursor: pointer;
+}
+.ticket-return-choice > input { position: absolute; opacity: 0; pointer-events: none; }
+.ticket-return-choice > span { display: grid; width: 24px; height: 24px; place-items: center; border: 2px solid #93c5fd; border-radius: 7px; color: transparent; }
+.ticket-return-choice input:checked + span { border-color: #2563eb; background: #2563eb; color: #fff; }
+.ticket-return-choice svg { width: 16px; height: 16px; }
+.ticket-return-choice strong, .ticket-return-choice small { display: block; }
+.ticket-return-choice small { margin-top: 3px; color: #64748b; }
+
+body.dark-theme .ticket-transport-heading p,
+body.dark-theme .ticket-transport-job p,
+body.dark-theme .ticket-transport-job small,
+body.dark-theme .ticket-transport-empty,
+body.dark-theme .ticket-return-choice small { color: var(--dark-muted); }
+body.dark-theme .ticket-transport-job,
+body.dark-theme .ticket-return-choice { border-color: var(--dark-border); background: var(--dark-surface-2); }
+
+@media (max-width: 620px) {
+    .ticket-transport-job { grid-template-columns: 42px minmax(0, 1fr); }
+    .ticket-transport-status { grid-column: 2; justify-self: start; }
+    .ticket-transport-button { width: 100%; justify-content: center; }
+}

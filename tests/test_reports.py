@@ -44,6 +44,9 @@ class ReportActionTests(unittest.TestCase):
             content = asyncio.run(response_bytes(response))
             self.assertTrue(content.startswith(signature) or signature in content[:100])
             self.assertIn("attachment", response.headers["content-disposition"])
+            if report_format == "pdf":
+                self.assertGreater(len(content), 7_000)
+                self.assertEqual(response.media_type, "application/pdf")
 
     def test_schedule_is_saved_and_advanced_after_export(self):
         first_run = datetime.now() + timedelta(hours=2)

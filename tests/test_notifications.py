@@ -11,13 +11,14 @@ from backend.models.inventory import Inventory
 from backend.models.pm_schedule import PMSchedule
 from backend.models.request import Request
 from backend.models.user import User
+from backend.models.ward_boy_task import WardBoyTask
 from backend.routes.dashboard_routes import notification_feed
 
 
 class NotificationFeedTests(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite:///:memory:")
-        for table in (User.__table__, Asset.__table__, Inventory.__table__, Request.__table__, PMSchedule.__table__, AssetRelocationRequest.__table__):
+        for table in (User.__table__, Asset.__table__, Inventory.__table__, Request.__table__, PMSchedule.__table__, AssetRelocationRequest.__table__, WardBoyTask.__table__):
             table.create(self.engine)
         self.session = sessionmaker(bind=self.engine)()
 
@@ -90,6 +91,35 @@ class NotificationFeedTests(unittest.TestCase):
         self.assertIn("Monitor", text)
         self.assertNotIn("OTHER", text)
         self.assertNotIn("Pump", text)
+
+    def test_ward_boy_receives_pending_transport_jobs(self):
+        request = Request(
+            ticket_number="BT-TRANSPORT",
+            equipment_name="Defibrillator",
+            equipment_identifier="DEF-1",
+            department="Emergency",
+            location="Room 2",
+            service_team="Biomedical",
+            priority="High",
+        )
+        self.session.add(request)
+        self.session.flush()
+        self.session.add(WardBoyTask(
+            request_id=request.id,
+            movement_type="Pickup",
+            status="Pending",
+            source_location="Emergency · Room 2",
+            destination_location="Biomedical Engineering Workshop",
+            requested_by_username="nurse",
+            requested_by_name="Nurse",
+            requested_by_role="User",
+        ))
+        self.session.commit()
+
+        result = notification_feed(self.session, SimpleNamespace(role="WardBoy", username="ward-boy", department="Hospital Support Services"))
+
+        self.assertEqual(result["items"][0]["kind"], "ward-boy")
+        self.assertIn("Defibrillator", result["items"][0]["message"])
 
 
 if __name__ == "__main__":

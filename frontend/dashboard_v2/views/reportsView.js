@@ -757,12 +757,19 @@ function reportsView() {
         <div class="reports-export-grid">
 
             <button
-                class="reports-btn-secondary"
+                class="reports-btn-secondary reports-executive-pdf"
                 id="reportsPdfBtn">
 
-                <i class="fa-solid fa-file-pdf"></i>
+                <span class="reports-export-icon reports-export-icon-pdf" aria-hidden="true">
+                    <i class="fa-solid fa-file-pdf"></i>
+                </span>
 
-                Download PDF
+                <span class="reports-export-copy">
+                    <strong>Executive PDF</strong>
+                    <small>Charts, KPIs &amp; call register</small>
+                </span>
+
+                <span class="reports-export-badge">Recommended</span>
 
             </button>
 

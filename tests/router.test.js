@@ -13,6 +13,7 @@ function createRouter(role) {
         "renderITDashboard", "renderMaintenance", "renderMaintenanceModule", "renderAssets",
         "renderAssetForm", "renderAssetDetails", "renderInventory", "renderPM",
         "renderReports", "renderAI", "renderUsers", "renderQRScannerModule", "renderQRAssetProfile", "renderSettings",
+        "renderWardBoyDashboard",
     ];
     const context = {
         console: { log() {}, warn() {}, error() {} },
@@ -54,6 +55,13 @@ test("department users can open scoped asset details and launch the scanner", ()
     user.navigate("assetDetails");
     user.navigate("qr");
     assert.deepEqual(user.renders, ["renderAssetDetails", "renderQRScannerModule", "qr"]);
+});
+
+test("Ward Boy accounts open only the transport dashboard", () => {
+    const wardBoy = createRouter("wardboy");
+    wardBoy.navigate("wardBoyDashboard");
+    wardBoy.navigate("assets");
+    assert.deepEqual(wardBoy.renders, ["renderWardBoyDashboard", "renderWardBoyDashboard"]);
 });
 
 test("unknown roles are returned to login instead of receiving a dashboard", () => {

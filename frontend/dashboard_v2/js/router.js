@@ -17,6 +17,7 @@ const ROLE_HOME_PAGES = {
     electrical: "electricalDashboard",
     it: "itDashboard",
     user: "userDashboard",
+    wardboy: "wardBoyDashboard",
 };
 
 const ROLE_PAGE_ACCESS = {
@@ -25,6 +26,7 @@ const ROLE_PAGE_ACCESS = {
     electrical: new Set(["electricalDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "qrAssetProfile", "settings"]),
     it: new Set(["itDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "qrAssetProfile", "settings"]),
     user: new Set(["userDashboard", "newRequest", "myRequests", "myAssets", "assetDetails", "departmentPMSchedule", "requestDetails", "qr", "qrAssetProfile", "settings"]),
+    wardboy: new Set(["wardBoyDashboard", "settings"]),
 };
 // ==========================================
 // CURRENT SELECTED ASSET
@@ -46,6 +48,7 @@ const Pages = {
     // Department User
     // Department User
     userDashboard: renderUserDashboard,
+    wardBoyDashboard: renderWardBoyDashboard,
     newRequest: renderNewRequest,
     myRequests: renderMyRequests,
     myAssets: renderMyAssets,
@@ -82,6 +85,8 @@ const Pages = {
 function navigate(page) {
     const role = normalizeDashboardRole(localStorage.getItem("role"));
     const allowedPages = ROLE_PAGE_ACCESS[role];
+
+    if (page !== "wardBoyDashboard" && typeof cleanupWardBoyDashboard === "function") cleanupWardBoyDashboard();
 
     if (!allowedPages || !allowedPages.has(page)) {
         const homePage = ROLE_HOME_PAGES[role];

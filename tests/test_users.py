@@ -2,7 +2,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from backend.routes.user_routes import UserCreate, UserUpdate
+from backend.routes.user_routes import ALLOWED_ROLES, UserCreate, UserUpdate
 
 
 def valid_user(**overrides):
@@ -20,6 +20,9 @@ def valid_user(**overrides):
 
 
 class UserValidationTests(unittest.TestCase):
+    def test_ward_boy_is_a_supported_login_role(self):
+        self.assertIn("WardBoy", ALLOWED_ROLES)
+
     def test_new_users_require_a_strong_initial_password(self):
         with self.assertRaises(ValidationError):
             UserCreate(**valid_user(password="short"))

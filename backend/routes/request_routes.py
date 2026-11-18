@@ -13,6 +13,7 @@ from fastapi import Depends
 from backend.database import get_db
 from backend.models.request import Request
 from backend.models.user import User
+from backend.services.ward_boy_service import create_ward_boy_task
 from backend.auth import get_current_user, require_roles
 import json
 
@@ -46,6 +47,7 @@ class MaintenanceRequestCreate(BaseModel):
     ]
     service_team: Literal["Biomedical", "Electrical", "IT"] = "Biomedical"
     failure_description: str = Field(default="", max_length=4000)
+    request_ward_boy_pickup: bool = False
 
 
 class DowntimeOverride(BaseModel):
@@ -103,7 +105,7 @@ def _user_request_details(request: Request) -> dict:
 def create_request(
     data: MaintenanceRequestCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("Manager", "BME", "Electrical", "IT", "User")),
 ):
 
     service_team = data.service_team
@@ -158,13 +160,26 @@ def create_request(
     # unique after deletions and across concurrent submissions.
     db.flush()
     request.ticket_number = ticket_number_for(request.id, created_at)
+    ward_boy_task = None
+    if data.request_ward_boy_pickup:
+        ward_boy_task = create_ward_boy_task(
+            db,
+            request,
+            "Pickup",
+            current_user.username,
+            current_user.name or current_user.username,
+            current_user.role,
+            "Collect this equipment for the maintenance team.",
+        )
     db.commit()
 
     db.refresh(request)
 
     return {
         "success": True,
-        "ticket_number": request.ticket_number
+        "ticket_number": request.ticket_number,
+        "ward_boy_pickup_requested": ward_boy_task is not None,
+        "ward_boy_task_id": ward_boy_task.id if ward_boy_task else None,
     }
     # ==========================================
 # GET ALL REQUESTS

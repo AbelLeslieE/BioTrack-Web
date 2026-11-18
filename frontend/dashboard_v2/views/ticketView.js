@@ -7,6 +7,61 @@ let sparePartsInventory = [];
 let selectedSpareParts = [];
 let sparePartsLocked = false;
 
+function renderWardBoyTransport(ticket) {
+    const tasks = Array.isArray(ticket.ward_boy_tasks) ? ticket.ward_boy_tasks : [];
+    const pickup = tasks.find(task => task.movement_type === "Pickup");
+    const returnTask = tasks.find(task => task.movement_type === "Return");
+    const repairCompleted = ["Completed", "Closed"].includes(ticket.status);
+    const taskRows = tasks.map(task => `
+        <article class="ticket-transport-job">
+            <span class="ticket-transport-job-icon"><i data-lucide="${task.movement_type === "Return" ? "undo-2" : "package-open"}"></i></span>
+            <div>
+                <strong>${escapeHTML(task.movement_type)} transport</strong>
+                <p>${escapeHTML(task.source_location)} <i data-lucide="arrow-right"></i> ${escapeHTML(task.destination_location)}</p>
+                ${task.assigned_to ? `<small>Assigned to ${escapeHTML(task.assigned_to)}</small>` : ""}
+            </div>
+            <span class="ticket-transport-status is-${String(task.status || "pending").toLowerCase()}">${escapeHTML(task.status)}</span>
+        </article>`).join("");
+
+    return `
+        <div class="ticket-card full ticket-transport-card">
+            <div class="ticket-transport-heading">
+                <span><i data-lucide="truck"></i></span>
+                <div><h2>Ward Boy Transport</h2><p>Arrange equipment movement between the ward and the ${escapeHTML(ticket.service_team)} team.</p></div>
+            </div>
+            <div class="ticket-transport-list">${taskRows || '<p class="ticket-transport-empty">No Ward Boy transport has been requested for this call.</p>'}</div>
+            <div class="ticket-transport-actions">
+                ${!pickup ? `<button type="button" class="ticket-transport-button is-pickup" onclick="requestWardBoyTransport('Pickup')"><i data-lucide="package-plus"></i> Request equipment pickup</button>` : ""}
+                ${repairCompleted && !returnTask ? `<button type="button" class="ticket-transport-button is-return" onclick="requestWardBoyTransport('Return')"><i data-lucide="truck"></i> Request return to ward</button>` : ""}
+                ${!repairCompleted && !returnTask ? `<label class="ticket-return-choice"><input type="checkbox" id="wardBoyReturnAfterRepair"><span><i data-lucide="square-check-big"></i></span><div><strong>Return with a Ward Boy after repair</strong><small>Create the return job automatically when this call is completed.</small></div></label>` : ""}
+            </div>
+        </div>`;
+}
+
+async function createWardBoyTransport(movementType) {
+    const response = await fetch("/api/ward-boy/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request_id: Number(currentTicketId), movement_type: movementType }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || "Unable to create the transport job.");
+    return data.task;
+}
+
+async function requestWardBoyTransport(movementType) {
+    try {
+        await createWardBoyTransport(movementType);
+        BioTrackToast.success(
+            movementType === "Return" ? "Return transport requested" : "Pickup requested",
+            "The job is now visible in the Ward Boy portal."
+        );
+        await loadTicket();
+    } catch (error) {
+        BioTrackToast.error("Transport not requested", error.message || "Unable to create the Ward Boy job.");
+    }
+}
+
 // ==========================================
 // OPEN TICKET
 // ==========================================
@@ -237,6 +292,10 @@ async function loadTicket() {
 
             <!-- =========================== -->
 
+            ${renderWardBoyTransport(ticket)}
+
+            <!-- =========================== -->
+
             <div class="ticket-card full">
 
                 <h2>Failure Description</h2>
@@ -427,6 +486,8 @@ async function saveTicketChanges(){
 async function updateTicket(start = false, complete = false) {
 
     const buttons = document.querySelectorAll(".ticket-btn");
+    const shouldRequestReturn = complete && Boolean(document.getElementById("wardBoyReturnAfterRepair")?.checked);
+    let returnTransportCreated = false;
 
     buttons.forEach(btn => btn.disabled = true);
 
@@ -496,11 +557,25 @@ async function updateTicket(start = false, complete = false) {
 
         if (complete) {
 
+            if (shouldRequestReturn) {
+                try {
+                    await createWardBoyTransport("Return");
+                    returnTransportCreated = true;
+                } catch (transportError) {
+                    BioTrackToast.warning(
+                        "Repair completed, transport not created",
+                        transportError.message || "Request the Ward Boy return job from this ticket."
+                    );
+                }
+            }
+
             showSuccess({
 
                 title: "Maintenance Completed",
 
-                message: "The department has been notified.",
+                message: returnTransportCreated
+                    ? "The department was notified and the Ward Boy return job is now available."
+                    : "The department has been notified.",
 
                 buttonText: "Return Dashboard",
 

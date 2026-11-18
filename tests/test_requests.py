@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.models.request import Request
+from backend.models.ward_boy_task import WardBoyTask
 from backend.routes.engineer_routes import get_ticket
 from backend.routes.request_routes import (
     DowntimeOverride,
@@ -37,6 +38,7 @@ class MaintenanceRequestTests(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite:///:memory:")
         Request.__table__.create(self.engine)
+        WardBoyTask.__table__.create(self.engine)
         self.session = sessionmaker(bind=self.engine)()
         self.user = SimpleNamespace(
             username="ward-user",
@@ -67,6 +69,20 @@ class MaintenanceRequestTests(unittest.TestCase):
         self.assertEqual(valid_request(failure_description="   ").failure_description, "")
         with self.assertRaises(ValidationError):
             valid_request(priority="Immediate")
+
+    def test_request_can_create_a_ward_boy_pickup_job(self):
+        result = create_request(
+            valid_request(request_ward_boy_pickup=True),
+            self.session,
+            self.user,
+        )
+
+        task = self.session.query(WardBoyTask).one()
+        self.assertTrue(result["ward_boy_pickup_requested"])
+        self.assertEqual(task.movement_type, "Pickup")
+        self.assertEqual(task.status, "Pending")
+        self.assertIn("ICU", task.source_location)
+        self.assertEqual(task.destination_location, "Biomedical Engineering Workshop")
 
     def test_closed_today_excludes_older_closed_requests(self):
         now = datetime.now()

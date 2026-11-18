@@ -1,4 +1,4 @@
-const CACHE_VERSION = "biotrack-shell-v26";
+const CACHE_VERSION = "biotrack-shell-v27";
 const OFFLINE_URL = "/offline";
 const PRECACHE_URLS = [
     OFFLINE_URL,
