@@ -4,6 +4,8 @@
 
 function renderAssetDetails() {
 
+    const departmentView = isDepartmentAssetDetailsView();
+
     pageContent.innerHTML = `
 
     <div class="asset-details-page">
@@ -12,15 +14,15 @@ function renderAssetDetails() {
 
             <button
                 class="btn-secondary"
-                onclick="navigate('assets')">
+                onclick="navigate('${departmentView ? "myAssets" : "assets"}')">
 
-                ← Back to Assets
+                ← Back to ${departmentView ? "My Assets" : "Assets"}
 
             </button>
 
             <div>
 
-                <h1>Asset Details</h1>
+                <h1>${departmentView ? "Equipment Details" : "Asset Details"}</h1>
 
                 <p>
                     Asset ID :
@@ -84,17 +86,18 @@ async function loadAssetDetails(assetId) {
 
         renderAssetHero(safeAsset);
 
-        renderGeneralInformation(safeAsset);
-
-        renderPurchaseInformation(safeAsset);
-
-        renderTechnicalInformation(safeAsset);
-
-        renderMaintenanceOverview(safeAsset);
-
-        renderPMHistory(safeAsset);
-
-        renderAssetTabs(safeAsset);
+        if (isDepartmentAssetDetailsView()) {
+            renderDepartmentAssetInformation(safeAsset);
+            renderDepartmentLastPM(safeAsset);
+            clearRestrictedAssetSections();
+        } else {
+            renderGeneralInformation(safeAsset);
+            renderPurchaseInformation(safeAsset);
+            renderTechnicalInformation(safeAsset);
+            renderMaintenanceOverview(safeAsset);
+            renderPMHistory(safeAsset);
+            renderAssetTabs(safeAsset);
+        }
 
     }
 
@@ -102,8 +105,74 @@ async function loadAssetDetails(assetId) {
 
         console.error(error);
 
+        if (window.BioTrackToast) {
+            BioTrackToast.error("Asset unavailable", error.message || "The equipment details could not be loaded.");
+        }
+
     }
 
+}
+
+function isDepartmentAssetDetailsView() {
+    const storedRole = localStorage.getItem("role");
+    const role = typeof normalizeDashboardRole === "function"
+        ? normalizeDashboardRole(storedRole)
+        : String(storedRole || "").trim().toLowerCase();
+    return role === "user";
+}
+
+function clearRestrictedAssetSections() {
+    ["assetPurchaseInfo", "assetTechnicalInfo", "assetPMHistory", "assetTabs", "assetTabContent"]
+        .forEach(id => {
+            const element = document.getElementById(id);
+            if (element) element.replaceChildren();
+        });
+}
+
+function renderDepartmentAssetInformation(asset) {
+    document.getElementById("assetGeneralInfo").innerHTML = `
+        <section class="asset-section department-asset-general">
+            <div class="asset-section-header">
+                <div>
+                    <h2>General Information</h2>
+                    <p>Essential identification and current location for this equipment.</p>
+                </div>
+            </div>
+            <div class="asset-info-grid">
+                <div class="asset-info-card"><span>Equipment Number</span><strong>${asset.equipment_no || "-"}</strong></div>
+                <div class="asset-info-card"><span>Asset Code</span><strong>${asset.asset_code || "-"}</strong></div>
+                <div class="asset-info-card"><span>Equipment Name</span><strong>${asset.equipment_name || "-"}</strong></div>
+                <div class="asset-info-card"><span>Serial Number</span><strong>${asset.serial_number || "-"}</strong></div>
+                <div class="asset-info-card"><span>Manufacturer</span><strong>${asset.manufacturer || "-"}</strong></div>
+                <div class="asset-info-card"><span>Model</span><strong>${asset.model || "-"}</strong></div>
+                <div class="asset-info-card"><span>Department</span><strong>${asset.department || "-"}</strong></div>
+                <div class="asset-info-card"><span>Location / Room</span><strong>${asset.location || "-"}</strong></div>
+                <div class="asset-info-card"><span>Status</span><strong>${asset.status || "-"}</strong></div>
+            </div>
+        </section>
+    `;
+}
+
+function formatAssetDetailDate(value) {
+    if (!value) return "Not recorded";
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleDateString("en-GB");
+}
+
+function renderDepartmentLastPM(asset) {
+    document.getElementById("assetMaintenanceOverview").innerHTML = `
+        <section class="asset-section department-last-pm-section">
+            <div class="department-last-pm-icon"><i data-lucide="calendar-check-2"></i></div>
+            <div>
+                <span>Last preventive maintenance completed</span>
+                <strong>${formatAssetDetailDate(asset.last_pm_date)}</strong>
+                <p>${asset.last_pm_date ? "This is the latest completed PM recorded for this equipment." : "No completed preventive-maintenance visit has been recorded yet."}</p>
+            </div>
+        </section>
+    `;
+    if (window.lucide) window.lucide.createIcons();
 }
 // ==========================================
 // GENERAL INFO

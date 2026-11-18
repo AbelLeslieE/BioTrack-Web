@@ -53,6 +53,25 @@ def _assets_visible_to(db: Session, current_user: User):
     return assets
 
 
+def _last_completed_pm_date(db: Session, asset_id: int):
+    history = (
+        db.query(PMHistory)
+        .filter(PMHistory.asset_id == asset_id, PMHistory.completed_date.isnot(None))
+        .order_by(PMHistory.completed_date.desc())
+        .first()
+    )
+    if history:
+        return history.completed_date
+
+    schedule = (
+        db.query(PMSchedule)
+        .filter(PMSchedule.asset_id == asset_id, PMSchedule.completed_date.isnot(None))
+        .order_by(PMSchedule.completed_date.desc())
+        .first()
+    )
+    return schedule.completed_date if schedule else None
+
+
 # ==========================================
 # IMPORT EXCEL
 # ==========================================
@@ -491,70 +510,50 @@ def get_asset(
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    return {
-
+    last_pm_date = _last_completed_pm_date(db, asset.id)
+    general_details = {
         "id": asset.id,
-
         "asset_code": asset.asset_code,
-
         "equipment_no": asset.equipment_no,
-
         "equipment_name": asset.equipment_name,
-
         "classification": asset.classification,
-
         "equipment_type": asset.equipment_type,
-
         "manufacturer": asset.manufacturer,
-
-        "manufacturer_address": asset.manufacturer_address,
-
         "model": asset.model,
-
         "serial_number": asset.serial_number,
-
         "manufacturing_year": asset.manufacturing_year,
-
-        "maintained_by": asset.maintained_by,
-
         "service_team": asset.service_team,
-
-        "supplier": asset.supplier,
-
-        "purchase_value": asset.purchase_value,
-
-        "tax_amount": asset.tax_amount,
-
-        "net_value": asset.net_value,
-
-        "purchase_date": asset.purchase_date,
-
-        "installation_date": asset.installation_date,
-
-        "warranty": asset.warranty,
-
         "department": asset.department,
-
         "location": asset.location,
-
         "status": asset.status,
-
-        "pm_frequency": asset.pm_frequency,
-
-        "calibration_required": asset.calibration_required,
-
-        "remarks": asset.remarks,
-
         "image_path": asset.image_path,
+        "last_pm_date": last_pm_date,
+    }
 
+    # Department staff only receive operational identification and the latest
+    # PM date. Procurement, warranty and lifecycle data remain private to
+    # administrators and the responsible engineering teams.
+    if current_user.role == "User":
+        return general_details
+
+    return {
+        **general_details,
+        "manufacturer_address": asset.manufacturer_address,
+        "maintained_by": asset.maintained_by,
+        "supplier": asset.supplier,
+        "purchase_value": asset.purchase_value,
+        "tax_amount": asset.tax_amount,
+        "net_value": asset.net_value,
+        "purchase_date": asset.purchase_date,
+        "installation_date": asset.installation_date,
+        "warranty": asset.warranty,
+        "pm_frequency": asset.pm_frequency,
+        "calibration_required": asset.calibration_required,
+        "remarks": asset.remarks,
         "qr_generated": asset.qr_generated,
-
         "qr_code": qr_url_for_asset_code(asset.asset_code) if asset.qr_generated else None,
-
         "created_at": asset.created_at,
-
-        "updated_at": asset.updated_at
-
+        "updated_at": asset.updated_at,
     }
 # ==========================================
 # CREATE NEW ASSET

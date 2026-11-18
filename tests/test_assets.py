@@ -1,6 +1,7 @@
 import unittest
 import asyncio
 import inspect
+from datetime import date
 from io import BytesIO
 from types import SimpleNamespace
 
@@ -34,6 +35,62 @@ from backend.services.service_team import team_for_user
 
 
 class AssetRouteTests(unittest.TestCase):
+    def test_department_asset_details_hide_finances_and_include_latest_pm(self):
+        engine = create_engine("sqlite:///:memory:")
+        for table in (Asset.__table__, PMSchedule.__table__, PMHistory.__table__):
+            table.create(engine)
+        session = sessionmaker(bind=engine)()
+        try:
+            asset = Asset(
+                asset_code="BIO-PRIVATE-1",
+                equipment_no="EQ-001",
+                equipment_name="Patient Monitor",
+                department="Nephrology",
+                service_team="Biomedical",
+                purchase_value=85000,
+                tax_amount=15300,
+                net_value=100300,
+                supplier="Private Supplier",
+            )
+            session.add(asset)
+            session.flush()
+            schedule = PMSchedule(
+                asset_id=asset.id,
+                scheduled_date=date(2026, 10, 1),
+                completed_date=date(2026, 10, 2),
+                frequency_days=90,
+                status="Completed",
+            )
+            session.add(schedule)
+            session.flush()
+            session.add(PMHistory(
+                asset_id=asset.id,
+                pm_schedule_id=schedule.id,
+                completed_date=date(2026, 10, 2),
+            ))
+            session.commit()
+
+            department_result = get_asset(
+                asset.id,
+                session,
+                SimpleNamespace(role="User", department="Nephrology"),
+            )
+            self.assertEqual(department_result["last_pm_date"], date(2026, 10, 2))
+            self.assertEqual(department_result["equipment_name"], "Patient Monitor")
+            for private_field in ("purchase_value", "tax_amount", "net_value", "supplier", "warranty"):
+                self.assertNotIn(private_field, department_result)
+
+            manager_result = get_asset(
+                asset.id,
+                session,
+                SimpleNamespace(role="Manager", department=None),
+            )
+            self.assertEqual(manager_result["purchase_value"], 85000)
+            self.assertEqual(manager_result["last_pm_date"], date(2026, 10, 2))
+        finally:
+            session.close()
+            engine.dispose()
+
     def test_manager_service_team_normalization_preserves_it_acronym(self):
         manager = SimpleNamespace(role="Manager")
         self.assertEqual(team_for_user(manager, "IT"), "IT")

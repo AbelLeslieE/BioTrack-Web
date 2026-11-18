@@ -521,6 +521,10 @@ body.dark-theme .asset-edit-footer{background:var(--dark-surface);border-color:v
 body.dark-theme .asset-edit-cancel{color:#d0dced;background:#17263c;border-color:#40536d}
 body.dark-theme .asset-details-page .asset-image-card,
 body.dark-theme .asset-details-page .asset-image{background:#122138}
+body.dark-theme .department-last-pm-section{background:linear-gradient(135deg,#132b4b 0%,#102d2c 100%);border-color:#285586}
+body.dark-theme .department-last-pm-icon{color:#86efac;background:#163b32}
+body.dark-theme .department-last-pm-section strong{color:var(--dark-text)}
+body.dark-theme .department-last-pm-section :is(span,p){color:var(--dark-muted)}
 body.dark-theme .asset-action-btn{color:#dce8f6;background:#16263d;border-color:#3a4d68}
 body.dark-theme .asset-qr-button{color:#fff;background:#2563eb;border-color:#2563eb}
 body.dark-theme .downtime-cancel-btn{color:#d3dfed;background:#17273e;border-color:#3b5271}
