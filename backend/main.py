@@ -5,6 +5,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from starlette.middleware.gzip import GZipMiddleware
 from backend.models import Base
 from backend.routes.dashboard_routes import router as dashboard_router
 from backend.routes.log_routes import router as log_router
@@ -35,6 +36,19 @@ app = FastAPI(
     title="BioTrack Web",
     version="1.0.0"
 )
+
+# Compress the dashboard bundles on their first download. Short-lived browser
+# caching keeps repeat visits fast while still allowing deployments to appear
+# quickly without stale application files.
+app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=6)
+
+
+@app.middleware("http")
+async def cache_static_assets(request, call_next):
+    response = await call_next(request)
+    if request.method == "GET" and request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "public, max-age=3600, stale-while-revalidate=86400"
+    return response
 
 
 @app.get("/api/health", include_in_schema=False)

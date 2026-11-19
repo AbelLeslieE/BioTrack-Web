@@ -4,13 +4,13 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.join(__dirname, "..");
-const dashboard = fs.readFileSync(path.join(root, "frontend/dashboard_v2/dashboard.html"), "utf8");
+const dashboardStyles = fs.readFileSync(path.join(root, "frontend/dashboard_v2/dist/dashboard.bundle.css"), "utf8");
 const darkTheme = fs.readFileSync(path.join(root, "frontend/dashboard_v2/css/dark_theme.css"), "utf8");
 
 test("dark theme stylesheet loads after all module styles", () => {
-    const darkIndex = dashboard.indexOf("dark_theme.css");
+    const darkIndex = dashboardStyles.indexOf("source: dashboard_v2/css/dark_theme.css");
     assert.notEqual(darkIndex, -1);
-    assert.ok(darkIndex > dashboard.indexOf("responsive_overrides.css"));
+    assert.ok(darkIndex > dashboardStyles.indexOf("source: dashboard_v2/css/responsive_overrides.css"));
 });
 
 test("dark theme covers every role portal and primary module surface", () => {

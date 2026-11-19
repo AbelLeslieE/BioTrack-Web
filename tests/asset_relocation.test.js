@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, "..");
 const shared = fs.readFileSync(path.join(root, "frontend/dashboard_v2/js/assetRelocation.js"), "utf8");
 const myAssets = fs.readFileSync(path.join(root, "frontend/dashboard_v2/views/myAssetsView.js"), "utf8");
 const assets = fs.readFileSync(path.join(root, "frontend/dashboard_v2/views/assetsView.js"), "utf8");
-const dashboard = fs.readFileSync(path.join(root, "frontend/dashboard_v2/dashboard.html"), "utf8");
+const dashboardBundle = fs.readFileSync(path.join(root, "frontend/dashboard_v2/dist/dashboard.bundle.js"), "utf8");
 const notifications = fs.readFileSync(path.join(root, "frontend/dashboard_v2/js/notifications.js"), "utf8");
 
 test("department users can request a department or room relocation from My Assets", () => {
@@ -29,8 +29,8 @@ test("engineering teams receive an approval queue that updates the asset", () =>
 });
 
 test("relocation workflow is loaded before asset views", () => {
-    const sharedIndex = dashboard.indexOf("assetRelocation.js");
+    const sharedIndex = dashboardBundle.indexOf("source: dashboard_v2/js/assetRelocation.js");
     assert.ok(sharedIndex > -1);
-    assert.ok(sharedIndex < dashboard.indexOf("myAssetsView.js"));
-    assert.ok(sharedIndex < dashboard.indexOf("assetsView.js"));
+    assert.ok(sharedIndex < dashboardBundle.indexOf("source: dashboard_v2/views/myAssetsView.js"));
+    assert.ok(sharedIndex < dashboardBundle.indexOf("source: dashboard_v2/views/assetsView.js"));
 });

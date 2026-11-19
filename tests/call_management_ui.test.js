@@ -10,7 +10,8 @@ const darkStyles = fs.readFileSync(path.join(root, "frontend/dashboard_v2/css/da
 const sidebar = fs.readFileSync(path.join(root, "frontend/dashboard_v2/js/sidebar.js"), "utf8");
 const departmentSource = fs.readFileSync(path.join(root, "frontend/dashboard_v2/views/myRequestsView.js"), "utf8");
 const departmentStyles = fs.readFileSync(path.join(root, "frontend/dashboard_v2/css/my_requests.css"), "utf8");
-const dashboard = fs.readFileSync(path.join(root, "frontend/dashboard_v2/dashboard.html"), "utf8");
+const dashboardStyles = fs.readFileSync(path.join(root, "frontend/dashboard_v2/dist/dashboard.bundle.css"), "utf8");
+const dashboardScripts = fs.readFileSync(path.join(root, "frontend/dashboard_v2/dist/dashboard.bundle.js"), "utf8");
 
 test("call management adapts its service desk to every engineering portal", () => {
     assert.match(source, /Hospital operations control/);
@@ -57,8 +58,8 @@ test("department users receive the redesigned maintenance request centre", () =>
     assert.match(departmentSource, /myrequest-equipment/);
     assert.match(departmentSource, /credentials: "same-origin"/);
     assert.match(departmentSource, /setInterval[\s\S]*60000/);
-    assert.match(dashboard, /my_requests\.css\?v=2/);
-    assert.match(dashboard, /myRequestsView\.js\?v=2/);
+    assert.match(dashboardStyles, /source: dashboard_v2\/css\/my_requests\.css/);
+    assert.match(dashboardScripts, /source: dashboard_v2\/views\/myRequestsView\.js/);
 });
 
 test("department request centre has responsive and dark-mode coverage", () => {

@@ -23,12 +23,12 @@ test("official hospital department list exposes all 27 selectable departments", 
 });
 
 test("user and asset add/edit forms use the shared department dropdown", () => {
-    const dashboard = read("frontend/dashboard_v2/dashboard.html");
+    const dashboardBundle = read("frontend/dashboard_v2/dist/dashboard.bundle.js");
     const users = read("frontend/dashboard_v2/views/usersView.js");
     const assetForm = read("frontend/dashboard_v2/views/assetFormView.js");
     const assetEditor = read("frontend/dashboard_v2/js/asset_profile.js");
 
-    assert.match(dashboard, /js\/hospital_departments\.js/);
+    assert.match(dashboardBundle, /source: dashboard_v2\/js\/hospital_departments\.js/);
     assert.match(users, /<select id="newDept" required>\$\{renderHospitalDepartmentOptions\(currentUser\?\.department\)\}<\/select>/);
     assert.match(assetForm, /<select id="department">[\s\S]*renderHospitalDepartmentOptions\(\)/);
     assert.match(assetEditor, /<select name="department">\$\{renderHospitalDepartmentOptions\(asset\.department\)\}<\/select>/);

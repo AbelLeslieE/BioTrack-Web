@@ -13,7 +13,7 @@ from fastapi import (
     Body,
 )
 from sqlalchemy.orm import Session
-from sqlalchemy import false
+from sqlalchemy import false, func, select
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.database import get_db
@@ -54,22 +54,17 @@ def _assets_visible_to(db: Session, current_user: User):
 
 
 def _last_completed_pm_date(db: Session, asset_id: int):
-    history = (
-        db.query(PMHistory)
-        .filter(PMHistory.asset_id == asset_id, PMHistory.completed_date.isnot(None))
-        .order_by(PMHistory.completed_date.desc())
-        .first()
+    history_date = (
+        select(func.max(PMHistory.completed_date))
+        .where(PMHistory.asset_id == asset_id)
+        .scalar_subquery()
     )
-    if history:
-        return history.completed_date
-
-    schedule = (
-        db.query(PMSchedule)
-        .filter(PMSchedule.asset_id == asset_id, PMSchedule.completed_date.isnot(None))
-        .order_by(PMSchedule.completed_date.desc())
-        .first()
+    schedule_date = (
+        select(func.max(PMSchedule.completed_date))
+        .where(PMSchedule.asset_id == asset_id)
+        .scalar_subquery()
     )
-    return schedule.completed_date if schedule else None
+    return db.execute(select(func.coalesce(history_date, schedule_date))).scalar_one_or_none()
 
 
 # ==========================================

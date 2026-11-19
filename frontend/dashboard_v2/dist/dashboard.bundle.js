@@ -1,0 +1,17353 @@
+/* source: js/toast.js */
+(function installBioTrackToasts() {
+    "use strict";
+
+    const TYPES = {
+        success: { icon: "✓", title: "Success" },
+        error: { icon: "!", title: "Something went wrong" },
+        warning: { icon: "!", title: "Attention needed" },
+        info: { icon: "i", title: "BioTrack" },
+    };
+    const activeToasts = new Set();
+
+    function ensureRegion() {
+        let region = document.getElementById("appToastRegion");
+        if (region || !document.body) return region;
+        region = document.createElement("div");
+        region.id = "appToastRegion";
+        region.className = "app-toast-region";
+        region.setAttribute("aria-label", "BioTrack notifications");
+        region.setAttribute("aria-live", "polite");
+        region.setAttribute("aria-relevant", "additions");
+        document.body.appendChild(region);
+        return region;
+    }
+
+    function dismiss(toast) {
+        if (!toast || !toast.isConnected || toast.classList.contains("is-leaving")) return;
+        toast.classList.add("is-leaving");
+        activeToasts.delete(toast);
+        window.setTimeout(() => toast.remove(), 240);
+    }
+
+    function show({ title, message, type = "info", duration = 5200 } = {}) {
+        const normalizedType = Object.hasOwn(TYPES, type) ? type : "info";
+        const metadata = TYPES[normalizedType];
+        const region = ensureRegion();
+        if (!region) {
+            document.addEventListener(
+                "DOMContentLoaded",
+                () => show({ title, message, type: normalizedType, duration }),
+                { once: true },
+            );
+            return null;
+        }
+
+        while (activeToasts.size >= 4) dismiss(activeToasts.values().next().value);
+
+        const toast = document.createElement("section");
+        toast.className = `app-toast app-toast--${normalizedType}`;
+        toast.setAttribute("role", normalizedType === "error" ? "alert" : "status");
+        toast.style.setProperty("--toast-duration", `${Math.max(2500, duration)}ms`);
+
+        const icon = document.createElement("span");
+        icon.className = "app-toast__icon";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = metadata.icon;
+
+        const copy = document.createElement("div");
+        copy.className = "app-toast__copy";
+        const heading = document.createElement("h3");
+        heading.className = "app-toast__title";
+        heading.textContent = String(title || metadata.title);
+        const body = document.createElement("p");
+        body.className = "app-toast__message";
+        body.textContent = String(message || "");
+        copy.append(heading, body);
+
+        const close = document.createElement("button");
+        close.className = "app-toast__close";
+        close.type = "button";
+        close.setAttribute("aria-label", "Dismiss notification");
+        close.textContent = "×";
+        close.addEventListener("click", () => dismiss(toast));
+
+        const progress = document.createElement("span");
+        progress.className = "app-toast__progress";
+        progress.setAttribute("aria-hidden", "true");
+
+        toast.append(icon, copy, close, progress);
+        region.appendChild(toast);
+        activeToasts.add(toast);
+        requestAnimationFrame(() => toast.classList.add("is-visible"));
+
+        window.setTimeout(() => dismiss(toast), Math.max(2500, duration));
+        return toast;
+    }
+
+    const api = {
+        show,
+        success: (title, message, options = {}) => show({ ...options, title, message, type: "success" }),
+        error: (title, message, options = {}) => show({ ...options, title, message, type: "error" }),
+        warning: (title, message, options = {}) => show({ ...options, title, message, type: "warning" }),
+        info: (title, message, options = {}) => show({ ...options, title, message, type: "info" }),
+        dismissAll: () => [...activeToasts].forEach(dismiss),
+    };
+
+    window.BioTrackToast = api;
+    window.notifyUser = function notifyUser(message, type = "info", title) {
+        return show({ title, message, type });
+    };
+
+    // Safety net for older modules: native alerts become non-blocking BioTrack
+    // notifications, so users never see the browser's "page says" dialog.
+    window.alert = function toastInsteadOfAlert(message) {
+        const text = String(message || "");
+        const type = /failed|failure|error|unable|invalid|not found/i.test(text)
+            ? "error"
+            : /success|saved|imported|scheduled|updated|completed/i.test(text)
+                ? "success"
+                : /select|required|please|attention/i.test(text)
+                    ? "warning"
+                    : "info";
+        return show({ message: text, type });
+    };
+})();
+
+;
+/* source: dashboard_v2/js/security.js */
+// Shared output-encoding helpers for HTML assembled by dashboard views.
+(function registerSecurityHelpers(global) {
+    "use strict";
+
+    let sessionExpiryInProgress = false;
+
+    function normalizedDashboardRole(role) {
+        const value = String(role || "").trim().toLowerCase();
+        if (value === "manager") return "admin";
+        if (value === "bme") return "engineer";
+        return value;
+    }
+
+    global.clearDashboardIdentity = function clearDashboardIdentity() {
+        ["role", "department", "username", "name"].forEach(key => localStorage.removeItem(key));
+        sessionStorage.removeItem("qrMaintenancePrefill");
+    };
+
+    global.expireDashboardSession = async function expireDashboardSession(message = "") {
+        if (sessionExpiryInProgress) return false;
+        sessionExpiryInProgress = true;
+        const notice = message === "User not found."
+            ? "Your previous account session is no longer valid. Please sign in again."
+            : (message || "Your session has expired. Please sign in again.");
+        sessionStorage.setItem("biotrackLoginNotice", notice);
+        global.clearDashboardIdentity();
+        try {
+            await fetch("/api/logout", { method: "POST" });
+        } catch (error) {
+            console.warn("Unable to clear the server session", error);
+        }
+        global.location.replace("/");
+        return false;
+    };
+
+    global.validateDashboardSession = async function validateDashboardSession() {
+        try {
+            const response = await fetch("/api/auth/me", { cache: "no-store" });
+            const profile = await response.json().catch(() => ({}));
+            if (response.status === 401) {
+                return global.expireDashboardSession(profile.detail);
+            }
+            if (!response.ok) {
+                console.warn("Session validation is temporarily unavailable.");
+                return true;
+            }
+
+            const dashboardRole = normalizedDashboardRole(profile.role);
+            localStorage.setItem("role", dashboardRole);
+            localStorage.setItem("department", profile.department || "");
+            localStorage.setItem("username", profile.username || "");
+            localStorage.setItem("name", profile.name || profile.username || "");
+            return true;
+        } catch (error) {
+            console.warn("Unable to validate the current session", error);
+            return true;
+        }
+    };
+
+    global.escapeHTML = function escapeHTML(value) {
+        return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#39;");
+    };
+})(window);
+
+;
+/* source: dashboard_v2/js/hospital_departments.js */
+(function exposeHospitalDepartments(global) {
+    const departments = [
+        "Anaesthesiology and Critical Care",
+        "Audiology and Speech Language Pathology",
+        "Cardiothoracic Surgery",
+        "Dental and Maxillofacial Surgery",
+        "Dermatology",
+        "ENT (Ear, Nose and Throat)",
+        "Gastroenterology",
+        "General Medicine",
+        "General Surgery",
+        "Haemato-Oncology",
+        "Heart Care Centre (Cardiology)",
+        "Neonatology",
+        "Nephrology",
+        "Neurology",
+        "Neurosurgery",
+        "Obstetrics and Gynaecology",
+        "Ophthalmology",
+        "Orthopaedics and Trauma Surgery",
+        "Paediatrics",
+        "Physiotherapy",
+        "Pathology",
+        "Plastic Surgery",
+        "Psychiatry",
+        "Pulmonology",
+        "Radiology",
+        "Urology",
+        "Research",
+    ];
+
+    function escapeOption(value) {
+        if (typeof global.escapeHTML === "function") return global.escapeHTML(value);
+        return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    global.HOSPITAL_DEPARTMENTS = Object.freeze(departments.slice());
+    global.renderHospitalDepartmentOptions = function renderHospitalDepartmentOptions(
+        selectedDepartment = "",
+        placeholder = "Select a department",
+    ) {
+        const selected = String(selectedDepartment || "").trim();
+        const knownDepartment = departments.includes(selected);
+        const placeholderOption = `<option value="" ${selected ? "" : "selected"} disabled>${escapeOption(placeholder)}</option>`;
+        const existingOption = selected && !knownDepartment
+            ? `<option value="${escapeOption(selected)}" selected>${escapeOption(selected)} (existing)</option>`
+            : "";
+        const options = departments.map(department => (
+            `<option value="${escapeOption(department)}" ${department === selected ? "selected" : ""}>${escapeOption(department)}</option>`
+        )).join("");
+        return placeholderOption + existingOption + options;
+    };
+})(window);
+
+;
+/* source: dashboard_v2/js/assetRelocation.js */
+(function exposeAssetRelocation(global) {
+    "use strict";
+
+    let escapeHandler = null;
+
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function toast(type, title, message) {
+        if (global.BioTrackToast?.[type]) global.BioTrackToast[type](title, message);
+    }
+
+    async function responseJson(response) {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const detail = Array.isArray(payload.detail)
+                ? payload.detail.map(item => item.msg || String(item)).join("\n")
+                : payload.detail;
+            throw new Error(detail || "The relocation request could not be processed.");
+        }
+        return payload;
+    }
+
+    function close() {
+        document.getElementById("assetRelocationOverlay")?.remove();
+        document.body.classList.remove("asset-management-dialog-open");
+        if (escapeHandler) document.removeEventListener("keydown", escapeHandler);
+        escapeHandler = null;
+    }
+
+    function mount(content) {
+        close();
+        const overlay = document.createElement("div");
+        overlay.id = "assetRelocationOverlay";
+        overlay.className = "asset-management-overlay";
+        overlay.innerHTML = content;
+        document.body.appendChild(overlay);
+        document.body.classList.add("asset-management-dialog-open");
+        overlay.addEventListener("mousedown", event => {
+            if (event.target === overlay) close();
+        });
+        overlay.querySelectorAll("[data-close-relocation]").forEach(button => button.addEventListener("click", close));
+        escapeHandler = event => {
+            if (event.key === "Escape") close();
+        };
+        document.addEventListener("keydown", escapeHandler);
+        if (global.lucide) global.lucide.createIcons();
+        return overlay;
+    }
+
+    async function loadMine() {
+        const response = await fetch("/api/assets/relocation-requests/mine", { headers: { Accept: "application/json" } });
+        return responseJson(response);
+    }
+
+    function openRequest(asset) {
+        const departmentOptions = typeof global.renderHospitalDepartmentOptions === "function"
+            ? global.renderHospitalDepartmentOptions(asset.department || "", "Select destination department")
+            : `<option value="${escapeHtml(asset.department || "")}" selected>${escapeHtml(asset.department || "Current department")}</option>`;
+        const overlay = mount(`
+            <section class="asset-management-dialog relocation-request-dialog" role="dialog" aria-modal="true" aria-labelledby="relocationRequestTitle">
+                <header>
+                    <span><i data-lucide="route"></i></span>
+                    <div><h2 id="relocationRequestTitle">Request asset relocation</h2><p>The ${escapeHtml(asset.service_team || "Biomedical")} engineering team will review this request before the asset record changes.</p></div>
+                    <button class="asset-management-close" type="button" data-close-relocation aria-label="Close"><i data-lucide="x"></i></button>
+                </header>
+                <form id="assetRelocationRequestForm" class="relocation-request-form">
+                    <div class="relocation-asset-summary">
+                        <span><i data-lucide="monitor-cog"></i></span>
+                        <div><strong>${escapeHtml(asset.equipment_name || "Hospital asset")}</strong><small>${escapeHtml(asset.asset_code || asset.equipment_no || `Asset ${asset.id}`)} · ${escapeHtml(asset.service_team || "Biomedical")}</small></div>
+                    </div>
+                    <div class="relocation-current-location"><span>Current assignment</span><strong>${escapeHtml(asset.department || "Unassigned")} · ${escapeHtml(asset.location || "No room recorded")}</strong></div>
+                    <div class="relocation-form-grid">
+                        <label>Destination department<select id="relocationTargetDepartment" required>${departmentOptions}</select></label>
+                        <label>Destination room / location<input id="relocationTargetLocation" maxlength="255" placeholder="Example: Ward 3 / Room 204"></label>
+                    </div>
+                    <label>Reason or handling instructions <span>(optional)</span><textarea id="relocationReason" maxlength="2000" placeholder="Explain why the asset should be moved or any precautions for the engineering team."></textarea></label>
+                    <p class="relocation-form-note"><i data-lucide="info"></i> The current location remains unchanged until the engineering team approves this request.</p>
+                    <footer><button type="button" class="asset-dialog-secondary" data-close-relocation>Cancel</button><button id="submitRelocationRequest" type="submit" class="relocation-primary-button"><i data-lucide="send"></i> Send request</button></footer>
+                </form>
+            </section>
+        `);
+        overlay.querySelector("#assetRelocationRequestForm").addEventListener("submit", async event => {
+            event.preventDefault();
+            const submit = overlay.querySelector("#submitRelocationRequest");
+            submit.disabled = true;
+            submit.innerHTML = '<span class="relocation-button-spinner" aria-hidden="true"></span> Sending…';
+            try {
+                await responseJson(await fetch("/api/assets/relocation-requests", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Accept: "application/json" },
+                    body: JSON.stringify({
+                        asset_id: asset.id,
+                        target_department: overlay.querySelector("#relocationTargetDepartment").value,
+                        target_location: overlay.querySelector("#relocationTargetLocation").value.trim(),
+                        reason: overlay.querySelector("#relocationReason").value.trim(),
+                    }),
+                }));
+                close();
+                toast("success", "Relocation request sent", `The ${asset.service_team || "Biomedical"} engineering team has been notified.`);
+                await global.loadMyAssets?.();
+                await global.BioTrackNotifications?.fetch?.({ allowDesktop: false });
+            } catch (error) {
+                toast("error", "Request not sent", error.message);
+                submit.disabled = false;
+                submit.innerHTML = '<i data-lucide="send"></i> Send request';
+                global.lucide?.createIcons();
+            }
+        });
+    }
+
+    function queueCard(item) {
+        const destination = `${item.target_department || "Unassigned"}${item.target_location ? ` · ${item.target_location}` : ""}`;
+        const origin = `${item.from_department || "Unassigned"}${item.from_location ? ` · ${item.from_location}` : ""}`;
+        return `
+            <article class="relocation-queue-card" data-relocation-request="${item.id}">
+                <div class="relocation-queue-heading"><span><i data-lucide="monitor-cog"></i></span><div><strong>${escapeHtml(item.equipment_name || "Hospital asset")}</strong><small>${escapeHtml(item.asset_code || `Asset ${item.asset_id}`)} · ${escapeHtml(item.service_team || "Biomedical")}</small></div><em>Pending</em></div>
+                <div class="relocation-route"><div><span>From</span><strong>${escapeHtml(origin)}</strong></div><i data-lucide="arrow-right"></i><div><span>To</span><strong>${escapeHtml(destination)}</strong></div></div>
+                <p><strong>Requested by ${escapeHtml(item.requested_by || "Department user")}</strong>${item.reason ? `<br>${escapeHtml(item.reason)}` : "<br>No additional reason supplied."}</p>
+                <label>Engineering note <span>(optional)</span><textarea data-relocation-review-note maxlength="2000" placeholder="Add approval or rejection notes for the department."></textarea></label>
+                <footer><button type="button" class="relocation-reject-button" data-relocation-decision="reject"><i data-lucide="x"></i> Reject</button><button type="button" class="relocation-primary-button" data-relocation-decision="approve"><i data-lucide="check"></i> Approve & update asset</button></footer>
+            </article>
+        `;
+    }
+
+    async function openQueue() {
+        let items;
+        try {
+            items = await responseJson(await fetch("/api/assets/relocation-requests?status=Pending", { headers: { Accept: "application/json" } }));
+        } catch (error) {
+            toast("error", "Relocation requests unavailable", error.message);
+            return;
+        }
+        const overlay = mount(`
+            <section class="asset-management-dialog relocation-queue-dialog" role="dialog" aria-modal="true" aria-labelledby="relocationQueueTitle">
+                <header><span><i data-lucide="route"></i></span><div><h2 id="relocationQueueTitle">Asset relocation requests</h2><p>Approve requests assigned to your engineering service team. Approval updates the asset department and room.</p></div><button class="asset-management-close" type="button" data-close-relocation aria-label="Close"><i data-lucide="x"></i></button></header>
+                <div class="relocation-queue-list">${items.length ? items.map(queueCard).join("") : '<div class="relocation-empty-state"><i data-lucide="circle-check-big"></i><strong>No pending relocation requests</strong><p>Your engineering queue is clear.</p></div>'}</div>
+            </section>
+        `);
+        overlay.querySelectorAll("[data-relocation-decision]").forEach(button => button.addEventListener("click", async () => {
+            const card = button.closest("[data-relocation-request]");
+            const requestId = Number(card.dataset.relocationRequest);
+            const decision = button.dataset.relocationDecision;
+            card.querySelectorAll("button").forEach(item => item.disabled = true);
+            try {
+                await responseJson(await fetch(`/api/assets/relocation-requests/${requestId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json", Accept: "application/json" },
+                    body: JSON.stringify({ decision, review_note: card.querySelector("[data-relocation-review-note]").value.trim() }),
+                }));
+                const approved = decision === "approve";
+                toast(
+                    "success",
+                    approved ? "Relocation approved" : "Relocation rejected",
+                    approved
+                        ? "The asset department and location have been updated."
+                        : "The department user has been notified.",
+                );
+                await global.loadAssets?.();
+                await global.BioTrackNotifications?.fetch?.({ allowDesktop: false });
+                await openQueue();
+            } catch (error) {
+                toast("error", "Unable to review request", error.message);
+                card.querySelectorAll("button").forEach(item => item.disabled = false);
+            }
+        }));
+    }
+
+    global.AssetRelocation = { close, loadMine, openRequest, openQueue };
+    global.closeAssetRelocationDialog = close;
+})(window);
+
+;
+/* source: dashboard_v2/js/api.js */
+// ==========================================
+// API URL
+// ==========================================
+
+const API = {
+
+    dashboard: "/api/dashboard/v2"
+
+};
+// ==========================================
+// LOGOUT
+// ==========================================
+
+async function logoutUser() {
+
+    await fetch("/api/logout", {
+        method: "POST"
+    });
+
+}
+// ==========================================
+// FETCH DASHBOARD
+// ==========================================
+
+async function getDashboardData() {
+
+    try {
+
+        const response = await fetch(API.dashboard);
+
+        return await response.json();
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        return null;
+
+    }
+
+}
+;
+/* source: dashboard_v2/js/pagination.js */
+/* Shared client-side pagination for the data tables in BioTrack. */
+(function () {
+    const PAGE_SIZES = [10, 25, 50, 100];
+
+    function renderPagination(container, state, totalItems, onChange, label = "items") {
+        if (!container) return;
+
+        const pageSize = PAGE_SIZES.includes(Number(state.pageSize))
+            ? Number(state.pageSize)
+            : PAGE_SIZES[0];
+        const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+        const page = Math.min(Math.max(1, Number(state.page) || 1), totalPages);
+
+        state.page = page;
+        state.pageSize = pageSize;
+
+        if (totalItems === 0) {
+            container.innerHTML = "";
+            return;
+        }
+
+        const start = (page - 1) * pageSize + 1;
+        const end = Math.min(page * pageSize, totalItems);
+        const pageButtons = [];
+
+        for (let value = Math.max(1, page - 2); value <= Math.min(totalPages, page + 2); value += 1) {
+            pageButtons.push(`<button type="button" class="pagination-page ${value === page ? "is-active" : ""}" data-page="${value}" aria-label="Page ${value}">${value}</button>`);
+        }
+
+        container.innerHTML = `
+            <div class="pagination-summary">Showing ${start}-${end} of ${totalItems} ${label}</div>
+            <div class="pagination-controls">
+                <label class="pagination-size-label">Rows per page
+                    <select class="pagination-size" aria-label="Rows per page">
+                        ${PAGE_SIZES.map(size => `<option value="${size}" ${size === pageSize ? "selected" : ""}>${size}</option>`).join("")}
+                    </select>
+                </label>
+                <div class="pagination-pages" aria-label="Pagination">
+                    <button type="button" class="pagination-page" data-page="${page - 1}" ${page === 1 ? "disabled" : ""}>Previous</button>
+                    ${pageButtons.join("")}
+                    <button type="button" class="pagination-page" data-page="${page + 1}" ${page === totalPages ? "disabled" : ""}>Next</button>
+                </div>
+            </div>
+        `;
+
+        container.querySelector(".pagination-size").addEventListener("change", (event) => {
+            state.pageSize = Number(event.target.value);
+            state.page = 1;
+            onChange();
+        });
+
+        container.querySelectorAll("[data-page]").forEach((button) => {
+            button.addEventListener("click", () => {
+                const nextPage = Number(button.dataset.page);
+                if (nextPage < 1 || nextPage > totalPages || nextPage === state.page) return;
+                state.page = nextPage;
+                onChange();
+            });
+        });
+    }
+
+    window.TablePagination = {
+        pageItems(items, state) {
+            const totalPages = Math.max(1, Math.ceil(items.length / state.pageSize));
+            state.page = Math.min(Math.max(1, state.page), totalPages);
+            const start = (state.page - 1) * state.pageSize;
+            return items.slice(start, start + state.pageSize);
+        },
+        render: renderPagination,
+    };
+})();
+
+;
+/* source: dashboard_v2/js/logout.js */
+// ==========================================
+// LOGOUT
+// ==========================================
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    console.log("Logout JS Loaded");
+
+    const logoutButton = document.querySelector(".logout-btn");
+
+    console.log(logoutButton);
+
+    logoutButton.addEventListener("click", async () => {
+
+        console.log("Logout clicked");
+
+        try {
+
+            const response = await fetch("/api/logout", {
+                method: "POST"
+            });
+
+            console.log(response.status);
+
+            if (typeof clearDashboardIdentity === "function") {
+                clearDashboardIdentity();
+            }
+
+            window.location.href = "/";
+
+        }
+
+        catch(error){
+
+            console.error(error);
+
+        }
+
+    });
+
+});
+
+;
+/* source: dashboard_v2/js/dashboard.js */
+// Data binding for the hospital-wide administrator dashboard.
+async function loadDashboard() {
+    if (!document.getElementById("adminTeamGrid")) return;
+    const data = await getDashboardData();
+    if (!data || !data.summary) {
+        renderAdminDashboardError("Dashboard data is temporarily unavailable. Refresh to try again.");
+        return;
+    }
+
+    const summary = data.summary;
+    setAdminDashboardText("adminOpsActiveCalls", summary.active_calls);
+    setAdminDashboardText("adminOpsCriticalCalls", summary.critical_calls);
+    setAdminDashboardText("adminOpsCompletedToday", summary.completed_today);
+    setAdminDashboardText("adminOpsAssets", summary.total_assets);
+    setAdminDashboardText("adminOpsActiveDetail", (summary.engineers || 0) + " engineering users across all departments");
+    setAdminDashboardText("adminOpsAssetsDetail", (summary.asset_availability_percent ?? 100) + "% currently available");
+    setAdminDashboardText("adminOpsActiveDowntime", adminFormatHours(summary.active_downtime_hours));
+    setAdminDashboardText("adminOpsAvgDowntime", adminFormatHours(summary.avg_downtime));
+    setAdminDashboardText("adminOpsStockHealth", (summary.stock_health_percent ?? 100) + "%");
+    setAdminDashboardText("adminOpsPmDue", summary.pm_due || 0);
+    setAdminDashboardText("adminOpsAwaitingParts", summary.awaiting_parts || 0);
+    setAdminDashboardText("adminOpsAssetAvailability", (summary.asset_availability_percent ?? 100) + "%");
+    setAdminDashboardText("adminOpsOldestCall", adminFormatHours(summary.oldest_active_call_hours) + " oldest active call");
+    setAdminDashboardText("adminOpsStockDetail", (summary.inventory_alerts || 0) + " low · " + (summary.out_of_stock || 0) + " out of stock");
+    setAdminDashboardText("adminOpsPmDetail", (summary.pm_overdue || 0) + " overdue · " + (summary.pm_pending_confirmation || 0) + " awaiting confirmation");
+    setAdminDashboardText("adminOpsAssetDetail", (summary.out_of_service_assets || 0) + " out of service");
+    setAdminDashboardText("adminLastUpdated", "Updated " + adminFormatDateTime(data.generated_at));
+    renderAdminTeams(data.teams || []);
+    renderAdminActivity(data.recent_activity || []);
+    renderAdminAttention(summary, data.teams || []);
+    if (window.lucide) lucide.createIcons();
+}
+
+function setAdminDashboardText(id, value) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value ?? "0";
+}
+
+function renderAdminTeams(teams) {
+    const container = document.getElementById("adminTeamGrid");
+    if (!container) return;
+    const expectedTeams = ["Biomedical", "Electrical", "IT"];
+    const teamRows = expectedTeams.map(team => teams.find(item => item.team === team) || { team, active_calls: 0, open_calls: 0, in_progress: 0, awaiting_parts: 0, completed_today: 0, critical_calls: 0, assets: 0, inventory_items: 0, low_stock: 0, engineers: 0 });
+    container.innerHTML = teamRows.map(team => {
+        const style = adminTeamStyle(team.team);
+        const attention = team.critical_calls || team.low_stock || team.awaiting_parts;
+        return `
+          <article class="admin-team-card is-${style.className}">
+            <header class="admin-team-card-header">
+              <div class="admin-team-identity"><span class="admin-team-icon">${adminTeamIconSvg(style.className)}</span><div><span>${adminEscape(team.team)} department</span><h3>${adminEscape(team.team)} Services</h3></div></div>
+              <span class="admin-team-state ${attention ? "is-attention" : "is-healthy"}">${attention ? "Needs review" : "On track"}</span>
+            </header>
+            <div class="admin-team-primary"><strong>${team.active_calls || 0}</strong><span>Active maintenance calls</span></div>
+            <div class="admin-team-metrics">
+              <div><strong>${team.in_progress || 0}</strong><span>In progress</span></div>
+              <div><strong>${team.awaiting_parts || 0}</strong><span>Awaiting parts</span></div>
+              <div><strong>${team.completed_today || 0}</strong><span>Resolved today</span></div>
+            </div>
+            <div class="admin-team-footer">
+              <span><i data-lucide="monitor-cog"></i> ${team.assets || 0} assets</span>
+              <span><i data-lucide="package-search"></i> ${team.low_stock || 0} stock alerts</span>
+              <span><i data-lucide="users"></i> ${team.engineers || 0} engineers</span>
+            </div>
+            <button class="admin-team-action" onclick="navigate('callManagement')">Review calls <i data-lucide="arrow-right"></i></button>
+          </article>
+        `;
+    }).join("");
+}
+
+function renderAdminActivity(items) {
+    const container = document.getElementById("adminActivityFeed");
+    if (!container) return;
+    if (!items.length) {
+        container.innerHTML = '<div class="admin-empty-state"><i data-lucide="clipboard-check"></i><strong>No maintenance calls yet</strong><p>New activity from all three departments will appear here.</p></div>';
+        return;
+    }
+    container.innerHTML = items.map(item => `
+      <article class="admin-activity-row">
+        <span class="admin-activity-team is-${adminTeamStyle(item.team).className}">${adminEscape(item.team)}</span>
+        <div class="admin-activity-copy"><strong>${adminEscape(item.equipment_name)}</strong><span>${adminEscape(item.ticket_number)} · ${adminEscape(item.department)}</span></div>
+        <div class="admin-activity-status"><span class="admin-status-pill is-${adminStatusClass(item.status)}">${adminEscape(item.status)}</span><time>${adminFormatDateTime(item.occurred_at)}</time></div>
+      </article>
+    `).join("");
+}
+
+function renderAdminAttention(summary, teams) {
+    const container = document.getElementById("adminAttentionList");
+    if (!container) return;
+    const items = [];
+    if (summary.critical_calls) items.push({ icon: "siren", tone: "red", title: summary.critical_calls + " critical call" + (summary.critical_calls === 1 ? "" : "s"), text: "Prioritize assignment and resolution.", page: "callManagement" });
+    if (summary.inventory_alerts) items.push({ icon: "package-x", tone: "orange", title: summary.inventory_alerts + " inventory alert" + (summary.inventory_alerts === 1 ? "" : "s"), text: (summary.out_of_stock || 0) + " items are completely out of stock.", page: "inventory" });
+    if (summary.pm_due) items.push({ icon: "calendar-clock", tone: "blue", title: summary.pm_due + " PM visit" + (summary.pm_due === 1 ? "" : "s") + " due", text: (summary.pm_overdue || 0) + " preventive-maintenance visits are overdue.", page: "pm" });
+    const awaiting = teams.reduce((total, team) => total + (team.awaiting_parts || 0), 0);
+    if (awaiting) items.push({ icon: "clock-3", tone: "violet", title: awaiting + " call" + (awaiting === 1 ? "" : "s") + " awaiting parts", text: "Coordinate supply before service delays increase.", page: "callManagement" });
+    if (summary.out_of_service_assets) items.push({ icon: "monitor-x", tone: "red", title: summary.out_of_service_assets + " asset" + (summary.out_of_service_assets === 1 ? "" : "s") + " out of service", text: "Review availability and maintenance status.", page: "assets" });
+    if ((summary.oldest_active_call_hours || 0) >= 24) items.push({ icon: "alarm-clock", tone: "orange", title: adminFormatHours(summary.oldest_active_call_hours) + " oldest active call", text: "This request has remained active for more than one day.", page: "callManagement" });
+    if (!items.length) items.push({ icon: "circle-check-big", tone: "green", title: "Operations are on track", text: "No critical calls, stock alerts, or PM visits need immediate action." });
+    items.push({ icon: "timer-reset", tone: "slate", title: adminFormatHours(summary.avg_downtime) + " average downtime", text: "Based on completed maintenance calls.", page: "reports" });
+    container.innerHTML = items.map(item => `<div class="admin-attention-row is-${item.tone}"><span><i data-lucide="${item.icon}"></i></span><div><strong>${adminEscape(item.title)}</strong><p>${adminEscape(item.text)}</p></div>${item.page ? `<button type="button" onclick="navigate('${item.page}')">Review</button>` : ""}</div>`).join("");
+}
+
+function renderAdminDashboardError(message) {
+    ["adminTeamGrid", "adminActivityFeed", "adminAttentionList"].forEach(id => {
+        const container = document.getElementById(id);
+        if (container) container.innerHTML = `<div class="admin-empty-state"><i data-lucide="wifi-off"></i><strong>Unable to load operations data</strong><p>${adminEscape(message)}</p></div>`;
+    });
+    if (window.lucide) lucide.createIcons();
+}
+
+function adminTeamStyle(team) {
+    const value = String(team || "Biomedical").toLowerCase();
+    if (value === "electrical") return { className: "electrical" };
+    if (value === "it") return { className: "it" };
+    return { className: "biomedical" };
+}
+
+function adminTeamIconSvg(team) {
+    const shared = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"';
+    if (team === "electrical") {
+        return `<svg ${shared}><path d="M8 2v5M16 2v5M6 7h12v3a6 6 0 0 1-12 0V7Z"/><path d="M12 16v6M9 22h6"/></svg>`;
+    }
+    if (team === "it") {
+        return `<svg ${shared}><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01M11 7.5h6M11 16.5h6"/></svg>`;
+    }
+    return `<svg ${shared}><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 11h2l1.4-3 3.1 6 1.4-3H18M9 22h6M12 18v4"/></svg>`;
+}
+
+function adminStatusClass(value) {
+    return String(value || "open").toLowerCase().replaceAll(/[^a-z0-9]+/g, "-");
+}
+
+function adminFormatDateTime(value) {
+    if (!value) return "No timestamp";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Recently";
+    return new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(date);
+}
+
+function adminFormatHours(value) {
+    const hours = Number(value || 0);
+    return (Number.isInteger(hours) ? hours : hours.toFixed(1)) + " h";
+}
+
+if (!window.adminDashboardShortcutsBound) {
+    window.adminDashboardShortcutsBound = true;
+    document.addEventListener("keydown", event => {
+        if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        if (event.target.closest("input, textarea, select, [contenteditable='true']")) return;
+        const shortcuts = { c: "callManagement", a: "assets", i: "inventory", p: "pm", q: "qr", r: "reports", u: "users", s: "settings" };
+        const page = shortcuts[String(event.key || "").toLowerCase()];
+        if (!page || typeof navigate !== "function") return;
+        event.preventDefault();
+        navigate(page);
+    });
+}
+
+function adminEscape(value) {
+    return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+;
+/* source: dashboard_v2/js/sidebar.js */
+// ==========================================
+// ROLE BASED SIDEBAR
+// ==========================================
+
+const sidebar = document.getElementById("sidebar-nav");
+
+const storedRole = (localStorage.getItem("role") || "").toLowerCase();
+const role = storedRole === "manager" ? "admin" : storedRole === "bme" ? "engineer" : storedRole;
+
+// ==========================================
+// ADMIN MENU
+// ==========================================
+
+const adminMenu = `
+
+<a href="#" class="nav-item active" data-page="dashboard">
+    <i data-lucide="layout-dashboard"></i>
+    <span>Dashboard</span>
+</a>
+
+<a href="#" class="nav-item" data-page="callManagement">
+    <i data-lucide="radio-tower"></i>
+    <span>Call Management</span>
+</a>
+
+<a href="#" class="nav-item" data-page="assets">
+    <i data-lucide="monitor-smartphone"></i>
+    <span>Assets</span>
+</a>
+
+<a href="#" class="nav-item" data-page="pm">
+    <i data-lucide="calendar-clock"></i>
+    <span>Preventive Maintenance</span>
+</a>
+
+<a href="#" class="nav-item" data-page="inventory">
+    <i data-lucide="boxes"></i>
+    <span>Inventory</span>
+</a>
+
+<a href="#" class="nav-item" data-page="users">
+    <i data-lucide="users"></i>
+    <span>Users</span>
+</a>
+
+ 
+
+<a href="#" class="nav-item" data-page="qr">
+    <i data-lucide="scan-line"></i>
+    <span>QR Scanner</span>
+</a>
+
+<a href="#" class="nav-item" data-page="reports">
+    <i data-lucide="bar-chart-3"></i>
+    <span>Reports</span>
+</a>
+
+
+
+<a href="#" class="nav-item" data-page="settings">
+    <i data-lucide="settings"></i>
+    <span>Settings</span>
+</a>
+
+`;
+
+// ==========================================
+// BIOMEDICAL ENGINEER MENU
+// ==========================================
+
+const engineerMenu = `
+
+<a href="#" class="nav-item" data-page="engineerDashboard">
+    <i data-lucide="layout-dashboard"></i>
+    <span>Dashboard</span>
+</a>
+<a href="#" class="nav-item" data-page="callManagement">
+    <i data-lucide="stethoscope"></i>
+    <span>Call Management</span>
+</a>
+<a href="#" class="nav-item" data-page="pm">
+    <i data-lucide="calendar-clock"></i>
+    <span>Preventive Maintenance</span>
+</a>
+
+<a href="#" class="nav-item" data-page="assets">
+    <i data-lucide="monitor-smartphone"></i>
+    <span>Assets</span>
+</a>
+
+<a href="#" class="nav-item" data-page="inventory">
+    <i data-lucide="boxes"></i>
+    <span>Inventory & Parts</span>
+</a>
+
+<a href="#" class="nav-item" data-page="reports">
+    <i data-lucide="bar-chart-3"></i>
+    <span>Reports</span>
+</a>
+
+<a href="#" class="nav-item" data-page="qr">
+    <i data-lucide="scan-line"></i>
+    <span>QR Scanner</span>
+</a>
+
+<a href="#" class="nav-item" data-page="settings">
+    <i data-lucide="settings"></i>
+    <span>Settings</span>
+</a>
+`;
+
+// ==========================================
+// ELECTRICAL ENGINEER MENU
+// ==========================================
+
+const electricalMenu = `
+
+<a href="#" class="nav-item" data-page="electricalDashboard">
+    <i data-lucide="zap"></i>
+    <span>Electrical Dashboard</span>
+</a>
+
+<a href="#" class="nav-item" data-page="callManagement">
+    <i data-lucide="plug-zap"></i>
+    <span>Electrical Calls</span>
+</a>
+
+<a href="#" class="nav-item" data-page="assets">
+    <i data-lucide="monitor-smartphone"></i>
+    <span>Assets</span>
+</a>
+
+<a href="#" class="nav-item" data-page="inventory">
+    <i data-lucide="boxes"></i>
+    <span>Inventory & Parts</span>
+</a>
+
+<a href="#" class="nav-item" data-page="settings">
+    <i data-lucide="settings"></i>
+    <span>Settings</span>
+</a>
+`;
+
+// ==========================================
+// IT DEPARTMENT MENU
+// ==========================================
+
+const itMenu = `
+
+<a href="#" class="nav-item" data-page="itDashboard">
+    <i data-lucide="monitor-cog"></i>
+    <span>IT Dashboard</span>
+</a>
+
+<a href="#" class="nav-item" data-page="callManagement">
+    <i data-lucide="server-cog"></i>
+    <span>IT Calls</span>
+</a>
+
+<a href="#" class="nav-item" data-page="assets">
+    <i data-lucide="laptop"></i>
+    <span>Assets</span>
+</a>
+
+<a href="#" class="nav-item" data-page="inventory">
+    <i data-lucide="boxes"></i>
+    <span>Inventory & Parts</span>
+</a>
+
+<a href="#" class="nav-item" data-page="settings">
+    <i data-lucide="settings"></i>
+    <span>Settings</span>
+</a>
+`;
+// ==========================================
+// USER MENU
+// ==========================================
+
+const userMenu = `
+
+<a href="#" class="nav-item active" data-page="userDashboard">
+    <i data-lucide="layout-dashboard"></i>
+    <span>Dashboard</span>
+</a>
+
+<a href="#" class="nav-item" data-page="newRequest">
+    <i data-lucide="plus-circle"></i>
+    <span>New Request</span>
+</a>
+
+<a href="#" class="nav-item" data-page="myRequests">
+    <i data-lucide="clipboard-list"></i>
+    <span>My Requests</span>
+</a>
+
+<a href="#" class="nav-item" data-page="myAssets">
+    <i data-lucide="monitor-smartphone"></i>
+    <span>My Assets</span>
+</a>
+
+<a href="#" class="nav-item" data-page="departmentPMSchedule">
+    <i data-lucide="calendar-clock"></i>
+    <span>PM Schedule</span>
+</a>
+
+<a href="#" class="nav-item" data-page="qr">
+    <i data-lucide="scan-line"></i>
+    <span>Scan QR</span>
+</a>
+
+<a href="#" class="nav-item" data-page="settings">
+    <i data-lucide="settings"></i>
+    <span>Settings</span>
+</a>
+
+`;
+
+const wardBoyMenu = `
+<a href="#" class="nav-item active" data-page="wardBoyDashboard">
+    <i data-lucide="truck"></i>
+    <span>Transport Jobs</span>
+</a>
+<a href="#" class="nav-item" data-page="settings">
+    <i data-lucide="settings"></i>
+    <span>Settings</span>
+</a>
+`;
+ 
+// ==========================================
+// LOAD MENU
+// ==========================================
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    const sidebar = document.getElementById("sidebar-nav");
+
+    if (!sidebar) return;
+
+    switch (role) {
+
+        case "manager":
+        case "admin":
+
+            sidebar.innerHTML = adminMenu;
+            break;
+
+        case "user":
+
+            sidebar.innerHTML = userMenu;
+            break;
+
+        case "engineer":
+
+            sidebar.innerHTML = engineerMenu;   
+            break;
+
+        case "electrical":
+
+            sidebar.innerHTML = electricalMenu;
+            break;
+
+        case "it":
+
+            sidebar.innerHTML = itMenu;
+            break;
+
+        case "wardboy":
+
+            sidebar.innerHTML = wardBoyMenu;
+            break;
+
+        default:
+
+            sidebar.innerHTML = "";
+
+    }
+
+    lucide.createIcons();
+
+});
+
+// Mobile navigation remains usable on narrow screens without covering the page.
+document.addEventListener("DOMContentLoaded", () => {
+    const menuButton = document.querySelector(".menu-toggle");
+    const appSidebar = document.querySelector(".sidebar");
+    if (!menuButton || !appSidebar) return;
+
+    const backdrop = document.createElement("button");
+    backdrop.type = "button";
+    backdrop.className = "sidebar-mobile-backdrop";
+    backdrop.setAttribute("aria-label", "Close navigation menu");
+    document.body.appendChild(backdrop);
+
+    const closeMenu = () => {
+        appSidebar.classList.remove("active");
+        backdrop.classList.remove("show");
+        document.body.classList.remove("mobile-nav-open");
+        appSidebar.setAttribute("aria-hidden", "true");
+        appSidebar.inert = true;
+        menuButton.setAttribute("aria-expanded", "false");
+        menuButton.setAttribute("aria-label", "Open navigation menu");
+    };
+    const toggleMenu = () => {
+        const willOpen = !appSidebar.classList.contains("active");
+        appSidebar.classList.toggle("active", willOpen);
+        backdrop.classList.toggle("show", willOpen);
+        document.body.classList.toggle("mobile-nav-open", willOpen);
+        appSidebar.setAttribute("aria-hidden", String(!willOpen));
+        appSidebar.inert = !willOpen;
+        menuButton.setAttribute("aria-expanded", String(willOpen));
+        menuButton.setAttribute("aria-label", willOpen ? "Close navigation menu" : "Open navigation menu");
+    };
+
+    closeMenu();
+    menuButton.addEventListener("click", toggleMenu);
+    backdrop.addEventListener("click", closeMenu);
+    appSidebar.addEventListener("click", event => {
+        if (event.target.closest(".nav-item")) closeMenu();
+    });
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape") closeMenu();
+    });
+    window.addEventListener("resize", closeMenu);
+});
+
+;
+/* source: dashboard_v2/js/preferences.js */
+(function () {
+    "use strict";
+
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
+
+    function applyBioTrackPreferences() {
+        const selectedTheme = localStorage.getItem("biotrack-theme") || "light";
+        const useDark = selectedTheme === "dark" || (selectedTheme === "system" && systemTheme.matches);
+        document.body.classList.toggle("dark-theme", useDark);
+        document.documentElement.style.colorScheme = useDark ? "dark" : "light";
+
+        const density = localStorage.getItem("biotrack-density") || "comfortable";
+        document.body.classList.toggle("compact-density", density === "compact");
+    }
+
+    function applySavedProfilePhoto() {
+        const source = localStorage.getItem(`biotrack-profile-photo:${localStorage.getItem("username") || "user"}`);
+        if (!source) return;
+        [document.getElementById("topAvatar"), document.getElementById("sidebarAvatar")].forEach(element => {
+            if (!element) return;
+            element.style.backgroundImage = `url("${source}")`;
+            element.style.backgroundPosition = "center";
+            element.style.backgroundSize = "cover";
+            element.textContent = "";
+        });
+    }
+
+    window.applyBioTrackPreferences = applyBioTrackPreferences;
+    document.addEventListener("DOMContentLoaded", () => {
+        applyBioTrackPreferences();
+        window.setTimeout(applySavedProfilePhoto, 0);
+    });
+    systemTheme.addEventListener("change", () => {
+        if ((localStorage.getItem("biotrack-theme") || "light") === "system") applyBioTrackPreferences();
+    });
+}());
+
+;
+/* source: dashboard_v2/js/notifications.js */
+(function () {
+    "use strict";
+
+    const REFRESH_INTERVAL = 60000;
+    const READ_STORAGE_KEY = "biotrack-notification-read";
+    const SEEN_STORAGE_KEY = "biotrack-notification-seen";
+    const PREFERENCE_KEY = "biotrack-notifications";
+    const iconByKind = {
+        "critical-call": "siren",
+        stock: "package-x",
+        maintenance: "calendar-clock",
+        asset: "monitor-x",
+        request: "clipboard-list",
+        relocation: "route",
+        "ward-boy": "truck",
+    };
+    let notifications = [];
+    let refreshTimer = null;
+    let firstLoadComplete = false;
+
+    function userStorageKey(base) {
+        return `${base}:${localStorage.getItem("username") || "anonymous"}`;
+    }
+
+    function readStoredSet(key) {
+        try {
+            const values = JSON.parse(localStorage.getItem(userStorageKey(key)) || "[]");
+            return new Set(Array.isArray(values) ? values : []);
+        } catch (error) {
+            console.warn("Unable to read notification state:", error);
+            return new Set();
+        }
+    }
+
+    function storeSet(key, values) {
+        localStorage.setItem(userStorageKey(key), JSON.stringify([...values].slice(-250)));
+    }
+
+    function getPreferences() {
+        try {
+            return {
+                inAppNotification: true,
+                desktopNotification: false,
+                requestUpdates: true,
+                pmReminder: true,
+                ...JSON.parse(localStorage.getItem(PREFERENCE_KEY) || "{}"),
+            };
+        } catch (error) {
+            return { desktopNotification: false, requestUpdates: true, pmReminder: true };
+        }
+    }
+
+    function isEnabledForPreference(item, preferences) {
+        if (item.kind === "request") return preferences.requestUpdates !== false;
+        if (item.kind === "maintenance") return preferences.pmReminder !== false;
+        return true;
+    }
+
+    function activeNotifications() {
+        const preferences = getPreferences();
+        if (preferences.inAppNotification === false) return [];
+        return notifications.filter(item => isEnabledForPreference(item, preferences));
+    }
+
+    function unreadNotifications() {
+        const read = readStoredSet(READ_STORAGE_KEY);
+        return activeNotifications().filter(item => !read.has(item.id));
+    }
+
+    function updateBadge() {
+        const badge = document.getElementById("notificationBadge");
+        const button = document.querySelector(".notification-btn");
+        if (!badge || !button) return;
+        const count = unreadNotifications().length;
+        badge.textContent = count > 99 ? "99+" : String(count);
+        badge.hidden = count === 0;
+        button.setAttribute("aria-label", count ? `Open notifications, ${count} unread` : "Open notifications");
+    }
+
+    async function fetchNotifications({ allowDesktop = true } = {}) {
+        try {
+            const response = await fetch("/api/notifications", { headers: { Accept: "application/json" } });
+            if (!response.ok) throw new Error(`Notification feed failed (${response.status})`);
+            const payload = await response.json();
+            notifications = Array.isArray(payload.items) ? payload.items : [];
+            updateBadge();
+            if (allowDesktop) await notifyNewItems();
+            document.dispatchEvent(new CustomEvent("biotrack:notifications-updated", { detail: { items: notifications } }));
+            return notifications;
+        } catch (error) {
+            console.error("Unable to refresh notifications:", error);
+            return notifications;
+        } finally {
+            firstLoadComplete = true;
+        }
+    }
+
+    async function notifyNewItems() {
+        const currentIds = new Set(notifications.map(item => item.id));
+        const seen = readStoredSet(SEEN_STORAGE_KEY);
+        if (!firstLoadComplete && seen.size === 0) {
+            storeSet(SEEN_STORAGE_KEY, currentIds);
+            return;
+        }
+        const preferences = getPreferences();
+        if (!preferences.desktopNotification || !("Notification" in window) || Notification.permission !== "granted") {
+            storeSet(SEEN_STORAGE_KEY, new Set([...seen, ...currentIds]));
+            return;
+        }
+        const newItems = notifications.filter(item => !seen.has(item.id) && isEnabledForPreference(item, preferences));
+        for (const item of newItems.slice(0, 3)) {
+            await showSystemNotification(item.title, item.message, item.page, item.id);
+        }
+        storeSet(SEEN_STORAGE_KEY, new Set([...seen, ...currentIds]));
+    }
+
+    async function showSystemNotification(title, body, page = "", tag = "biotrack") {
+        const options = {
+            body,
+            icon: "/static/assets/icons/biotrack-192.png",
+            badge: "/static/assets/icons/biotrack-192.png",
+            tag: `biotrack-${tag}`,
+            renotify: true,
+            data: { page },
+        };
+        try {
+            if ("serviceWorker" in navigator) {
+                const registration = await navigator.serviceWorker.ready;
+                await registration.showNotification(title, options);
+            } else {
+                new Notification(title, options);
+            }
+        } catch (error) {
+            console.warn("Unable to display desktop notification:", error);
+        }
+    }
+
+    async function enableDesktopNotifications() {
+        if (!("Notification" in window)) return { enabled: false, message: "This browser does not support desktop notifications." };
+        const permission = await Notification.requestPermission();
+        const preferences = getPreferences();
+        preferences.desktopNotification = permission === "granted";
+        localStorage.setItem(PREFERENCE_KEY, JSON.stringify(preferences));
+        if (permission === "granted") {
+            await showSystemNotification("BioTrack notifications enabled", "You will receive operational alerts while BioTrack is running.", "dashboard", "enabled");
+            return { enabled: true, message: "Desktop alerts are enabled." };
+        }
+        return { enabled: false, message: "Notification permission was not granted." };
+    }
+
+    function markRead(id) {
+        const read = readStoredSet(READ_STORAGE_KEY);
+        read.add(id);
+        storeSet(READ_STORAGE_KEY, read);
+        updateBadge();
+    }
+
+    function markAllRead() {
+        const read = readStoredSet(READ_STORAGE_KEY);
+        activeNotifications().forEach(item => read.add(item.id));
+        storeSet(READ_STORAGE_KEY, read);
+        updateBadge();
+    }
+
+    function formatRelativeTime(value) {
+        const timestamp = new Date(value).getTime();
+        if (!Number.isFinite(timestamp)) return "Recently";
+        const elapsed = Math.max(Date.now() - timestamp, 0);
+        const minutes = Math.floor(elapsed / 60000);
+        if (minutes < 1) return "Just now";
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ago`;
+    }
+
+    async function renderPanel(panel) {
+        await fetchNotifications({ allowDesktop: false });
+        panel.replaceChildren();
+        panel.classList.add("is-notification-center");
+
+        const read = readStoredSet(READ_STORAGE_KEY);
+        const items = activeNotifications();
+        const header = document.createElement("div");
+        header.className = "notification-center-header";
+        const heading = document.createElement("div");
+        heading.innerHTML = "<strong>Notifications</strong><span>Live hospital operations</span>";
+        const markButton = document.createElement("button");
+        markButton.type = "button";
+        markButton.textContent = "Mark all read";
+        markButton.disabled = !items.some(item => !read.has(item.id));
+        markButton.addEventListener("click", () => {
+            markAllRead();
+            renderPanel(panel);
+        });
+        header.append(heading, markButton);
+        panel.appendChild(header);
+
+        const preferences = getPreferences();
+        if (!preferences.desktopNotification || !("Notification" in window) || Notification.permission !== "granted") {
+            const permissionCard = document.createElement("div");
+            permissionCard.className = "notification-permission-card";
+            permissionCard.innerHTML = '<span><i data-lucide="bell-ring"></i></span><div><strong>Receive desktop alerts</strong><p>Get critical calls, stock and maintenance alerts without keeping this panel open.</p></div>';
+            const enableButton = document.createElement("button");
+            enableButton.type = "button";
+            enableButton.textContent = "Enable";
+            enableButton.addEventListener("click", async () => {
+                enableButton.disabled = true;
+                const result = await enableDesktopNotifications();
+                permissionCard.querySelector("p").textContent = result.message;
+                if (result.enabled) setTimeout(() => renderPanel(panel), 700);
+                else enableButton.disabled = false;
+            });
+            permissionCard.appendChild(enableButton);
+            panel.appendChild(permissionCard);
+        }
+
+        const list = document.createElement("div");
+        list.className = "notification-center-list";
+        if (!items.length) {
+            list.innerHTML = '<div class="notification-center-empty"><i data-lucide="circle-check-big"></i><strong>You are all caught up</strong><p>No calls, stock alerts or maintenance reminders need attention.</p></div>';
+        } else {
+            items.forEach(item => {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = `notification-center-item is-${item.priority || "info"}${read.has(item.id) ? " is-read" : ""}`;
+                button.innerHTML = `<span class="notification-center-icon"><i data-lucide="${iconByKind[item.kind] || "bell"}"></i></span><span class="notification-center-copy"><strong></strong><small></small><time></time></span><span class="notification-center-dot" aria-label="Unread"></span>`;
+                button.querySelector("strong").textContent = item.title;
+                button.querySelector("small").textContent = item.message;
+                button.querySelector("time").textContent = formatRelativeTime(item.created_at);
+                button.addEventListener("click", () => {
+                    markRead(item.id);
+                    panel.hidden = true;
+                    document.querySelector(".notification-btn")?.setAttribute("aria-expanded", "false");
+                    if (item.page && typeof window.navigate === "function") window.navigate(item.page);
+                });
+                list.appendChild(button);
+            });
+        }
+        panel.appendChild(list);
+
+        const footer = document.createElement("div");
+        footer.className = "notification-center-footer";
+        footer.innerHTML = '<span><i data-lucide="refresh-cw"></i> Updates every minute</span>';
+        const settingsButton = document.createElement("button");
+        settingsButton.type = "button";
+        settingsButton.textContent = "Notification settings";
+        settingsButton.addEventListener("click", () => {
+            panel.hidden = true;
+            window.navigate?.("settings");
+            setTimeout(() => document.getElementById("notifications")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+        });
+        footer.appendChild(settingsButton);
+        panel.appendChild(footer);
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function start() {
+        fetchNotifications();
+        clearInterval(refreshTimer);
+        refreshTimer = setInterval(() => fetchNotifications(), REFRESH_INTERVAL);
+    }
+
+    document.addEventListener("DOMContentLoaded", start);
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) fetchNotifications();
+    });
+    document.addEventListener("biotrack:notification-preferences-changed", () => {
+        updateBadge();
+        fetchNotifications({ allowDesktop: false });
+    });
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.addEventListener("message", event => {
+            if (event.data?.type === "BIOTRACK_NAVIGATE" && event.data.page) window.navigate?.(event.data.page);
+        });
+    }
+
+    window.BioTrackNotifications = {
+        fetch: fetchNotifications,
+        renderPanel,
+        enableDesktopNotifications,
+        markAllRead,
+        updateBadge,
+        getItems: () => [...notifications],
+    };
+}());
+
+;
+/* source: dashboard_v2/js/topbarInteractions.js */
+// Functional top-bar search, alerts and account menu.
+document.addEventListener("DOMContentLoaded", () => {
+    const search = document.getElementById("globalNavigationSearch");
+    const notification = document.querySelector(".notification-btn");
+    const profile = document.querySelector(".profile-button");
+    if (!search || !notification || !profile) return;
+
+    const makePopup = (className, label) => {
+        const popup = document.createElement("div");
+        popup.className = `topbar-popover ${className}`;
+        popup.setAttribute("role", "menu");
+        popup.setAttribute("aria-label", label);
+        popup.hidden = true;
+        document.body.appendChild(popup);
+        return popup;
+    };
+    const searchResults = makePopup("topbar-search-results", "Search results");
+    const accountMenu = makePopup("topbar-account-menu", "Account menu");
+    const alertsPanel = makePopup("topbar-alerts-panel", "Dashboard alerts");
+    let activePopup = null;
+
+    const positionPopup = (popup, anchor, alignRight = false) => {
+        const rect = anchor.getBoundingClientRect();
+        popup.style.top = `${rect.bottom + window.scrollY + 8}px`;
+        popup.style.left = alignRight ? "auto" : `${rect.left + window.scrollX}px`;
+        popup.style.right = alignRight ? `${window.innerWidth - rect.right - window.scrollX}px` : "auto";
+    };
+    const closePopups = () => {
+        [searchResults, accountMenu, alertsPanel].forEach(popup => { popup.hidden = true; });
+        profile.setAttribute("aria-expanded", "false");
+        notification.setAttribute("aria-expanded", "false");
+        activePopup = null;
+    };
+    const openPopup = (popup, anchor, alignRight = false) => {
+        closePopups();
+        popup.hidden = false;
+        positionPopup(popup, anchor, alignRight);
+        activePopup = popup;
+    };
+    const addMenuAction = (popup, label, action, iconName) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "topbar-popover-action";
+        button.setAttribute("role", "menuitem");
+        const icon = document.createElement("i");
+        icon.dataset.lucide = iconName;
+        const text = document.createElement("span");
+        text.textContent = label;
+        button.append(icon, text);
+        button.addEventListener("click", () => { closePopups(); action(); });
+        popup.appendChild(button);
+    };
+    const homePage = () => {
+        const role = (localStorage.getItem("role") || "").toLowerCase();
+        return ({ manager: "dashboard", admin: "dashboard", bme: "engineerDashboard", engineer: "engineerDashboard", electrical: "electricalDashboard", it: "itDashboard", user: "userDashboard" })[role] || "dashboard";
+    };
+
+    accountMenu.classList.add("is-account-menu");
+    addMenuAction(accountMenu, "Settings", () => window.navigate?.("settings"), "settings");
+    addMenuAction(accountMenu, "Log out", () => document.querySelector(".logout-btn")?.click(), "log-out");
+    profile.addEventListener("click", () => {
+        if (!accountMenu.hidden) return closePopups();
+        profile.setAttribute("aria-expanded", "true");
+        openPopup(accountMenu, profile, true);
+        profile.setAttribute("aria-expanded", "true");
+        if (window.lucide) window.lucide.createIcons();
+    });
+
+    const renderSearchResults = () => {
+        const query = search.value.trim().toLowerCase();
+        searchResults.replaceChildren();
+        if (!query) {
+            searchResults.hidden = true;
+            activePopup = null;
+            return;
+        }
+        const pages = [...document.querySelectorAll(".nav-item[data-page]")]
+            .map(item => ({ page: item.dataset.page, label: item.innerText.trim().replace(/\s+/g, " ") }))
+            .filter(item => item.label.toLowerCase().includes(query) || item.page.toLowerCase().includes(query))
+            .slice(0, 8);
+        if (!pages.length) {
+            const empty = document.createElement("p");
+            empty.className = "topbar-search-empty";
+            empty.textContent = "No matching sections. Try assets, calls, stock, PM, reports, or settings.";
+            searchResults.appendChild(empty);
+        } else {
+            pages.forEach(item => addMenuAction(searchResults, item.label, () => window.navigate?.(item.page), "arrow-up-right"));
+        }
+        openPopup(searchResults, search);
+        if (window.lucide) window.lucide.createIcons();
+    };
+    search.addEventListener("focus", renderSearchResults);
+    search.addEventListener("input", renderSearchResults);
+    search.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+            const first = searchResults.querySelector("button");
+            if (first && !searchResults.hidden) {
+                event.preventDefault();
+                first.click();
+            }
+        }
+        if (event.key === "Escape") closePopups();
+    });
+
+    notification.addEventListener("click", async () => {
+        if (!alertsPanel.hidden) return closePopups();
+        if (window.BioTrackNotifications) {
+            await window.BioTrackNotifications.renderPanel(alertsPanel);
+        } else {
+            alertsPanel.replaceChildren();
+            const description = document.createElement("p");
+            description.className = "topbar-search-empty";
+            description.textContent = "Notifications are temporarily unavailable. Refresh this page to try again.";
+            alertsPanel.append(description);
+            addMenuAction(alertsPanel, "Open dashboard", () => window.navigate?.(homePage()), "layout-dashboard");
+        }
+        openPopup(alertsPanel, notification, true);
+        notification.setAttribute("aria-expanded", "true");
+        if (window.lucide) window.lucide.createIcons();
+    });
+
+    document.addEventListener("click", event => {
+        if (event.target.closest(".topbar-popover, .search-box, .profile-button, .notification-btn")) return;
+        closePopups();
+    });
+    document.addEventListener("keydown", event => { if (event.key === "Escape") closePopups(); });
+    window.addEventListener("resize", closePopups);
+    window.addEventListener("scroll", event => {
+        const scrollTarget = event.target;
+        if (activePopup && scrollTarget instanceof Element && activePopup.contains(scrollTarget)) return;
+        closePopups();
+    }, true);
+});
+
+;
+/* source: dashboard_v2/js/responsive_tables.js */
+(() => {
+    const content = document.getElementById("page-content");
+    if (!content) return;
+
+    const labelRows = table => {
+        const headers = Array.from(table.querySelectorAll("thead th"), cell =>
+            cell.textContent.replace(/\s+/g, " ").trim()
+        );
+
+        if (!headers.length) return;
+
+        table.classList.add("mobile-card-table");
+        table.querySelectorAll("tbody tr").forEach(row => {
+            Array.from(row.cells).forEach((cell, index) => {
+                if (cell.colSpan > 1) {
+                    cell.removeAttribute("data-label");
+                    return;
+                }
+
+                cell.dataset.label = headers[index] || "Details";
+            });
+        });
+    };
+
+    const labelTables = root => {
+        if (root.nodeType !== Node.ELEMENT_NODE) return;
+        if (root.matches?.("table")) labelRows(root);
+        root.querySelectorAll?.("table").forEach(labelRows);
+    };
+
+    labelTables(content);
+
+    new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+            mutation.addedNodes.forEach(labelTables);
+
+            if (mutation.type === "childList" && mutation.target.closest?.("tbody")) {
+                const table = mutation.target.closest("table");
+                if (table) labelRows(table);
+            }
+        });
+    }).observe(content, { childList:true, subtree:true });
+})();
+
+;
+/* source: dashboard_v2/views/engineerDashboardView.js */
+// ==========================================
+// ENGINEER DASHBOARD VIEW
+// ==========================================
+
+function engineerDashboardView() {
+
+    const role = (localStorage.getItem("role") || "").toLowerCase();
+    const discipline = role === "electrical" ? "Electrical" : role === "it" ? "IT" : "Biomedical";
+
+    return `
+
+<section class="engineer-dashboard">
+
+    <!-- ==========================================
+    HEADER
+    =========================================== -->
+
+    <header class="engineer-header">
+
+        <div>
+
+            <h1>${discipline} Engineer Dashboard</h1>
+
+            <p>
+
+                Monitor your assigned ${discipline.toLowerCase()} maintenance calls and equipment activity.
+
+            </p>
+
+        </div>
+
+        <button
+            class="primary-btn"
+            onclick="navigate('callManagement')">
+
+            <i data-lucide="clipboard-list"></i>
+
+            Open Call Management
+
+        </button>
+
+    </header>
+
+    <!-- ==========================================
+    KPI CARDS
+    =========================================== -->
+
+    <section class="engineer-kpis">
+
+        <div class="dashboard-card">
+
+            <div class="card-icon blue">
+
+                <i data-lucide="clipboard-list"></i>
+
+            </div>
+
+            <div>
+
+                <h2 id="assignedCalls">0</h2>
+
+                <span>Assigned Calls</span>
+
+            </div>
+
+        </div>
+
+        <div class="dashboard-card">
+
+            <div class="card-icon orange">
+
+                <i data-lucide="wrench"></i>
+
+            </div>
+
+            <div>
+
+                <h2 id="progressCalls">0</h2>
+
+                <span>In Progress</span>
+
+            </div>
+
+        </div>
+
+        <div class="dashboard-card">
+
+            <div class="card-icon red">
+
+                <i data-lucide="triangle-alert"></i>
+
+            </div>
+
+            <div>
+
+                <h2 id="criticalCalls">0</h2>
+
+                <span>Critical Calls</span>
+
+            </div>
+
+        </div>
+
+        <div class="dashboard-card">
+
+            <div class="card-icon green">
+
+                <i data-lucide="badge-check"></i>
+
+            </div>
+
+            <div>
+
+                <h2 id="completedCalls">0</h2>
+
+                <span>Completed Today</span>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- ==========================================
+    MAIN GRID
+    =========================================== -->
+
+    <section class="engineer-grid">
+
+        <!-- LEFT -->
+
+        <div class="engineer-left">
+
+            <!-- Assigned Calls -->
+
+            <div class="dashboard-panel">
+
+                <div class="panel-header">
+
+                    <h2>
+
+                        <i data-lucide="list-checks"></i>
+
+                        Assigned Maintenance Calls
+
+                    </h2>
+
+                </div>
+
+                <div
+                    id="assignedList"
+                    class="assigned-calls">
+
+                    <div class="loading-card">
+
+                        Loading assigned calls...
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- RIGHT -->
+
+        <div class="engineer-right">
+
+            <!-- Equipment -->
+
+            <div class="dashboard-panel">
+
+                <div class="panel-header">
+
+                    <h2>
+
+                        <i data-lucide="monitor-cog"></i>
+
+                        Equipment Status
+
+                    </h2>
+
+                </div>
+
+                <div class="mini-stats">
+
+                    <div>
+
+                        <h3 id="onlineEquipment">0</h3>
+
+                        <span>Online</span>
+
+                    </div>
+
+                    <div>
+
+                        <h3 id="offlineEquipment">0</h3>
+
+                        <span>Offline</span>
+
+                    </div>
+
+                    <div>
+
+                        <h3 id="pmDueToday">0</h3>
+
+                        <span>PM Due</span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Activity -->
+
+            <div class="dashboard-panel">
+
+                <div class="panel-header">
+
+                    <h2>
+
+                        <i data-lucide="history"></i>
+
+                        Today's Activity
+
+                    </h2>
+
+                </div>
+
+                <div
+                    id="activityFeed"
+                    class="activity-feed">
+
+                    <p>No recent activity.</p>
+
+                </div>
+
+            </div>
+
+            <!-- Quick Actions -->
+
+            <div class="dashboard-panel">
+
+                <div class="panel-header">
+
+                    <h2>
+
+                        <i data-lucide="bolt"></i>
+
+                        Quick Actions
+
+                    </h2>
+
+                </div>
+
+                <div class="quick-actions">
+
+                    <button onclick="navigate('callManagement')">
+
+                        <i data-lucide="clipboard-list"></i>
+
+                        Call Management
+
+                    </button>
+
+                    <button onclick="navigate('assets')">
+
+                        <i data-lucide="boxes"></i>
+
+                        Assets
+
+                    </button>
+
+                    <button onclick="navigate('reports')">
+
+                        <i data-lucide="chart-column"></i>
+
+                        Reports
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+</section>
+
+`;
+
+}
+window.engineerDashboardView = engineerDashboardView;
+
+;
+/* source: dashboard_v2/views/wardBoyDashboardView.js */
+let wardBoyTasks = [];
+let wardBoyTaskFilter = "available";
+let wardBoyRefreshTimer = null;
+
+function wardBoyEscape(value) {
+    const element = document.createElement("div");
+    element.textContent = String(value ?? "");
+    return element.innerHTML;
+}
+
+function cleanupWardBoyDashboard() {
+    clearInterval(wardBoyRefreshTimer);
+    wardBoyRefreshTimer = null;
+}
+
+function renderWardBoyDashboard() {
+    cleanupWardBoyDashboard();
+    pageContent.innerHTML = `
+        <div class="ward-boy-page">
+            <section class="ward-boy-hero">
+                <div class="ward-boy-hero-copy">
+                    <span class="ward-boy-eyebrow"><i data-lucide="radio-tower"></i> Hospital transport support</span>
+                    <h1>Ward Boy Dispatch</h1>
+                    <p>Accept equipment pickup and return jobs, follow the route, and confirm delivery.</p>
+                    <span class="ward-boy-live"><i></i> Live job queue</span>
+                </div>
+                <div class="ward-boy-hero-art" aria-hidden="true"><i data-lucide="truck"></i></div>
+                <button type="button" class="ward-boy-refresh" onclick="loadWardBoyDashboard(true)"><i data-lucide="refresh-cw"></i><span>Refresh jobs</span></button>
+            </section>
+
+            <section class="ward-boy-kpis" aria-label="Transport summary">
+                <article class="is-pending"><span><i data-lucide="package-search"></i></span><div><small>Available jobs</small><strong id="wardBoyPending">—</strong></div></article>
+                <article class="is-active"><span><i data-lucide="truck"></i></span><div><small>My active job</small><strong id="wardBoyActive">—</strong></div></article>
+                <article class="is-done"><span><i data-lucide="badge-check"></i></span><div><small>Completed today</small><strong id="wardBoyCompleted">—</strong></div></article>
+            </section>
+
+            <section class="ward-boy-board">
+                <header>
+                    <div><span>Transport queue</span><h2>Equipment movement jobs</h2></div>
+                    <nav class="ward-boy-filters" aria-label="Filter jobs">
+                        <button class="is-active" type="button" data-filter="available" onclick="setWardBoyFilter('available', this)">Available</button>
+                        <button type="button" data-filter="active" onclick="setWardBoyFilter('active', this)">My active</button>
+                        <button type="button" data-filter="completed" onclick="setWardBoyFilter('completed', this)">Completed</button>
+                    </nav>
+                </header>
+                <div id="wardBoyTaskList" class="ward-boy-task-list">
+                    <div class="ward-boy-loading"><i data-lucide="loader-circle"></i><span>Checking for transport jobs…</span></div>
+                </div>
+            </section>
+        </div>`;
+    if (window.lucide) lucide.createIcons();
+    loadWardBoyDashboard();
+    wardBoyRefreshTimer = window.setInterval(() => loadWardBoyDashboard(false, true), 30000);
+}
+
+async function loadWardBoyDashboard(showToast = false, quiet = false) {
+    try {
+        const response = await fetch("/api/ward-boy/dashboard", { cache: "no-store" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || "Unable to load transport jobs.");
+        wardBoyTasks = Array.isArray(data.tasks) ? data.tasks : [];
+        document.getElementById("wardBoyPending").textContent = data.summary?.pending ?? 0;
+        document.getElementById("wardBoyActive").textContent = data.summary?.my_active ?? 0;
+        document.getElementById("wardBoyCompleted").textContent = data.summary?.completed_today ?? 0;
+        renderWardBoyTasks();
+        if (showToast) BioTrackToast.success("Jobs refreshed", "The transport queue is up to date.");
+    } catch (error) {
+        if (!quiet) BioTrackToast.error("Jobs unavailable", error.message || "Unable to load the transport queue.");
+        const list = document.getElementById("wardBoyTaskList");
+        if (list) list.innerHTML = '<div class="ward-boy-empty"><i data-lucide="wifi-off"></i><strong>Unable to load jobs</strong><p>Check the connection and refresh again.</p></div>';
+        if (window.lucide) lucide.createIcons();
+    }
+}
+
+function setWardBoyFilter(filter, button) {
+    wardBoyTaskFilter = filter;
+    document.querySelectorAll(".ward-boy-filters button").forEach(item => item.classList.toggle("is-active", item === button));
+    renderWardBoyTasks();
+}
+
+function wardBoyFilteredTasks() {
+    if (wardBoyTaskFilter === "active") return wardBoyTasks.filter(task => task.status === "Accepted");
+    if (wardBoyTaskFilter === "completed") return wardBoyTasks.filter(task => task.status === "Completed");
+    return wardBoyTasks.filter(task => task.status === "Pending");
+}
+
+function wardBoyTime(value) {
+    if (!value) return "Just now";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "Recently" : date.toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+function renderWardBoyTasks() {
+    const list = document.getElementById("wardBoyTaskList");
+    if (!list) return;
+    const tasks = wardBoyFilteredTasks();
+    if (!tasks.length) {
+        const copy = wardBoyTaskFilter === "available"
+            ? ["No jobs waiting", "New pickup and return requests will appear here automatically."]
+            : wardBoyTaskFilter === "active"
+                ? ["No active transport", "Accept an available job when you are ready."]
+                : ["No completed jobs yet", "Finished deliveries from today will appear here."];
+        list.innerHTML = `<div class="ward-boy-empty"><i data-lucide="circle-check-big"></i><strong>${copy[0]}</strong><p>${copy[1]}</p></div>`;
+        if (window.lucide) lucide.createIcons();
+        return;
+    }
+
+    list.innerHTML = tasks.map(task => `
+        <article class="ward-boy-task is-${String(task.status || "pending").toLowerCase()}">
+            <header>
+                <span class="ward-boy-task-type is-${String(task.movement_type || "pickup").toLowerCase()}"><i data-lucide="${task.movement_type === "Return" ? "undo-2" : "package-open"}"></i>${wardBoyEscape(task.movement_type)}</span>
+                <span class="ward-boy-priority is-${String(task.priority || "medium").toLowerCase()}">${wardBoyEscape(task.priority || "Medium")}</span>
+            </header>
+            <div class="ward-boy-equipment">
+                <span><i data-lucide="monitor-cog"></i></span>
+                <div><small>${wardBoyEscape(task.ticket)}</small><h3>${wardBoyEscape(task.equipment || "Equipment")}</h3><p>${wardBoyEscape(task.equipment_identifier || "No equipment ID")}</p></div>
+            </div>
+            <div class="ward-boy-route">
+                <div><span class="route-dot is-from"></span><small>Collect from</small><strong>${wardBoyEscape(task.source_location)}</strong></div>
+                <span class="route-line"></span>
+                <div><span class="route-dot is-to"></span><small>Deliver to</small><strong>${wardBoyEscape(task.destination_location)}</strong></div>
+            </div>
+            <footer>
+                <div class="ward-boy-meta"><span><i data-lucide="building-2"></i>${wardBoyEscape(task.department || "Hospital")}</span><span><i data-lucide="clock-3"></i>${wardBoyEscape(wardBoyTime(task.requested_at))}</span></div>
+                ${task.status === "Pending" ? `<button type="button" onclick="acceptWardBoyTask(${Number(task.id)})"><i data-lucide="hand"></i> Accept job</button>` : ""}
+                ${task.status === "Accepted" ? `<button type="button" class="is-complete" onclick="completeWardBoyTask(${Number(task.id)})"><i data-lucide="badge-check"></i> Mark delivered</button>` : ""}
+                ${task.status === "Completed" ? '<span class="ward-boy-delivered"><i data-lucide="circle-check-big"></i> Delivered</span>' : ""}
+            </footer>
+        </article>`).join("");
+    if (window.lucide) lucide.createIcons();
+}
+
+async function mutateWardBoyTask(taskId, action) {
+    const buttons = document.querySelectorAll(`button[onclick*="WardBoyTask(${taskId})"]`);
+    buttons.forEach(button => { button.disabled = true; });
+    try {
+        const response = await fetch(`/api/ward-boy/tasks/${taskId}/${action}`, { method: "PATCH" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || "Unable to update this job.");
+        BioTrackToast.success(action === "accept" ? "Job accepted" : "Delivery completed", action === "accept" ? "Follow the route shown on the job card." : "The requester and engineering team can now see the delivery status.");
+        wardBoyTaskFilter = action === "accept" ? "active" : "completed";
+        document.querySelectorAll(".ward-boy-filters button").forEach(item => item.classList.toggle("is-active", item.dataset.filter === wardBoyTaskFilter));
+        await loadWardBoyDashboard();
+        window.BioTrackNotifications?.fetch?.({ allowDesktop: false });
+    } catch (error) {
+        BioTrackToast.error("Job not updated", error.message || "Please refresh and try again.");
+    } finally {
+        buttons.forEach(button => { button.disabled = false; });
+    }
+}
+
+function acceptWardBoyTask(taskId) { return mutateWardBoyTask(taskId, "accept"); }
+function completeWardBoyTask(taskId) { return mutateWardBoyTask(taskId, "complete"); }
+
+;
+/* source: dashboard_v2/views/dashboardView.js */
+// Executive administration dashboard.
+function renderDashboard() {
+    pageContent.innerHTML = `
+      <main class="admin-operations-dashboard">
+        <section class="admin-operations-hero">
+          <div class="admin-operations-hero-copy">
+            <span class="admin-eyebrow"><i data-lucide="activity"></i> Hospital operations control</span>
+            <h1>One view of every engineering team.</h1>
+            <p>Track maintenance work, asset availability and stock health across Biomedical, Electrical and IT services.</p>
+          </div>
+          <div class="admin-hero-actions">
+            <div class="admin-live-status"><span></span><div><strong>Live operations</strong><small id="adminLastUpdated">Updating now…</small></div></div>
+            <button class="admin-primary-action" onclick="navigate('callManagement')"><i data-lucide="clipboard-list"></i> Open call management</button>
+          </div>
+        </section>
+
+        <section class="admin-summary-grid" aria-label="Hospital maintenance summary">
+          <article class="admin-summary-card is-blue"><div class="admin-summary-icon"><i data-lucide="wrench"></i></div><div><span>Active calls</span><strong id="adminOpsActiveCalls">—</strong><small id="adminOpsActiveDetail">Across all departments</small></div></article>
+          <article class="admin-summary-card is-red"><div class="admin-summary-icon"><i data-lucide="siren"></i></div><div><span>Critical calls</span><strong id="adminOpsCriticalCalls">—</strong><small>Needs immediate attention</small></div></article>
+          <article class="admin-summary-card is-green"><div class="admin-summary-icon"><i data-lucide="circle-check-big"></i></div><div><span>Completed today</span><strong id="adminOpsCompletedToday">—</strong><small>Calls resolved today</small></div></article>
+          <article class="admin-summary-card is-violet"><div class="admin-summary-icon"><i data-lucide="boxes"></i></div><div><span>Assets monitored</span><strong id="adminOpsAssets">—</strong><small id="adminOpsAssetsDetail">Across three service teams</small></div></article>
+        </section>
+
+        <section class="admin-insight-section" aria-labelledby="adminInsightTitle">
+          <div class="admin-section-heading"><div><span class="admin-eyebrow">Operations pulse</span><h2 id="adminInsightTitle">Information to know now</h2><p>Live risk, availability, maintenance and supply indicators.</p></div></div>
+          <div class="admin-insight-grid" id="adminInsightGrid">
+            <button class="admin-insight-card is-blue" type="button" onclick="navigate('callManagement')"><span class="admin-insight-icon"><i data-lucide="timer"></i></span><span><small>Active downtime</small><strong id="adminOpsActiveDowntime">—</strong><em id="adminOpsOldestCall">Oldest active call</em></span><i data-lucide="arrow-up-right"></i></button>
+            <button class="admin-insight-card is-slate" type="button" onclick="navigate('reports')"><span class="admin-insight-icon"><i data-lucide="gauge"></i></span><span><small>Average downtime</small><strong id="adminOpsAvgDowntime">—</strong><em>Completed maintenance</em></span><i data-lucide="arrow-up-right"></i></button>
+            <button class="admin-insight-card is-orange" type="button" onclick="navigate('inventory')"><span class="admin-insight-icon"><i data-lucide="package-search"></i></span><span><small>Stock health</small><strong id="adminOpsStockHealth">—</strong><em id="adminOpsStockDetail">Checking inventory</em></span><i data-lucide="arrow-up-right"></i></button>
+            <button class="admin-insight-card is-violet" type="button" onclick="navigate('pm')"><span class="admin-insight-icon"><i data-lucide="calendar-clock"></i></span><span><small>PM attention</small><strong id="adminOpsPmDue">—</strong><em id="adminOpsPmDetail">Due or overdue</em></span><i data-lucide="arrow-up-right"></i></button>
+            <button class="admin-insight-card is-red" type="button" onclick="navigate('callManagement')"><span class="admin-insight-icon"><i data-lucide="boxes"></i></span><span><small>Awaiting parts</small><strong id="adminOpsAwaitingParts">—</strong><em>Calls delayed by supply</em></span><i data-lucide="arrow-up-right"></i></button>
+            <button class="admin-insight-card is-green" type="button" onclick="navigate('assets')"><span class="admin-insight-icon"><i data-lucide="activity"></i></span><span><small>Asset availability</small><strong id="adminOpsAssetAvailability">—</strong><em id="adminOpsAssetDetail">Across monitored assets</em></span><i data-lucide="arrow-up-right"></i></button>
+          </div>
+        </section>
+
+        <section class="admin-shortcut-section" aria-labelledby="adminShortcutTitle">
+          <div class="admin-section-heading"><div><span class="admin-eyebrow">Quick access</span><h2 id="adminShortcutTitle">Common administrator shortcuts</h2><p>Open frequently used workspaces directly or use the shown keyboard shortcut.</p></div></div>
+          <div class="admin-shortcut-grid">
+            <button type="button" onclick="navigate('callManagement')" aria-keyshortcuts="Alt+C"><i data-lucide="clipboard-list"></i><span><strong>Call management</strong><small>Open and active calls</small></span><kbd>Alt C</kbd></button>
+            <button type="button" onclick="navigate('assets')" aria-keyshortcuts="Alt+A"><i data-lucide="monitor-cog"></i><span><strong>Asset register</strong><small>Equipment and availability</small></span><kbd>Alt A</kbd></button>
+            <button type="button" onclick="navigate('inventory')" aria-keyshortcuts="Alt+I"><i data-lucide="package-search"></i><span><strong>Stock control</strong><small>Low and out-of-stock items</small></span><kbd>Alt I</kbd></button>
+            <button type="button" onclick="navigate('pm')" aria-keyshortcuts="Alt+P"><i data-lucide="calendar-clock"></i><span><strong>PM schedule</strong><small>Due preventive maintenance</small></span><kbd>Alt P</kbd></button>
+            <button type="button" onclick="navigate('qr')" aria-keyshortcuts="Alt+Q"><i data-lucide="scan-line"></i><span><strong>QR scanner</strong><small>Find an asset quickly</small></span><kbd>Alt Q</kbd></button>
+            <button type="button" onclick="navigate('reports')" aria-keyshortcuts="Alt+R"><i data-lucide="bar-chart-3"></i><span><strong>Reports</strong><small>Downtime and performance</small></span><kbd>Alt R</kbd></button>
+            <button type="button" onclick="navigate('users')" aria-keyshortcuts="Alt+U"><i data-lucide="users"></i><span><strong>User access</strong><small>Teams and permissions</small></span><kbd>Alt U</kbd></button>
+            <button type="button" onclick="navigate('settings')" aria-keyshortcuts="Alt+S"><i data-lucide="settings"></i><span><strong>Settings</strong><small>Profile and security</small></span><kbd>Alt S</kbd></button>
+          </div>
+        </section>
+
+        <section class="admin-team-section">
+          <div class="admin-section-heading"><div><span class="admin-eyebrow">Department activity</span><h2>Service team command center</h2><p>Live workload and resource health for every engineering department.</p></div><button class="admin-quiet-action" onclick="loadDashboard()"><i data-lucide="refresh-cw"></i> Refresh</button></div>
+          <div id="adminTeamGrid" class="admin-team-grid"><div class="admin-dashboard-loading">Loading department activity…</div></div>
+        </section>
+
+        <section class="admin-operations-grid">
+          <article class="admin-panel admin-activity-panel">
+            <div class="admin-panel-heading"><div><span class="admin-eyebrow">Live queue</span><h2>Recent maintenance activity</h2></div><button class="admin-link-button" onclick="navigate('callManagement')">View all <i data-lucide="arrow-up-right"></i></button></div>
+            <div id="adminActivityFeed" class="admin-activity-feed"><div class="admin-dashboard-loading">Loading activity…</div></div>
+          </article>
+          <aside class="admin-side-stack">
+            <article class="admin-panel admin-attention-panel">
+              <div class="admin-panel-heading"><div><span class="admin-eyebrow">Operational attention</span><h2>What needs a look</h2></div></div>
+              <div id="adminAttentionList" class="admin-attention-list"><div class="admin-dashboard-loading">Checking operations…</div></div>
+            </article>
+            <article class="admin-panel admin-quick-panel">
+              <span class="admin-eyebrow">Administrator tools</span>
+              <h2>Keep work moving</h2>
+              <div class="admin-quick-actions">
+                <button onclick="navigate('assets')"><i data-lucide="monitor-cog"></i><span>Asset register</span><i data-lucide="arrow-right"></i></button>
+                <button onclick="navigate('inventory')"><i data-lucide="package-search"></i><span>Inventory health</span><i data-lucide="arrow-right"></i></button>
+                <button onclick="navigate('pm')"><i data-lucide="calendar-clock"></i><span>PM schedule</span><i data-lucide="arrow-right"></i></button>
+              </div>
+            </article>
+          </aside>
+        </section>
+      </main>
+    `;
+
+    if (window.lucide) lucide.createIcons();
+    loadDashboard();
+    if (window.dashboardRefresh) clearInterval(window.dashboardRefresh);
+    window.dashboardRefresh = setInterval(loadDashboard, 30000);
+}
+
+;
+/* source: dashboard_v2/views/userDashboardView.js */
+// Department user dashboard
+async function renderUserDashboard() {
+    const department = localStorage.getItem("department") || "Your";
+    const username = localStorage.getItem("username") || "there";
+    pageContent.innerHTML = `
+      <main class="user-home-page">
+        <section class="user-home-hero">
+          <div class="user-home-hero-copy">
+            <span class="user-home-eyebrow"><span class="user-home-live-dot"></span> Department workspace</span>
+            <h1>Good day, <span>${escapeUserDashboardHtml(username)}</span>.</h1>
+            <p>Manage maintenance, equipment and preventive-care schedules for <strong>${escapeUserDashboardHtml(department)}</strong> from one focused workspace.</p>
+            <div class="user-home-hero-actions">
+              <button class="user-home-primary-action" onclick="navigate('newRequest')"><i data-lucide="plus"></i> Report a problem</button>
+              <button class="user-home-secondary-action" onclick="navigate('myAssets')"><i data-lucide="monitor-smartphone"></i> View my assets</button>
+            </div>
+          </div>
+          <div class="user-home-hero-panel"><span>Today</span><strong id="userHomeDate">—</strong><small><i data-lucide="shield-check"></i> BioTrack is online</small></div>
+        </section>
+        <section class="user-home-metrics" aria-label="Department overview">
+          <button class="user-home-metric is-blue" onclick="navigate('myRequests')"><span class="user-home-metric-icon"><i data-lucide="clipboard-list"></i></span><span><small>Open requests</small><strong id="userHomeOpen">—</strong><em>View requests <i data-lucide="arrow-up-right"></i></em></span></button>
+          <button class="user-home-metric is-orange" onclick="navigate('myRequests')"><span class="user-home-metric-icon"><i data-lucide="loader-circle"></i></span><span><small>In progress</small><strong id="userHomeProgress">—</strong><em>Track progress <i data-lucide="arrow-up-right"></i></em></span></button>
+          <button class="user-home-metric is-purple" onclick="navigate('myAssets')"><span class="user-home-metric-icon"><i data-lucide="monitor-smartphone"></i></span><span><small>Department assets</small><strong id="userHomeAssets">—</strong><em>Open asset list <i data-lucide="arrow-up-right"></i></em></span></button>
+          <button class="user-home-metric is-green" onclick="navigate('departmentPMSchedule')"><span class="user-home-metric-icon"><i data-lucide="calendar-clock"></i></span><span><small>PM due / overdue</small><strong id="userHomePM">—</strong><em>View schedule <i data-lucide="arrow-up-right"></i></em></span></button>
+        </section>
+        <section class="user-home-grid">
+          <article class="user-home-card user-home-requests-card">
+            <div class="user-home-card-heading"><div><span class="user-home-section-label">Maintenance</span><h2>Your recent requests</h2></div><button class="user-home-text-button" onclick="navigate('myRequests')">View all <i data-lucide="arrow-right"></i></button></div>
+            <div id="userHomeRequests" class="user-home-request-list"><div class="user-home-loading">Loading your recent requests…</div></div>
+          </article>
+          <aside class="user-home-side-stack">
+            <article class="user-home-card user-home-pm-card">
+              <div class="user-home-card-heading"><div><span class="user-home-section-label">Preventive care</span><h2>Next PM visit</h2></div><i data-lucide="calendar-check" class="user-home-heading-icon"></i></div>
+              <div id="userHomeNextPM" class="user-home-pm-empty">Loading PM schedule…</div>
+              <button class="user-home-outline-button" onclick="navigate('departmentPMSchedule')">Open PM schedule <i data-lucide="arrow-right"></i></button>
+            </article>
+            <article class="user-home-card user-home-actions-card">
+              <div class="user-home-card-heading"><div><span class="user-home-section-label">Shortcuts</span><h2>Quick actions</h2></div></div>
+              <div class="user-home-action-grid">
+                <button onclick="navigate('newRequest')"><i data-lucide="plus-circle"></i><span>New request</span></button>
+                <button onclick="navigate('qr')"><i data-lucide="scan-line"></i><span>Scan QR</span></button>
+                <button onclick="navigate('myAssets')"><i data-lucide="monitor-smartphone"></i><span>My assets</span></button>
+                <button onclick="navigate('departmentPMSchedule')"><i data-lucide="calendar-clock"></i><span>PM schedule</span></button>
+              </div>
+            </article>
+          </aside>
+        </section>
+        <p id="userHomeUpdated" class="user-home-updated">Loading department information…</p>
+      </main>
+    `;
+    document.getElementById("userHomeDate").textContent = new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "short" }).format(new Date());
+    if (window.lucide) lucide.createIcons();
+    await loadUserDashboardData();
+}
+
+async function loadUserDashboardData() {
+    const [requestResult, assetsResult, pmResult] = await Promise.all([
+        userDashboardFetch("/api/user/my-requests"),
+        userDashboardFetch("/api/assets/department/mine"),
+        userDashboardFetch("/api/user/pm-schedule"),
+    ]);
+    const data = requestResult && !Array.isArray(requestResult) ? requestResult : { summary: {}, requests: [] };
+    const requests = Array.isArray(data.requests) ? data.requests : [];
+    const assets = Array.isArray(assetsResult) ? assetsResult : [];
+    const schedules = Array.isArray(pmResult) ? pmResult : [];
+    const summary = data.summary || {};
+    setUserDashboardValue("userHomeOpen", summary.open ?? requests.filter(item => item.status === "Open").length);
+    setUserDashboardValue("userHomeProgress", summary.in_progress ?? requests.filter(item => item.status === "In Progress").length);
+    setUserDashboardValue("userHomeAssets", assets.length);
+    setUserDashboardValue("userHomePM", schedules.filter(item => ["Due", "Overdue"].includes(item.status)).length);
+    renderUserDashboardRequests(requests.slice(0, 4));
+    renderUserDashboardNextPM(schedules);
+    const updated = document.getElementById("userHomeUpdated");
+    if (updated) updated.textContent = `Updated just now · ${requests.length} request${requests.length === 1 ? "" : "s"} and ${assets.length} department asset${assets.length === 1 ? "" : "s"}`;
+    if (window.lucide) lucide.createIcons();
+}
+
+async function userDashboardFetch(url) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Request failed (${response.status})`);
+        return await response.json();
+    } catch (error) {
+        console.error(`Dashboard data failed for ${url}:`, error);
+        return null;
+    }
+}
+
+function renderUserDashboardRequests(requests) {
+    const container = document.getElementById("userHomeRequests");
+    if (!container) return;
+    if (!requests.length) {
+        container.innerHTML = `<div class="user-home-empty-state"><span><i data-lucide="clipboard-check"></i></span><div><strong>No requests yet</strong><p>Everything is quiet. Report an issue whenever you need support.</p></div><button onclick="navigate('newRequest')">Create request</button></div>`;
+        return;
+    }
+    container.innerHTML = requests.map(item => `
+      <button class="user-home-request-row" onclick="openUserDashboardRequest('${escapeUserDashboardHtml(item.ticket)}')">
+        <span class="user-home-request-icon"><i data-lucide="wrench"></i></span>
+        <span class="user-home-request-copy"><strong>${escapeUserDashboardHtml(item.equipment || "Maintenance request")}</strong><small>${escapeUserDashboardHtml(item.ticket || "-")} · ${formatUserDashboardDate(item.reported_time)}</small></span>
+        <span class="user-home-request-meta"><em class="user-home-priority ${userDashboardClass(item.priority)}">${escapeUserDashboardHtml(item.priority || "Normal")}</em><b class="user-home-status ${userDashboardClass(item.status)}">${escapeUserDashboardHtml(item.status || "Open")}</b></span>
+        <i data-lucide="chevron-right" class="user-home-row-arrow"></i>
+      </button>
+    `).join("");
+}
+
+function renderUserDashboardNextPM(schedules) {
+    const container = document.getElementById("userHomeNextPM");
+    if (!container) return;
+    const next = schedules.find(item => item.status !== "Completed");
+    if (!next) {
+        container.innerHTML = `<div class="user-home-pm-empty"><i data-lucide="calendar-plus"></i><div><strong>No PM visit scheduled</strong><p>Your department has no planned preventive-maintenance visits at the moment.</p></div></div>`;
+        return;
+    }
+    container.innerHTML = `<div class="user-home-pm-date"><span>${formatUserDashboardDay(next.scheduled_date)}</span><small>${formatUserDashboardMonth(next.scheduled_date)}</small></div><div class="user-home-pm-copy"><strong>${escapeUserDashboardHtml(next.equipment_name || "Department equipment")}</strong><p>${escapeUserDashboardHtml(next.location || "Department location")}</p><b class="user-home-status ${userDashboardClass(next.status)}">${escapeUserDashboardHtml(next.status || "Upcoming")}</b></div>`;
+}
+
+function openUserDashboardRequest(ticket) {
+    localStorage.setItem("selectedRequest", ticket);
+    navigate("requestDetails");
+}
+
+function setUserDashboardValue(id, value) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+}
+
+function formatUserDashboardDate(value) {
+    if (!value) return "Recently";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "Recently" : new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short" }).format(date);
+}
+function formatUserDashboardDay(value) {
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? "—" : String(date.getDate()).padStart(2, "0");
+}
+function formatUserDashboardMonth(value) {
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(undefined, { month: "short" }).format(date);
+}
+function userDashboardClass(value) {
+    return String(value || "unknown").toLowerCase().replaceAll(/[^a-z0-9]+/g, "-");
+}
+function escapeUserDashboardHtml(value) {
+    return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+;
+/* source: dashboard_v2/views/myAssetsView.js */
+let departmentAssets = [];
+let filteredDepartmentAssets = [];
+let departmentRelocationRequests = [];
+const departmentAssetsPagination = { page: 1, pageSize: 10 };
+
+async function renderMyAssets() {
+    pageContent.innerHTML = `
+        <div class="department-module-page">
+            <header class="department-module-header">
+                <div>
+                    <span class="department-module-kicker"><i data-lucide="building-2"></i> Department Assets</span>
+                    <h1>My Assets</h1>
+                    <p id="myAssetsDescription">View department equipment and request an engineering-approved move to another department or room.</p>
+                </div>
+                <div class="department-module-actions">
+                    <button id="refreshMyAssets" class="department-action-button"><i data-lucide="refresh-cw"></i> Refresh</button>
+                </div>
+            </header>
+
+            <section class="department-summary-grid">
+                <article class="department-summary-card"><span>Total Assets</span><strong id="myAssetsTotal">0</strong></article>
+                <article class="department-summary-card is-success"><span>Active</span><strong id="myAssetsActive">0</strong></article>
+                <article class="department-summary-card is-warning"><span>Needs Attention</span><strong id="myAssetsAttention">0</strong></article>
+            </section>
+
+            <section class="department-toolbar">
+                <label class="department-search"><i data-lucide="search"></i><input id="myAssetsSearch" type="search" placeholder="Search asset ID, equipment, manufacturer or location..."></label>
+                <select id="myAssetsStatus" aria-label="Filter assets by status"><option value="">All Statuses</option></select>
+                <select id="myAssetsType" aria-label="Filter assets by type"><option value="">All Types</option></select>
+            </section>
+
+            <section class="department-table-card">
+                <table class="department-table">
+                    <thead><tr><th>Asset ID</th><th>Equipment</th><th>Type</th><th>Manufacturer / Model</th><th>Location</th><th>Status</th><th></th></tr></thead>
+                    <tbody id="myAssetsBody"><tr><td colspan="7">Loading department assets...</td></tr></tbody>
+                </table>
+            </section>
+            <div id="myAssetsPagination" class="table-pagination"></div>
+        </div>
+    `;
+
+    document.getElementById("refreshMyAssets").addEventListener("click", loadMyAssets);
+    document.getElementById("myAssetsSearch").addEventListener("input", applyMyAssetsFilters);
+    document.getElementById("myAssetsStatus").addEventListener("change", applyMyAssetsFilters);
+    document.getElementById("myAssetsType").addEventListener("change", applyMyAssetsFilters);
+    if (window.lucide) lucide.createIcons();
+    await loadMyAssets();
+}
+
+async function loadMyAssets() {
+    const body = document.getElementById("myAssetsBody");
+    try {
+        const [response, relocationResponse] = await Promise.all([
+            fetch("/api/assets/department/mine"),
+            fetch("/api/assets/relocation-requests/mine"),
+        ]);
+        if (!response.ok) throw new Error("Unable to load your department's assets.");
+        if (!relocationResponse.ok) throw new Error("Unable to load relocation requests.");
+        departmentAssets = await response.json();
+        departmentRelocationRequests = await relocationResponse.json();
+        if (!Array.isArray(departmentAssets)) departmentAssets = [];
+        if (!Array.isArray(departmentRelocationRequests)) departmentRelocationRequests = [];
+        populateMyAssetsFilters();
+        updateMyAssetsSummary();
+        applyMyAssetsFilters(false);
+    } catch (error) {
+        console.error(error);
+        if (body) body.innerHTML = `<tr><td colspan="7">${error.message}</td></tr>`;
+    }
+}
+
+function populateMyAssetsFilters() {
+    const configure = (id, values, label) => {
+        const select = document.getElementById(id);
+        if (!select) return;
+        const previous = select.value;
+        const options = [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+        select.innerHTML = `<option value="">${label}</option>${options.map(value => `<option value="${escapeMyAssetsHtml(value)}">${escapeMyAssetsHtml(value)}</option>`).join("")}`;
+        if (options.includes(previous)) select.value = previous;
+    };
+    configure("myAssetsStatus", departmentAssets.map(asset => asset.status), "All Statuses");
+    configure("myAssetsType", departmentAssets.map(asset => asset.classification || asset.equipment_type), "All Types");
+}
+
+function updateMyAssetsSummary() {
+    const active = departmentAssets.filter(asset => (asset.status || "").toLowerCase() === "active").length;
+    document.getElementById("myAssetsTotal").textContent = departmentAssets.length;
+    document.getElementById("myAssetsActive").textContent = active;
+    document.getElementById("myAssetsAttention").textContent = departmentAssets.length - active;
+}
+
+function applyMyAssetsFilters(resetPage = true) {
+    const search = (document.getElementById("myAssetsSearch")?.value || "").trim().toLowerCase();
+    const status = document.getElementById("myAssetsStatus")?.value || "";
+    const type = document.getElementById("myAssetsType")?.value || "";
+    filteredDepartmentAssets = departmentAssets.filter(asset => {
+        const searchable = [asset.asset_code, asset.equipment_no, asset.equipment_name, asset.classification, asset.equipment_type, asset.manufacturer, asset.model, asset.location]
+            .filter(Boolean).join(" ").toLowerCase();
+        return (!search || searchable.includes(search))
+            && (!status || asset.status === status)
+            && (!type || (asset.classification || asset.equipment_type) === type);
+    });
+    if (resetPage) departmentAssetsPagination.page = 1;
+    renderMyAssetsTable();
+}
+
+function renderMyAssetsTable() {
+    const body = document.getElementById("myAssetsBody");
+    if (!body) return;
+    if (!filteredDepartmentAssets.length) {
+        body.innerHTML = '<tr><td colspan="7">No assets match your search or filters.</td></tr>';
+        TablePagination.render(document.getElementById("myAssetsPagination"), departmentAssetsPagination, 0, renderMyAssetsTable, "assets");
+        return;
+    }
+    const assets = TablePagination.pageItems(filteredDepartmentAssets, departmentAssetsPagination);
+    body.innerHTML = assets.map(asset => {
+        const pendingMove = departmentRelocationRequests.find(item => Number(item.asset_id) === Number(asset.id) && item.status === "Pending");
+        return `
+        <tr>
+            <td><strong>${escapeMyAssetsHtml(asset.asset_code || asset.equipment_no || "-")}</strong></td>
+            <td>${escapeMyAssetsHtml(asset.equipment_name || "-")}</td>
+            <td>${escapeMyAssetsHtml(asset.classification || asset.equipment_type || "-")}</td>
+            <td>${escapeMyAssetsHtml([asset.manufacturer, asset.model].filter(Boolean).join(" / ") || "-")}</td>
+            <td>${escapeMyAssetsHtml(asset.location || "-")}</td>
+            <td><span class="department-status ${departmentStatusClass(asset.status)}">${escapeMyAssetsHtml(asset.status || "Unknown")}</span></td>
+            <td><div class="department-asset-actions"><button class="department-view-button" data-asset-id="${asset.id}">View</button><button class="department-relocate-button" data-relocate-asset="${asset.id}" ${pendingMove ? "disabled" : ""}><i data-lucide="route"></i>${pendingMove ? "Move requested" : "Request move"}</button></div></td>
+        </tr>
+    `;
+    }).join("");
+    body.querySelectorAll("[data-asset-id]").forEach(button => button.addEventListener("click", () => {
+        currentAssetId = Number(button.dataset.assetId);
+        navigate("assetDetails");
+    }));
+    body.querySelectorAll("[data-relocate-asset]").forEach(button => button.addEventListener("click", () => {
+        const asset = departmentAssets.find(item => Number(item.id) === Number(button.dataset.relocateAsset));
+        if (asset) window.AssetRelocation?.openRequest(asset);
+    }));
+    if (window.lucide) window.lucide.createIcons();
+    TablePagination.render(document.getElementById("myAssetsPagination"), departmentAssetsPagination, filteredDepartmentAssets.length, renderMyAssetsTable, "assets");
+}
+
+function departmentStatusClass(status) {
+    return (status || "unknown").toLowerCase().replaceAll(/[^a-z0-9]+/g, "-");
+}
+
+function escapeMyAssetsHtml(value) {
+    return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+;
+/* source: dashboard_v2/views/departmentPmScheduleView.js */
+let departmentPMSchedules = [];
+let selectedDepartmentPMScheduleId = null;
+let departmentPMCurrentDate = new Date();
+let pendingDepartmentPMResponse = null;
+
+async function renderDepartmentPMSchedule() {
+    pageContent.innerHTML = `
+      <main class="department-pm-page">
+        <header class="department-pm-header">
+          <div><span class="department-module-kicker"><i data-lucide="calendar-clock"></i> Department maintenance</span><h1>PM Schedule</h1><p>Review upcoming preventive-maintenance visits and let the engineering team know whether the planned date works for your department.</p></div>
+          <button id="refreshDepartmentPM" class="department-action-button"><i data-lucide="refresh-cw"></i> Refresh</button>
+        </header>
+        <section class="department-pm-summary">
+          <article><span>Scheduled</span><strong id="departmentPMTotal">0</strong></article>
+          <article class="is-green"><span>Approved</span><strong id="departmentPMApproved">0</strong></article>
+          <article class="is-red"><span>Needs reply</span><strong id="departmentPMPending">0</strong></article>
+        </section>
+        <section class="department-pm-workspace">
+          <article class="department-pm-calendar-card">
+            <div class="department-pm-calendar-toolbar">
+              <div class="department-pm-navigation"><button id="departmentPMPrevious" aria-label="Previous month"><i data-lucide="chevron-left"></i></button><h2 id="departmentPMMonth">—</h2><button id="departmentPMNext" aria-label="Next month"><i data-lucide="chevron-right"></i></button></div>
+              <button id="departmentPMToday" class="department-pm-today">Today</button>
+            </div>
+            <div id="departmentPMCalendar" class="department-pm-calendar"></div>
+          </article>
+          <aside id="departmentPMDetail" class="department-pm-detail"><div class="department-pm-detail-empty"><i data-lucide="calendar-search"></i><strong>Select a scheduled visit</strong><p>Choose a PM event from the calendar to view its details or respond to it.</p></div></aside>
+        </section>
+      </main>
+    `;
+    document.getElementById("refreshDepartmentPM").addEventListener("click", loadDepartmentPMSchedule);
+    document.getElementById("departmentPMPrevious").addEventListener("click", () => { departmentPMCurrentDate.setMonth(departmentPMCurrentDate.getMonth() - 1); renderDepartmentPMCalendar(); });
+    document.getElementById("departmentPMNext").addEventListener("click", () => { departmentPMCurrentDate.setMonth(departmentPMCurrentDate.getMonth() + 1); renderDepartmentPMCalendar(); });
+    document.getElementById("departmentPMToday").addEventListener("click", () => { departmentPMCurrentDate = new Date(); renderDepartmentPMCalendar(); });
+    if (window.lucide) lucide.createIcons();
+    await loadDepartmentPMSchedule();
+}
+
+async function loadDepartmentPMSchedule() {
+    try {
+        const response = await fetch("/api/user/pm-schedule");
+        if (!response.ok) throw new Error("Unable to load your department's PM schedule.");
+        departmentPMSchedules = await response.json();
+        if (!Array.isArray(departmentPMSchedules)) departmentPMSchedules = [];
+        const next = departmentPMSchedules.find(item => item.status !== "Completed");
+        if (!selectedDepartmentPMScheduleId && next) selectedDepartmentPMScheduleId = next.id;
+        updateDepartmentPMSummary();
+        renderDepartmentPMCalendar();
+        renderDepartmentPMDetail();
+    } catch (error) {
+        console.error(error);
+        document.getElementById("departmentPMDetail").innerHTML = `<div class="department-pm-detail-empty"><strong>Could not load PM schedule</strong><p>${escapeDepartmentPMHtml(error.message)}</p></div>`;
+    }
+}
+
+function updateDepartmentPMSummary() {
+    const total = departmentPMSchedules.length;
+    const approved = departmentPMSchedules.filter(item => item.department_response === "Approved").length;
+    const pending = departmentPMSchedules.filter(item => item.status !== "Completed" && item.department_response === "Pending").length;
+    document.getElementById("departmentPMTotal").textContent = total;
+    document.getElementById("departmentPMApproved").textContent = approved;
+    document.getElementById("departmentPMPending").textContent = pending;
+}
+
+function renderDepartmentPMCalendar() {
+    const calendar = document.getElementById("departmentPMCalendar");
+    if (!calendar) return;
+    const year = departmentPMCurrentDate.getFullYear();
+    const month = departmentPMCurrentDate.getMonth();
+    document.getElementById("departmentPMMonth").textContent = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(departmentPMCurrentDate);
+    const first = new Date(year, month, 1);
+    const startOffset = (first.getDay() + 6) % 7;
+    const days = new Date(year, month + 1, 0).getDate();
+    const cells = [];
+    ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].forEach(day => cells.push(`<div class="department-pm-weekday">${day}</div>`));
+    for (let empty = 0; empty < startOffset; empty += 1) cells.push('<div class="department-pm-day is-empty"></div>');
+    for (let day = 1; day <= days; day += 1) {
+        const key = departmentPMDateKey(new Date(year, month, day));
+        const schedules = departmentPMSchedules.filter(item => item.scheduled_date === key);
+        const today = departmentPMDateKey(new Date()) === key;
+        cells.push(`<div class="department-pm-day ${today ? "is-today" : ""}"><time>${day}</time><div class="department-pm-day-events">${schedules.slice(0, 2).map(item => `<button class="department-pm-event ${departmentPMStatusClass(item.status)} ${item.id === selectedDepartmentPMScheduleId ? "is-selected" : ""}" onclick="selectDepartmentPMSchedule(${item.id})" title="${escapeDepartmentPMHtml(item.equipment_name)}">${escapeDepartmentPMHtml(item.equipment_name || "PM visit")}<span class="department-pm-response-dot ${departmentPMStatusClass(item.department_response)}"></span></button>`).join("")}${schedules.length > 2 ? `<span class="department-pm-more">+${schedules.length - 2} more</span>` : ""}</div></div>`);
+    }
+    calendar.innerHTML = cells.join("");
+    if (window.lucide) lucide.createIcons();
+}
+
+function selectDepartmentPMSchedule(id) {
+    selectedDepartmentPMScheduleId = id;
+    pendingDepartmentPMResponse = null;
+    renderDepartmentPMCalendar();
+    renderDepartmentPMDetail();
+}
+
+function renderDepartmentPMDetail() {
+    const panel = document.getElementById("departmentPMDetail");
+    if (!panel) return;
+    const schedule = departmentPMSchedules.find(item => item.id === selectedDepartmentPMScheduleId);
+    if (!schedule) {
+        panel.innerHTML = '<div class="department-pm-detail-empty"><i data-lucide="calendar-search"></i><strong>Select a scheduled visit</strong><p>Choose a PM event from the calendar to view its details.</p></div>';
+        if (window.lucide) lucide.createIcons();
+        return;
+    }
+    const completed = schedule.status === "Completed";
+    const response = schedule.department_response || "Pending";
+    const canRespond = !completed;
+    panel.innerHTML = `
+      <div class="department-pm-detail-top"><span class="department-pm-detail-date">${formatDepartmentPMDate(schedule.scheduled_date)}</span><span class="department-status ${departmentPMStatusClass(schedule.status)}">${escapeDepartmentPMHtml(schedule.status)}</span></div>
+      <h2>${escapeDepartmentPMHtml(schedule.equipment_name || "Department equipment")}</h2>
+      <p class="department-pm-location"><i data-lucide="map-pin"></i> ${escapeDepartmentPMHtml(schedule.location || "Department location")}</p>
+      <dl class="department-pm-facts"><div><dt>Asset ID</dt><dd>${escapeDepartmentPMHtml(schedule.asset_code || "-")}</dd></div><div><dt>PM frequency</dt><dd>Every ${schedule.frequency_days || "-"} days</dd></div></dl>
+      ${schedule.remarks ? `<div class="department-pm-remarks"><strong>Engineer notes</strong><p>${escapeDepartmentPMHtml(schedule.remarks)}</p></div>` : ""}
+      <div class="department-pm-response-card">
+        <span>Department response</span><strong class="department-pm-response-label ${departmentPMStatusClass(response)}">${escapeDepartmentPMHtml(response)}</strong>
+        ${schedule.department_response_note ? `<p>${escapeDepartmentPMHtml(schedule.department_response_note)}</p>` : '<p>No note added.</p>'}
+      </div>
+      ${canRespond ? renderDepartmentPMResponseControls(schedule) : '<p class="department-pm-completed-message"><i data-lucide="circle-check"></i> This PM visit is completed and no longer needs a response.</p>'}
+    `;
+    if (window.lucide) lucide.createIcons();
+}
+
+function renderDepartmentPMResponseControls(schedule) {
+    if (pendingDepartmentPMResponse) {
+        return `<div class="department-pm-response-form"><strong>${pendingDepartmentPMResponse} this visit</strong><textarea id="departmentPMResponseNote" maxlength="1000" placeholder="Optional note for the biomedical engineer, e.g. department busy on this date.">${escapeDepartmentPMHtml(schedule.department_response_note || "")}</textarea><div><button class="department-pm-cancel" onclick="cancelDepartmentPMResponse()">Cancel</button><button class="department-pm-confirm ${departmentPMStatusClass(pendingDepartmentPMResponse)}" onclick="submitDepartmentPMResponse()">Confirm ${pendingDepartmentPMResponse}</button></div></div>`;
+    }
+    return `<div class="department-pm-response-actions"><p>Confirm whether this planned visit works for your department. You may include an optional note.</p><button class="department-pm-approve" onclick="chooseDepartmentPMResponse('Approved')"><i data-lucide="check"></i> Approve</button><button class="department-pm-deny" onclick="chooseDepartmentPMResponse('Denied')"><i data-lucide="x"></i> Deny / busy</button></div>`;
+}
+
+function chooseDepartmentPMResponse(response) {
+    pendingDepartmentPMResponse = response;
+    renderDepartmentPMDetail();
+}
+function cancelDepartmentPMResponse() {
+    pendingDepartmentPMResponse = null;
+    renderDepartmentPMDetail();
+}
+async function submitDepartmentPMResponse() {
+    const schedule = departmentPMSchedules.find(item => item.id === selectedDepartmentPMScheduleId);
+    if (!schedule || !pendingDepartmentPMResponse) return;
+    const note = document.getElementById("departmentPMResponseNote")?.value || "";
+    try {
+        const response = await fetch(`/api/user/pm-schedule/${schedule.id}/response`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ response: pendingDepartmentPMResponse, note }) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || "Unable to save your response.");
+        const index = departmentPMSchedules.findIndex(item => item.id === schedule.id);
+        departmentPMSchedules[index] = result.schedule;
+        pendingDepartmentPMResponse = null;
+        updateDepartmentPMSummary();
+        renderDepartmentPMCalendar();
+        renderDepartmentPMDetail();
+    } catch (error) {
+        BioTrackToast.error("PM schedule unavailable", error.message || "Unable to load the PM schedule.");
+    }
+}
+
+function departmentPMDateKey(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+function formatDepartmentPMDate(value) {
+    if (!value) return "-";
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(date);
+}
+function departmentPMStatusClass(value) {
+    return String(value || "pending").toLowerCase().replaceAll(/[^a-z0-9]+/g, "-");
+}
+function escapeDepartmentPMHtml(value) {
+    return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+;
+/* source: dashboard_v2/views/newRequestView.js */
+async function renderNewRequest() {
+
+    const response = await fetch(
+        "/static/dashboard_v2/partials/new_request.html"
+    );
+
+    pageContent.innerHTML = await response.text();
+
+    initializeNewRequest();
+
+    lucide.createIcons();
+
+}
+;
+/* source: dashboard_v2/views/maintenanceView.js */
+// ==========================================
+// ROLE-AWARE CALL MANAGEMENT
+// ==========================================
+
+let maintenanceCalls = [];
+let filteredMaintenanceCalls = [];
+let maintenanceStatusMode = "all";
+let maintenanceRefreshTimer = null;
+const maintenancePagination = { page: 1, pageSize: 25 };
+const DOWNTIME_SECRET_CLICK_COUNT = 15;
+const DOWNTIME_SECRET_CLICK_WINDOW_MS = 10000;
+let downtimeSecretClickState = { ticket: "", count: 0, lastClick: 0 };
+
+const MAINTENANCE_PORTALS = {
+    admin: {
+        tone: "all", icon: "activity", eyebrow: "Hospital operations control", scope: "All engineering teams",
+        description: "Coordinate Biomedical, Electrical and IT maintenance calls from one live service queue.",
+    },
+    manager: {
+        tone: "all", icon: "activity", eyebrow: "Hospital operations control", scope: "All engineering teams",
+        description: "Coordinate Biomedical, Electrical and IT maintenance calls from one live service queue.",
+    },
+    bme: {
+        tone: "biomedical", icon: "heart-pulse", eyebrow: "Biomedical service desk", scope: "Biomedical Engineering",
+        description: "Prioritise, repair and close biomedical equipment calls with a clear view of downtime and urgency.",
+    },
+    engineer: {
+        tone: "biomedical", icon: "heart-pulse", eyebrow: "Biomedical service desk", scope: "Biomedical Engineering",
+        description: "Prioritise, repair and close biomedical equipment calls with a clear view of downtime and urgency.",
+    },
+    electrical: {
+        tone: "electrical", icon: "plug-zap", eyebrow: "Electrical service desk", scope: "Electrical Engineering",
+        description: "Track electrical faults, active repairs and service delays across the hospital.",
+    },
+    it: {
+        tone: "it", icon: "server-cog", eyebrow: "IT service desk", scope: "IT Engineering",
+        description: "Manage technology incidents, infrastructure repairs and equipment downtime from one queue.",
+    },
+};
+
+function maintenancePortalConfig() {
+    const role = (localStorage.getItem("role") || "manager").trim().toLowerCase();
+    return MAINTENANCE_PORTALS[role] || MAINTENANCE_PORTALS.manager;
+}
+
+function renderMaintenance() {
+    const portal = maintenancePortalConfig();
+    maintenanceStatusMode = "all";
+    maintenanceCalls = [];
+    filteredMaintenanceCalls = [];
+    if (maintenanceRefreshTimer) clearInterval(maintenanceRefreshTimer);
+
+    pageContent.innerHTML = `
+        <div class="maintenance-page" data-maintenance-portal="${portal.tone}">
+            <section class="maintenance-command-hero is-${portal.tone}">
+                <div class="maintenance-hero-copy">
+                    <div class="maintenance-hero-identity">
+                        <span class="maintenance-hero-icon"><i data-lucide="${portal.icon}"></i></span>
+                        <div><span class="maintenance-eyebrow">${portal.eyebrow}</span><h1>Call Management</h1></div>
+                    </div>
+                    <p>${portal.description}</p>
+                </div>
+                <div class="maintenance-hero-control">
+                    <div class="maintenance-live-panel">
+                        <span class="maintenance-live-icon"><i data-lucide="radio-tower"></i></span>
+                        <div><small>Live service queue</small><strong>${portal.scope}</strong><time id="maintenanceUpdatedAt">Updating now…</time></div>
+                        <span class="maintenance-live-dot" aria-label="Live"></span>
+                    </div>
+                    <button id="refreshMaintenanceButton" class="maintenance-refresh-button" type="button"><i data-lucide="refresh-cw"></i><span>Refresh queue</span></button>
+                </div>
+            </section>
+
+            <section class="maintenance-kpis" aria-label="Call summary">
+                <article class="maintenance-metric is-blue"><span class="maintenance-metric-icon"><i data-lucide="ticket-check"></i></span><div><small>Total requests</small><strong id="totalCalls">0</strong><em>All recorded service calls</em></div></article>
+                <article class="maintenance-metric is-cyan"><span class="maintenance-metric-icon"><i data-lucide="radio"></i></span><div><small>Active queue</small><strong id="activeCalls">0</strong><em>Calls still requiring action</em></div></article>
+                <article class="maintenance-metric is-orange"><span class="maintenance-metric-icon"><i data-lucide="wrench"></i></span><div><small>In progress</small><strong id="progressCalls">0</strong><em>Repairs currently underway</em></div></article>
+                <article class="maintenance-metric is-red"><span class="maintenance-metric-icon"><i data-lucide="siren"></i></span><div><small>Critical priority</small><strong id="criticalCalls">0</strong><em>Active calls needing priority</em></div></article>
+                <article class="maintenance-metric is-green"><span class="maintenance-metric-icon"><i data-lucide="circle-check-big"></i></span><div><small>Completed</small><strong id="completedCalls">0</strong><em>Resolved and closed calls</em></div></article>
+            </section>
+
+            <section class="maintenance-workspace">
+                <header class="maintenance-workspace-header">
+                    <div><span class="maintenance-section-kicker"><i data-lucide="list-filter"></i> Service request queue</span><h2>Maintenance calls</h2><p id="maintenanceResultsSummary">Loading service requests…</p></div>
+                    <div class="maintenance-downtime-summary"><span><i data-lucide="timer"></i></span><div><small>Total recorded downtime</small><strong id="downtimeHours">0 h</strong></div></div>
+                </header>
+
+                <nav class="maintenance-status-tabs" aria-label="Filter calls by workflow status">
+                    <button type="button" class="is-active" data-maintenance-tab="all"><i data-lucide="list"></i><span>All</span><em data-maintenance-count="all">0</em></button>
+                    <button type="button" data-maintenance-tab="active"><i data-lucide="radio"></i><span>Active</span><em data-maintenance-count="active">0</em></button>
+                    <button type="button" data-maintenance-tab="Open"><i data-lucide="inbox"></i><span>Open</span><em data-maintenance-count="Open">0</em></button>
+                    <button type="button" data-maintenance-tab="In Progress"><i data-lucide="wrench"></i><span>In progress</span><em data-maintenance-count="In Progress">0</em></button>
+                    <button type="button" data-maintenance-tab="Awaiting Parts"><i data-lucide="package-search"></i><span>Awaiting parts</span><em data-maintenance-count="Awaiting Parts">0</em></button>
+                    <button type="button" data-maintenance-tab="completed"><i data-lucide="circle-check"></i><span>Completed</span><em data-maintenance-count="completed">0</em></button>
+                </nav>
+
+                <div class="maintenance-toolbar">
+                    <label class="maintenance-search-field"><i data-lucide="search"></i><span class="sr-only">Search maintenance calls</span><input id="maintenanceSearch" type="search" placeholder="Search ticket, equipment, issue or department…" autocomplete="off"></label>
+                    <label class="maintenance-select-field"><i data-lucide="building-2"></i><span class="sr-only">Filter by department</span><select id="maintenanceDepartmentFilter"><option value="">All departments</option></select></label>
+                    <label class="maintenance-select-field"><i data-lucide="shield-alert"></i><span class="sr-only">Filter by priority</span><select id="maintenancePriorityFilter"><option value="">All priorities</option><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></label>
+                    <button id="clearMaintenanceFilters" class="maintenance-clear-button" type="button"><i data-lucide="filter-x"></i><span>Clear</span></button>
+                </div>
+
+                <div class="maintenance-table-card">
+                    <table class="maintenance-table">
+                        <thead><tr><th>Request</th><th>Equipment</th><th>Team & department</th><th>Received</th><th>Status</th><th>Downtime</th><th><span class="sr-only">Action</span></th></tr></thead>
+                        <tbody id="maintenanceTableBody"><tr><td colspan="7">Loading maintenance calls…</td></tr></tbody>
+                    </table>
+                </div>
+                <div id="maintenancePagination" class="table-pagination"></div>
+            </section>
+        </div>
+    `;
+
+    document.getElementById("refreshMaintenanceButton")?.addEventListener("click", refreshMaintenancePage);
+    document.getElementById("maintenanceSearch")?.addEventListener("input", applyMaintenanceFilters);
+    document.getElementById("maintenanceDepartmentFilter")?.addEventListener("change", applyMaintenanceFilters);
+    document.getElementById("maintenancePriorityFilter")?.addEventListener("change", applyMaintenanceFilters);
+    document.getElementById("clearMaintenanceFilters")?.addEventListener("click", clearMaintenanceFilters);
+    document.querySelectorAll("[data-maintenance-tab]").forEach(button => button.addEventListener("click", () => {
+        maintenanceStatusMode = button.dataset.maintenanceTab;
+        document.querySelectorAll("[data-maintenance-tab]").forEach(tab => tab.classList.toggle("is-active", tab === button));
+        applyMaintenanceFilters();
+    }));
+
+    window.lucide?.createIcons();
+    loadMaintenanceData();
+    maintenanceRefreshTimer = setInterval(() => {
+        if (document.getElementById("maintenanceTableBody")) loadMaintenanceData({ silent: true });
+        else clearInterval(maintenanceRefreshTimer);
+    }, 60000);
+}
+
+async function loadMaintenanceData({ silent = false } = {}) {
+    const refreshButton = document.getElementById("refreshMaintenanceButton");
+    if (!silent) showLoading();
+    refreshButton?.classList.add("is-loading");
+    if (refreshButton) refreshButton.disabled = true;
+    try {
+        const response = await fetch("/api/engineer/maintenance", { headers: { Accept: "application/json" } });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || "Unable to load maintenance data.");
+        maintenanceCalls = Array.isArray(data.calls) ? data.calls : [];
+        updateMaintenanceMetrics(data);
+        populateMaintenanceFilters(maintenanceCalls);
+        updateMaintenanceTabCounts();
+        applyMaintenanceFilters(false);
+        updateLiveStatus();
+    } catch (error) {
+        showError(error.message || "Unable to load maintenance requests.");
+        window.BioTrackToast?.error?.("Call queue unavailable", error.message || "Unable to load maintenance requests.");
+    } finally {
+        refreshButton?.classList.remove("is-loading");
+        if (refreshButton) refreshButton.disabled = false;
+    }
+}
+
+function updateMaintenanceMetrics(data) {
+    const active = maintenanceCalls.filter(call => !["Completed", "Closed"].includes(call.status)).length;
+    const critical = maintenanceCalls.filter(call => call.priority === "Critical" && !["Completed", "Closed"].includes(call.status)).length;
+    const values = {
+        totalCalls: data.total_calls ?? maintenanceCalls.length,
+        activeCalls: active,
+        progressCalls: data.inprogress ?? maintenanceCalls.filter(call => call.status === "In Progress").length,
+        criticalCalls: critical,
+        completedCalls: data.completed ?? maintenanceCalls.filter(call => ["Completed", "Closed"].includes(call.status)).length,
+    };
+    Object.entries(values).forEach(([id, value]) => {
+        const target = document.getElementById(id);
+        if (target) target.textContent = Number(value || 0).toLocaleString();
+    });
+    const downtime = document.getElementById("downtimeHours");
+    if (downtime) downtime.textContent = `${Number(data.downtime || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} h`;
+}
+
+function populateMaintenanceFilters(calls) {
+    const select = document.getElementById("maintenanceDepartmentFilter");
+    if (!select) return;
+    const previous = select.value;
+    const departments = [...new Set(calls.map(call => call.department).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    select.innerHTML = `<option value="">All departments</option>${departments.map(value => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`).join("")}`;
+    if (departments.includes(previous)) select.value = previous;
+}
+
+function updateMaintenanceTabCounts() {
+    const counts = {
+        all: maintenanceCalls.length,
+        active: maintenanceCalls.filter(call => !["Completed", "Closed"].includes(call.status)).length,
+        Open: maintenanceCalls.filter(call => call.status === "Open").length,
+        "In Progress": maintenanceCalls.filter(call => call.status === "In Progress").length,
+        "Awaiting Parts": maintenanceCalls.filter(call => call.status === "Awaiting Parts").length,
+        completed: maintenanceCalls.filter(call => ["Completed", "Closed"].includes(call.status)).length,
+    };
+    Object.entries(counts).forEach(([key, value]) => {
+        const target = document.querySelector(`[data-maintenance-count="${key}"]`);
+        if (target) target.textContent = value.toLocaleString();
+    });
+}
+
+function maintenanceStatusMatches(status) {
+    if (maintenanceStatusMode === "all") return true;
+    if (maintenanceStatusMode === "active") return !["Completed", "Closed"].includes(status);
+    if (maintenanceStatusMode === "completed") return ["Completed", "Closed"].includes(status);
+    return status === maintenanceStatusMode;
+}
+
+function applyMaintenanceFilters(resetPage = true) {
+    const search = (document.getElementById("maintenanceSearch")?.value || "").trim().toLowerCase();
+    const department = document.getElementById("maintenanceDepartmentFilter")?.value || "";
+    const priority = document.getElementById("maintenancePriorityFilter")?.value || "";
+    filteredMaintenanceCalls = maintenanceCalls.filter(call => {
+        const searchable = [call.ticket, call.equipment, call.service_team, call.department, call.location, call.issue, call.description].filter(Boolean).join(" ").toLowerCase();
+        return (!search || searchable.includes(search)) && (!department || call.department === department) && (!priority || call.priority === priority) && maintenanceStatusMatches(call.status);
+    });
+    if (resetPage) maintenancePagination.page = 1;
+    renderMaintenanceTable(filteredMaintenanceCalls);
+    const summary = document.getElementById("maintenanceResultsSummary");
+    if (summary) summary.textContent = `Showing ${filteredMaintenanceCalls.length.toLocaleString()} of ${maintenanceCalls.length.toLocaleString()} service requests`;
+}
+
+function clearMaintenanceFilters() {
+    const search = document.getElementById("maintenanceSearch");
+    const department = document.getElementById("maintenanceDepartmentFilter");
+    const priority = document.getElementById("maintenancePriorityFilter");
+    if (search) search.value = "";
+    if (department) department.value = "";
+    if (priority) priority.value = "";
+    maintenanceStatusMode = "all";
+    document.querySelectorAll("[data-maintenance-tab]").forEach(tab => tab.classList.toggle("is-active", tab.dataset.maintenanceTab === "all"));
+    applyMaintenanceFilters();
+}
+
+function renderMaintenanceTable(calls) {
+    const tbody = document.getElementById("maintenanceTableBody");
+    if (!tbody) return;
+    if (!calls.length) {
+        tbody.innerHTML = `<tr><td colspan="7"><div class="maintenance-empty-state"><span><i data-lucide="search-x"></i></span><strong>No matching service calls</strong><p>Try another status, priority, department or search term.</p><button type="button" onclick="clearMaintenanceFilters()">Clear filters</button></div></td></tr>`;
+        TablePagination.render(document.getElementById("maintenancePagination"), maintenancePagination, 0, () => renderMaintenanceTable(filteredMaintenanceCalls), "tickets");
+        window.lucide?.createIcons();
+        return;
+    }
+    const pageItems = TablePagination.pageItems(calls, maintenancePagination);
+    tbody.innerHTML = pageItems.map(createMaintenanceRow).join("");
+    TablePagination.render(document.getElementById("maintenancePagination"), maintenancePagination, calls.length, () => renderMaintenanceTable(filteredMaintenanceCalls), "tickets");
+    window.lucide?.createIcons();
+}
+
+function createMaintenanceRow(call) {
+    const priority = maintenancePriorityMeta(call.priority);
+    const teamIcon = maintenanceTeamIcon(call.service_team);
+    const downtimeDisplay = isMaintenanceAdmin()
+        ? `<button type="button" class="downtime-value-trigger" data-ticket="${escapeHTML(call.ticket)}" data-hours="${Number(call.downtime || 0)}" onclick="handleDowntimeSecretClick(this.dataset.ticket, Number(this.dataset.hours))" aria-label="Downtime ${formatDowntime(call.downtime)}"><i data-lucide="timer"></i>${formatDowntime(call.downtime)}</button>`
+        : `<span class="maintenance-downtime-value"><i data-lucide="timer"></i>${formatDowntime(call.downtime)}</span>`;
+    return `
+        <tr>
+            <td><div class="maintenance-request-cell"><span class="maintenance-priority-icon is-${priority.tone}"><i data-lucide="${priority.icon}"></i></span><div><strong>${escapeHTML(call.ticket || "Unnumbered call")}</strong><small><span class="maintenance-priority-label is-${priority.tone}">${escapeHTML(call.priority || "Low")}</span>${escapeHTML(call.issue || "General service request")}</small></div></div></td>
+            <td><div class="maintenance-equipment-cell"><span><i data-lucide="monitor-cog"></i></span><div><strong>${escapeHTML(call.equipment || "Equipment not specified")}</strong><small>${escapeHTML(call.location || "Location not recorded")}</small></div></div></td>
+            <td><div class="maintenance-team-cell"><span><i data-lucide="${teamIcon}"></i></span><div><strong>${escapeHTML(call.service_team || "Engineering")}</strong><small>${escapeHTML(call.department || "Department not recorded")}</small></div></div></td>
+            <td><div class="maintenance-date-cell"><i data-lucide="calendar-clock"></i><span>${escapeHTML(call.received || "Not recorded")}</span></div></td>
+            <td>${getStatusBadge(call.status)}</td>
+            <td>${downtimeDisplay}</td>
+            <td><button class="maintenance-open-button" type="button" onclick="openTicket(${Number(call.id)})" aria-label="Open ${escapeHTML(call.ticket || "maintenance call")}"><span>Open</span><i data-lucide="arrow-up-right"></i></button></td>
+        </tr>`;
+}
+
+function maintenancePriorityMeta(priority) {
+    return ({ Critical: { tone: "critical", icon: "siren" }, High: { tone: "high", icon: "shield-alert" }, Medium: { tone: "medium", icon: "gauge" }, Low: { tone: "low", icon: "circle-check" } })[priority] || { tone: "low", icon: "circle-check" };
+}
+
+function maintenanceTeamIcon(team) {
+    if (team === "Electrical") return "plug-zap";
+    if (team === "IT") return "server-cog";
+    return "heart-pulse";
+}
+
+function getStatusBadge(status) {
+    const meta = ({
+        Open: ["open", "circle-dot"], Assigned: ["assigned", "user-check"], "In Progress": ["progress", "wrench"],
+        "Awaiting Parts": ["awaiting", "package-search"], "External Service": ["external", "truck"], Calibration: ["calibration", "gauge"],
+        Completed: ["completed", "circle-check-big"], Closed: ["closed", "lock-keyhole"],
+    })[status] || ["open", "circle-dot"];
+    return `<span class="status ${meta[0]}"><i data-lucide="${meta[1]}"></i>${escapeHTML(status || "Open")}</span>`;
+}
+
+function showLoading() {
+    const tbody = document.getElementById("maintenanceTableBody");
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="maintenance-loading-state"><span><i data-lucide="loader-circle"></i></span><strong>Loading the live service queue…</strong></div></td></tr>`;
+    window.lucide?.createIcons();
+}
+
+function showError(message) {
+    const tbody = document.getElementById("maintenanceTableBody");
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="maintenance-empty-state is-error"><span><i data-lucide="cloud-alert"></i></span><strong>Service queue unavailable</strong><p>${escapeHTML(message)}</p><button type="button" onclick="refreshMaintenancePage()">Try again</button></div></td></tr>`;
+    window.lucide?.createIcons();
+}
+
+function formatDowntime(hours) {
+    const totalMinutes = Math.floor(Number(hours || 0) * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return h === 0 ? `${m} min` : `${h}h ${m}m`;
+}
+
+function isMaintenanceAdmin() {
+    const role = (localStorage.getItem("role") || "").trim().toLowerCase();
+    return role === "admin" || role === "manager";
+}
+
+function handleDowntimeSecretClick(ticket, currentHours) {
+    if (!isMaintenanceAdmin()) return;
+    const now = Date.now();
+    const sequenceExpired = now - downtimeSecretClickState.lastClick > DOWNTIME_SECRET_CLICK_WINDOW_MS;
+    if (downtimeSecretClickState.ticket !== ticket || sequenceExpired) downtimeSecretClickState = { ticket, count: 0, lastClick: now };
+    downtimeSecretClickState.count += 1;
+    downtimeSecretClickState.lastClick = now;
+    if (downtimeSecretClickState.count < DOWNTIME_SECRET_CLICK_COUNT) return;
+    downtimeSecretClickState = { ticket: "", count: 0, lastClick: 0 };
+    openDowntimeEditor(ticket, currentHours);
+}
+
+function openDowntimeEditor(ticket, currentHours) {
+    if (!isMaintenanceAdmin()) return;
+    document.getElementById("downtimeOverrideModal")?.remove();
+    const safeHours = Math.max(0, Number(currentHours) || 0);
+    let wholeHours = Math.floor(safeHours);
+    let minutes = Math.round((safeHours - wholeHours) * 60);
+    if (minutes === 60) { wholeHours += 1; minutes = 0; }
+    const modal = document.createElement("div");
+    modal.id = "downtimeOverrideModal";
+    modal.className = "downtime-modal-backdrop";
+    modal.innerHTML = `
+        <section class="downtime-dialog" role="dialog" aria-modal="true" aria-labelledby="downtimeDialogTitle">
+            <form id="downtimeOverrideForm">
+                <header><span class="downtime-dialog-icon"><i data-lucide="timer-reset"></i></span><div><small>Administrator control</small><h2 id="downtimeDialogTitle">Change downtime</h2><p>${escapeHTML(ticket)}</p></div><button type="button" class="downtime-dialog-close" aria-label="Close downtime editor" onclick="closeDowntimeEditor()"><i data-lucide="x"></i></button></header>
+                <div class="downtime-dialog-body">
+                    <div class="downtime-input-grid"><label><span>Hours</span><input id="downtimeHoursInput" type="number" min="0" max="999999" step="1" value="${wholeHours}" required></label><label><span>Minutes</span><input id="downtimeMinutesInput" type="number" min="0" max="59" step="1" value="${minutes}" required></label></div>
+                    <p class="downtime-dialog-note"><i data-lucide="info"></i> This replaces the current downtime value directly. No separate change-history entry is created.</p><p id="downtimeDialogError" class="downtime-dialog-error" role="alert"></p>
+                </div>
+                <footer><button type="button" class="downtime-cancel-btn" onclick="closeDowntimeEditor()">Cancel</button><button type="submit" class="downtime-save-btn"><i data-lucide="check"></i> Save downtime</button></footer>
+            </form>
+        </section>`;
+    modal.addEventListener("click", event => { if (event.target === modal) closeDowntimeEditor(); });
+    modal.querySelector("form").addEventListener("submit", event => saveDowntimeOverride(event, ticket));
+    document.body.appendChild(modal);
+    document.body.classList.add("has-modal-open");
+    window.lucide?.createIcons();
+    modal.querySelector("#downtimeHoursInput")?.focus();
+}
+
+function closeDowntimeEditor() {
+    document.getElementById("downtimeOverrideModal")?.remove();
+    document.body.classList.remove("has-modal-open");
+}
+
+async function saveDowntimeOverride(event, ticket) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const error = form.querySelector("#downtimeDialogError");
+    const submit = form.querySelector(".downtime-save-btn");
+    const hours = Number(form.querySelector("#downtimeHoursInput")?.value);
+    const minutes = Number(form.querySelector("#downtimeMinutesInput")?.value);
+    if (!Number.isInteger(hours) || hours < 0 || hours > 999999 || !Number.isInteger(minutes) || minutes < 0 || minutes > 59) {
+        error.textContent = "Enter whole hours and minutes between 0 and 59.";
+        return;
+    }
+    submit.disabled = true;
+    error.textContent = "";
+    try {
+        const response = await fetch(`/api/requests/${encodeURIComponent(ticket)}/downtime`, {
+            method: "PATCH", headers: { "Content-Type": "application/json", Accept: "application/json" },
+            body: JSON.stringify({ hours: Number((hours + (minutes / 60)).toFixed(2)) }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to change downtime.");
+        closeDowntimeEditor();
+        showDowntimeFeedback(`Downtime for ${ticket} updated to ${formatDowntime(result.downtime)}.`);
+        if (document.getElementById("ticketContainer") && typeof loadTicket === "function") await loadTicket();
+        else await loadMaintenanceData();
+    } catch (requestError) {
+        error.textContent = requestError.message || "Unable to change downtime.";
+        submit.disabled = false;
+    }
+}
+
+function showDowntimeFeedback(message) {
+    document.getElementById("downtimeFeedback")?.remove();
+    const feedback = document.createElement("div");
+    feedback.id = "downtimeFeedback";
+    feedback.className = "downtime-feedback";
+    feedback.setAttribute("role", "status");
+    feedback.innerHTML = `<i data-lucide="circle-check"></i><span>${escapeHTML(message)}</span>`;
+    document.body.appendChild(feedback);
+    window.lucide?.createIcons();
+    requestAnimationFrame(() => feedback.classList.add("is-visible"));
+    setTimeout(() => { feedback.classList.remove("is-visible"); setTimeout(() => feedback.remove(), 220); }, 3200);
+}
+
+function updateLiveStatus() {
+    const target = document.getElementById("maintenanceUpdatedAt");
+    if (target) target.textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+async function refreshMaintenancePage() {
+    await loadMaintenanceData();
+}
+
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && document.getElementById("downtimeOverrideModal")) closeDowntimeEditor();
+});
+
+;
+/* source: dashboard_v2/views/ticketView.js */
+// ==========================================
+// CURRENT TICKET
+// ==========================================
+
+let currentTicketId = null;
+let sparePartsInventory = [];
+let selectedSpareParts = [];
+let sparePartsLocked = false;
+
+function renderWardBoyTransport(ticket) {
+    const tasks = Array.isArray(ticket.ward_boy_tasks) ? ticket.ward_boy_tasks : [];
+    const pickup = tasks.find(task => task.movement_type === "Pickup");
+    const returnTask = tasks.find(task => task.movement_type === "Return");
+    const repairCompleted = ["Completed", "Closed"].includes(ticket.status);
+    const taskRows = tasks.map(task => `
+        <article class="ticket-transport-job">
+            <span class="ticket-transport-job-icon"><i data-lucide="${task.movement_type === "Return" ? "undo-2" : "package-open"}"></i></span>
+            <div>
+                <strong>${escapeHTML(task.movement_type)} transport</strong>
+                <p>${escapeHTML(task.source_location)} <i data-lucide="arrow-right"></i> ${escapeHTML(task.destination_location)}</p>
+                ${task.assigned_to ? `<small>Assigned to ${escapeHTML(task.assigned_to)}</small>` : ""}
+            </div>
+            <span class="ticket-transport-status is-${String(task.status || "pending").toLowerCase()}">${escapeHTML(task.status)}</span>
+        </article>`).join("");
+
+    return `
+        <div class="ticket-card full ticket-transport-card">
+            <div class="ticket-transport-heading">
+                <span><i data-lucide="truck"></i></span>
+                <div><h2>Ward Boy Transport</h2><p>Arrange equipment movement between the ward and the ${escapeHTML(ticket.service_team)} team.</p></div>
+            </div>
+            <div class="ticket-transport-list">${taskRows || '<p class="ticket-transport-empty">No Ward Boy transport has been requested for this call.</p>'}</div>
+            <div class="ticket-transport-actions">
+                ${!pickup ? `<button type="button" class="ticket-transport-button is-pickup" onclick="requestWardBoyTransport('Pickup')"><i data-lucide="package-plus"></i> Request equipment pickup</button>` : ""}
+                ${repairCompleted && !returnTask ? `<button type="button" class="ticket-transport-button is-return" onclick="requestWardBoyTransport('Return')"><i data-lucide="truck"></i> Request return to ward</button>` : ""}
+                ${!repairCompleted && !returnTask ? `<label class="ticket-return-choice"><input type="checkbox" id="wardBoyReturnAfterRepair"><span><i data-lucide="square-check-big"></i></span><div><strong>Return with a Ward Boy after repair</strong><small>Create the return job automatically when this call is completed.</small></div></label>` : ""}
+            </div>
+        </div>`;
+}
+
+async function createWardBoyTransport(movementType) {
+    const response = await fetch("/api/ward-boy/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request_id: Number(currentTicketId), movement_type: movementType }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || "Unable to create the transport job.");
+    return data.task;
+}
+
+async function requestWardBoyTransport(movementType) {
+    try {
+        await createWardBoyTransport(movementType);
+        BioTrackToast.success(
+            movementType === "Return" ? "Return transport requested" : "Pickup requested",
+            "The job is now visible in the Ward Boy portal."
+        );
+        await loadTicket();
+    } catch (error) {
+        BioTrackToast.error("Transport not requested", error.message || "Unable to create the Ward Boy job.");
+    }
+}
+
+// ==========================================
+// OPEN TICKET
+// ==========================================
+
+function openTicket(ticketId) {
+
+    currentTicketId = ticketId;
+
+    // renderTicket() is invoked by the router and restores the selected ticket
+    // from storage, so persist it for calls opened from Call Management too.
+    localStorage.setItem("selectedTicket", String(ticketId));
+
+    navigate("ticket");
+
+}
+
+async function renderTicket() {
+
+    // ==========================================
+    // LOAD SELECTED TICKET
+    // ==========================================
+
+    currentTicketId = localStorage.getItem("selectedTicket");
+
+    if (!currentTicketId) {
+
+        pageContent.innerHTML = `
+
+            <div class="ticket-page">
+
+                <h2>No ticket selected.</h2>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+    pageContent.innerHTML = `
+
+    <div class="ticket-page">
+
+        <div class="ticket-header">
+
+            <button
+                class="back-btn"
+                onclick="navigateToEngineerHome()"
+            >
+                ← Back
+            </button>
+
+            <div class="ticket-title">
+
+                <h1>Maintenance Ticket</h1>
+
+                <p>
+                    Biomedical Maintenance Request Details
+                </p>
+
+            </div>
+
+        </div>
+
+        <div id="ticketContainer">
+
+            Loading Ticket...
+
+        </div>
+
+    </div>
+
+    `;
+
+    await loadTicket();
+
+}
+
+// ==========================================
+// LOAD TICKET
+// ==========================================
+
+async function loadTicket() {
+
+    const container = document.getElementById("ticketContainer");
+
+    try {
+
+        const res = await fetch(
+            `/api/engineer/ticket/${currentTicketId}`
+        );
+
+        const ticket = await res.json();
+
+        container.innerHTML = `
+
+        <div class="ticket-grid">
+
+            <!-- =========================== -->
+            <!-- EQUIPMENT -->
+            <!-- =========================== -->
+
+            <div class="ticket-card">
+
+                <h2>Equipment Information</h2>
+
+                <div class="info-grid">
+
+                    <div class="info-item">
+                        <label>Equipment</label>
+                        <strong>${escapeHTML(ticket.equipment)}</strong>
+                    </div>
+
+                    <div class="info-item">
+                        <label>Equipment ID</label>
+                        <strong>${escapeHTML(ticket.equipment_id)}</strong>
+                    </div>
+
+                    <div class="info-item">
+                        <label>Department</label>
+                        <strong>${escapeHTML(ticket.department)}</strong>
+                    </div>
+
+                    <div class="info-item">
+                        <label>Location</label>
+                        <strong>${escapeHTML(ticket.location)}</strong>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- =========================== -->
+            <!-- CALL -->
+            <!-- =========================== -->
+
+            <div class="ticket-card">
+
+                <h2>Call Information</h2>
+
+                <div class="info-grid">
+
+                    <div class="info-item">
+                        <label>Ticket</label>
+                        <strong>${escapeHTML(ticket.ticket)}</strong>
+                    </div>
+
+                    <div class="info-item">
+                        <label>Reported By</label>
+                        <strong>${escapeHTML(ticket.reported_by)}</strong>
+                    </div>
+
+                    <div class="info-item">
+                        <label>Received</label>
+                        <strong>${escapeHTML(ticket.received)}</strong>
+                    </div>
+
+                    <div class="info-item">
+                        <label>Priority</label>
+                        <strong>${escapeHTML(ticket.priority)}</strong>
+                    </div>
+
+                    <div class="info-item ticket-downtime-item">
+                        <label>Downtime</label>
+                        <div class="ticket-downtime-value">
+                            ${isMaintenanceAdmin() ? `
+                                <button
+                                    type="button"
+                                    class="ticket-downtime-trigger"
+                                    data-ticket="${escapeHTML(ticket.ticket)}"
+                                    data-hours="${Number(ticket.downtime || 0)}"
+                                    onclick="handleDowntimeSecretClick(this.dataset.ticket, Number(this.dataset.hours))"
+                                    aria-label="Downtime ${formatDowntime(ticket.downtime)}"
+                                >
+                                    ${formatDowntime(ticket.downtime)}
+                                </button>
+                            ` : `<strong>${formatDowntime(ticket.downtime)}</strong>`}
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- =========================== -->
+            <!-- STATUS -->
+            <!-- =========================== -->
+
+            <div class="ticket-card full">
+
+                <h2>Maintenance Progress</h2>
+
+                <div class="ticket-form-grid">
+
+                    <div class="form-group">
+
+                        <label>Status</label>
+
+                        <select
+                            id="ticketStatus"
+                            class="ticket-input"
+                        >
+
+                            <option>Open</option>
+
+                            <option>Assigned</option>
+
+                            <option>In Progress</option>
+
+                            <option>Awaiting Parts</option>
+
+                            <option>External Service</option>
+
+                            <option>Calibration</option>
+
+                            <option>Completed</option>
+
+                            <option>Closed</option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- =========================== -->
+
+            ${renderWardBoyTransport(ticket)}
+
+            <!-- =========================== -->
+
+            <div class="ticket-card full">
+
+                <h2>Failure Description</h2>
+
+                <div class="ticket-text">
+
+                    ${escapeHTML(ticket.description || "-")}
+
+                </div>
+
+            </div>
+
+            <!-- =========================== -->
+
+            <div class="ticket-card full">
+
+                <h2>Engineer Notes</h2>
+
+                <textarea
+                    id="engineerNotes"
+                    class="ticket-textarea"
+                >${escapeHTML(ticket.notes || "")}</textarea>
+
+            </div>
+
+            <!-- =========================== -->
+
+            <div class="ticket-card full">
+
+                <h2>Work Performed</h2>
+
+                <textarea
+                    id="workDone"
+                    class="ticket-textarea"
+                >${escapeHTML(ticket.work_done || "")}</textarea>
+
+            </div>
+
+            <!-- =========================== -->
+
+            <div class="ticket-card full">
+
+                <h2>Spare Parts Used</h2>
+
+                <p class="spare-parts-help">
+                    Select parts from this department's inventory. Stock is deducted only when the repair is completed.
+                </p>
+
+                <div id="sparePartsPicker" class="spare-parts-picker">
+                    Loading available spare parts...
+                </div>
+
+            </div>
+
+            <!-- =========================== -->
+
+            <div class="ticket-actions">
+
+                <button
+                    class="ticket-btn secondary"
+                    onclick="startWork()"
+                >
+                    ▶ Start Work
+                </button>
+
+                <button
+                    class="ticket-btn success"
+                    onclick="completeWork()"
+                >
+                    ✔ Complete Repair
+                </button>
+
+                <button
+                    class="ticket-btn primary"
+                    onclick="saveTicketChanges()"
+                >
+                    💾 Save Progress
+                </button>
+
+            </div>
+
+        </div>
+
+        `;
+
+        document.getElementById("ticketStatus").value =
+            ticket.status;
+
+        window.currentTicketServiceTeam = ticket.service_team;
+
+        await initializeSparePartsPicker(ticket.spare_parts, ticket.stock_deducted);
+
+        if (window.lucide) lucide.createIcons();
+
+    }
+
+    catch (err) {
+
+        console.error(err);
+
+        container.innerHTML = "Unable to load ticket.";
+
+    }
+
+}
+// ==========================================
+// SAVE TICKET
+// ==========================================
+
+async function saveTicketChanges(){
+
+    try{
+
+        const response = await fetch(
+
+            `/api/engineer/ticket/${currentTicketId}`,
+
+            {
+
+                method:"PUT",
+
+                headers:{
+
+                    "Content-Type":"application/json"
+
+                },
+
+                body:JSON.stringify({
+
+                    status:
+
+                        document.getElementById("ticketStatus").value,
+
+                    engineer_notes:
+
+                        document.getElementById("engineerNotes").value,
+
+                    work_done:
+
+                        document.getElementById("workDone").value,
+
+                    spare_parts:
+
+                        getSparePartsPayload()
+
+                })
+
+            }
+
+        );
+
+        const data = await response.json();
+
+        if(data.success){
+
+            showSuccess({
+
+                title:"Changes Saved Successfully",
+
+                message:"The maintenance ticket has been updated."
+
+            });
+
+        }
+
+        else{
+
+            BioTrackToast.error("Ticket not updated", data.message || "Unable to update the ticket.");
+
+        }
+
+    }
+
+    catch(error){
+
+        console.error(error);
+
+        BioTrackToast.error("Ticket not updated", error.message || "Unable to update the ticket.");
+
+    }
+
+}
+
+// ==========================================
+// UPDATE TICKET
+// ==========================================
+
+async function updateTicket(start = false, complete = false) {
+
+    const buttons = document.querySelectorAll(".ticket-btn");
+    const shouldRequestReturn = complete && Boolean(document.getElementById("wardBoyReturnAfterRepair")?.checked);
+    let returnTransportCreated = false;
+
+    buttons.forEach(btn => btn.disabled = true);
+
+    try {
+
+        const response = await fetch(
+
+            `/api/engineer/ticket/${currentTicketId}`,
+
+            {
+
+                method: "PUT",
+
+                headers: {
+
+                    "Content-Type": "application/json"
+
+                },
+
+                body: JSON.stringify({
+
+                    status:
+                        document.getElementById("ticketStatus").value,
+
+                    engineer_notes:
+                        document.getElementById("engineerNotes").value,
+
+                    work_done:
+                        document.getElementById("workDone").value,
+
+                    spare_parts:
+                        getSparePartsPayload(),
+
+                    start_work: start,
+
+                    complete_work: complete
+
+                })
+
+            }
+
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+
+            throw new Error(data.detail || "Unable to update ticket.");
+
+        }
+
+        if (start) {
+
+            document.getElementById("ticketStatus").value = "In Progress";
+
+            showSuccess({
+
+                title: "Maintenance Started",
+
+                message: "The maintenance work has started."
+
+            });
+
+            return;
+
+        }
+
+        if (complete) {
+
+            if (shouldRequestReturn) {
+                try {
+                    await createWardBoyTransport("Return");
+                    returnTransportCreated = true;
+                } catch (transportError) {
+                    BioTrackToast.warning(
+                        "Repair completed, transport not created",
+                        transportError.message || "Request the Ward Boy return job from this ticket."
+                    );
+                }
+            }
+
+            showSuccess({
+
+                title: "Maintenance Completed",
+
+                message: returnTransportCreated
+                    ? "The department was notified and the Ward Boy return job is now available."
+                    : "The department has been notified.",
+
+                buttonText: "Return Dashboard",
+
+                onClose() {
+
+                    navigateToEngineerHome();
+
+                }
+
+            });
+
+            return;
+
+        }
+
+        showSuccess({
+
+            title: "Changes Saved",
+
+            message: "Ticket updated successfully."
+
+        });
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        showSuccess({
+
+            title: "Operation Failed",
+
+            message: error.message || "Unable to update the maintenance ticket."
+
+        });
+
+    }
+
+    finally {
+
+        buttons.forEach(btn => btn.disabled = false);
+
+    }
+
+}
+// ==========================================
+// START WORK
+// ==========================================
+
+function startWork(){
+
+    updateTicket(true, false);
+
+}
+
+// ==========================================
+// COMPLETE REPAIR
+// ==========================================
+
+function completeWork(){
+
+    updateTicket(false, true);
+
+}
+
+// ==========================================
+// INVENTORY-BACKED SPARE PARTS
+// ==========================================
+
+async function initializeSparePartsPicker(savedParts, stockDeducted) {
+    sparePartsLocked = Boolean(stockDeducted);
+    selectedSpareParts = Array.isArray(savedParts)
+        ? savedParts.map(part => ({
+            inventory_id: Number(part.inventory_id),
+            quantity: Number(part.quantity),
+        }))
+        : [];
+
+    const container = document.getElementById("sparePartsPicker");
+    if (!container) return;
+
+    try {
+        const response = await fetch(
+            `/api/inventory/?service_team=${encodeURIComponent(window.currentTicketServiceTeam || "")}`
+        );
+        if (!response.ok) throw new Error("Unable to load inventory.");
+        sparePartsInventory = await response.json();
+        if (!selectedSpareParts.length && !sparePartsLocked) {
+            selectedSpareParts = [{ inventory_id: "", quantity: 1 }];
+        }
+        renderSparePartsPicker();
+    } catch (error) {
+        container.innerHTML = `<p class="spare-parts-error">${escapeHTML(error.message)}</p>`;
+    }
+}
+
+function renderSparePartsPicker() {
+    const container = document.getElementById("sparePartsPicker");
+    if (!container) return;
+
+    if (sparePartsLocked) {
+        container.innerHTML = `
+            <p class="spare-parts-locked">Stock has already been deducted for this completed ticket.</p>
+            ${selectedSpareParts.map(part => {
+                const item = sparePartsInventory.find(entry => entry.id === part.inventory_id);
+                return `<div class="spare-part-summary">${escapeHTML(item?.item_name || `Item #${part.inventory_id}`)} × ${escapeHTML(part.quantity)}</div>`;
+            }).join("") || "<p>No spare parts were used.</p>"}
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="spare-parts-rows">
+            ${selectedSpareParts.map((part, index) => `
+                <div class="spare-part-row">
+                    <select onchange="setSparePart(${index}, this.value)">
+                        <option value="">Select a spare part</option>
+                        ${sparePartsInventory.map(item =>
+                            `<option value="${Number(item.id)}" ${Number(part.inventory_id) === item.id ? "selected" : ""}>${escapeHTML(item.item_name)} — Available: ${escapeHTML(item.current_stock)} ${escapeHTML(item.unit || "")}</option>`
+                        ).join("")}
+                    </select>
+                    <input type="number" min="1" value="${Math.max(1, Number(part.quantity) || 1)}" aria-label="Quantity" onchange="setSpareQuantity(${index}, this.value)">
+                    <button type="button" class="remove-spare-part" onclick="removeSparePart(${index})" aria-label="Remove spare part">Remove</button>
+                </div>
+            `).join("")}
+        </div>
+        ${sparePartsInventory.length ? '<button type="button" class="add-spare-part" onclick="addSparePart()">+ Add another spare part</button>' : '<p class="spare-parts-error">No inventory items are available for this department.</p>'}
+    `;
+}
+
+function setSparePart(index, inventoryId) {
+    const item = sparePartsInventory.find(entry => entry.id === Number(inventoryId));
+    if (item && Number(item.current_stock || 0) <= 0) {
+        selectedSpareParts[index].inventory_id = "";
+        renderSparePartsPicker();
+        showSparePartsToast(`No stock left for ${item.item_name}.`, "error");
+        return;
+    }
+    selectedSpareParts[index].inventory_id = inventoryId ? Number(inventoryId) : "";
+}
+
+function setSpareQuantity(index, quantity) {
+    const selectedItem = sparePartsInventory.find(
+        item => item.id === Number(selectedSpareParts[index].inventory_id)
+    );
+    const requested = Math.max(1, Number(quantity) || 1);
+    if (selectedItem && requested > Number(selectedItem.current_stock || 0)) {
+        selectedSpareParts[index].quantity = Math.max(1, Number(selectedItem.current_stock || 0));
+        renderSparePartsPicker();
+        showSparePartsToast(
+            `Only ${selectedItem.current_stock} ${selectedItem.unit || "item(s)"} of ${selectedItem.item_name} are available.`,
+            "error"
+        );
+        return;
+    }
+    selectedSpareParts[index].quantity = requested;
+}
+
+function addSparePart() {
+    selectedSpareParts.push({ inventory_id: "", quantity: 1 });
+    renderSparePartsPicker();
+}
+
+function removeSparePart(index) {
+    selectedSpareParts.splice(index, 1);
+    if (!selectedSpareParts.length) selectedSpareParts.push({ inventory_id: "", quantity: 1 });
+    renderSparePartsPicker();
+}
+
+function getSparePartsPayload() {
+    // A ticket may be completed without consuming any spare parts. Blank rows
+    // are therefore ignored, while each selected part must still be valid.
+    const partsToUse = selectedSpareParts.filter(part => part.inventory_id);
+    const requestedByItem = new Map();
+    partsToUse.forEach(part => {
+        const quantity = Math.max(1, Number(part.quantity));
+        requestedByItem.set(
+            Number(part.inventory_id),
+            (requestedByItem.get(Number(part.inventory_id)) || 0) + quantity
+        );
+    });
+    for (const [inventoryId, quantity] of requestedByItem) {
+        const item = sparePartsInventory.find(entry => entry.id === inventoryId);
+        if (!item || Number(item.current_stock || 0) <= 0) {
+            const itemName = item?.item_name || `Item #${inventoryId}`;
+            showSparePartsToast(`No stock left for ${itemName}.`, "error");
+            throw new Error(`No stock left for ${itemName}.`);
+        }
+        if (quantity > Number(item.current_stock || 0)) {
+            showSparePartsToast(
+                `Only ${item.current_stock} ${item.unit || "item(s)"} of ${item.item_name} are available.`,
+                "error"
+            );
+            throw new Error(`Insufficient stock for ${item.item_name}.`);
+        }
+    }
+    return partsToUse.map(part => ({
+        inventory_id: Number(part.inventory_id),
+        quantity: Math.max(1, Number(part.quantity)),
+    }));
+}
+
+function showSparePartsToast(message, type = "error") {
+    const title = type === "error" ? "Stock unavailable" : "Spare parts updated";
+    BioTrackToast.show({ title, message, type });
+}
+
+// ==========================================
+// GLOBAL FUNCTIONS
+// ==========================================
+
+window.startWork = startWork;
+window.completeWork = completeWork;
+window.saveTicketChanges = saveTicketChanges;
+window.openTicket = openTicket;
+window.setSparePart = setSparePart;
+window.setSpareQuantity = setSpareQuantity;
+window.addSparePart = addSparePart;
+window.removeSparePart = removeSparePart;
+
+;
+/* source: dashboard_v2/views/assetsView.js */
+
+let assetsCache = [];
+let filteredAssets = [];
+let selectedAssetServiceTeam = "";
+let selectedAssetIds = new Set();
+const assetsPagination = { page: 1, pageSize: 25 };
+
+function canManageAssetQR() {
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    return ["admin", "manager", "engineer", "bme", "electrical", "it"].includes(role);
+}
+
+function isAssetAdministrator() {
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    return role === "admin" || role === "manager";
+}
+
+function assetRoleServiceTeam() {
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    if (role === "electrical") return "Electrical";
+    if (role === "it") return "IT";
+    if (role === "engineer" || role === "bme") return "Biomedical";
+    return "";
+}
+
+function assetRegistryCopy() {
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    if (role === "electrical") return { badge: "Electrical Asset Registry", description: "Manage electrical equipment, maintenance ownership, QR records and lifecycle information from one place." };
+    if (role === "it") return { badge: "IT Asset Registry", description: "Manage IT equipment, infrastructure, QR records and lifecycle information from one place." };
+    if (role === "engineer" || role === "bme") return { badge: "Biomedical Asset Registry", description: "Manage biomedical devices, preventive maintenance, QR records and equipment history from one place." };
+    return { badge: "Hospital Asset Registry", description: "Manage Biomedical, Electrical and IT assets across the hospital with team ownership, lifecycle information, QR records and maintenance history." };
+}
+
+function renderAssets() {
+
+    const registryCopy = assetRegistryCopy();
+    selectedAssetServiceTeam = isAssetAdministrator() ? "" : assetRoleServiceTeam();
+    selectedAssetIds = new Set();
+
+    pageContent.innerHTML = `
+
+
+    <div class="asset-page">
+
+        <!-- ==========================================
+             PAGE HEADER
+        =========================================== -->
+
+
+
+        <div class="asset-hero">
+
+            <div class="asset-hero-left">
+
+                <span class="asset-badge">
+
+                    ${registryCopy.badge}
+
+                </span>
+
+                <h1>
+
+                    Asset Management
+
+                </h1>
+
+                <p>
+
+                    ${registryCopy.description}
+
+                </p>
+
+            </div>
+
+            <div class="asset-hero-right">
+
+            <div class="quick-actions-card" aria-label="Asset quick actions">
+
+                <div class="asset-actions">
+
+                    <button
+                        id="addAssetBtn"
+                        class="btn-primary hero-btn">
+
+                        + Add New Asset
+
+                    </button>
+
+                    ${canManageAssetQR() ? `<button
+                        id="assetQrBtn"
+                        class="btn-secondary hero-btn">
+
+                        <i data-lucide="qr-code"></i> Generate QR
+
+                    </button>` : ""}
+
+                    ${canManageAssetQR() ? `<button
+                        id="assetRelocationRequestsBtn"
+                        class="btn-secondary hero-btn">
+
+                        <i data-lucide="route"></i> Relocation Requests
+
+                    </button>` : ""}
+
+                    <button
+                        id="importExcelBtn"
+                        class="btn-secondary hero-btn">
+
+                        📄 Import Excel
+
+                    </button>
+
+                    ${isAssetAdministrator() ? `
+                        <label class="asset-import-team-label" for="assetImportTeam">
+                            <span>Excel import team</span>
+                            <select id="assetImportTeam">
+                                <option value="">Select service team</option>
+                                <option value="Biomedical">Biomedical</option>
+                                <option value="Electrical">Electrical</option>
+                                <option value="IT">IT</option>
+                            </select>
+                        </label>
+                    ` : ""}
+
+                    <button
+                        id="exportAssetBtn"
+                        class="btn-secondary hero-btn">
+
+                        ⬇ Export
+
+                    </button>
+
+                </div>
+
+                <input
+                    id="excelFileInput"
+                    type="file"
+                    accept=".xlsx,.xls"
+                    hidden>
+
+            </div>
+
+        </div>
+
+        </div>
+
+
+        ${isAssetAdministrator() ? `
+            <section class="asset-mode-switcher" aria-label="Asset service-team mode">
+                <div>
+                    <span>Asset mode</span>
+                    <strong id="assetModeTitle">All engineering assets</strong>
+                </div>
+                <div class="asset-mode-options" role="tablist" aria-label="Filter assets by service team">
+                    <button type="button" class="is-active" data-asset-team="" role="tab" aria-selected="true">All</button>
+                    <button type="button" data-asset-team="Biomedical" role="tab" aria-selected="false">Biomedical</button>
+                    <button type="button" data-asset-team="Electrical" role="tab" aria-selected="false">Electrical</button>
+                    <button type="button" data-asset-team="IT" role="tab" aria-selected="false">IT</button>
+                </div>
+            </section>
+        ` : ""}
+
+
+        <!-- ==========================================
+             KPI CARDS
+        =========================================== -->
+
+        <div class="asset-kpis">
+
+            <div class="asset-card total-card">
+
+                <div class="asset-card-icon">
+
+                    <i data-lucide="package"></i>
+
+                </div>
+
+                <div class="asset-card-content">
+
+                    <h4>Total Assets</h4>
+
+                    <span class="asset-kpi-mode">All teams</span>
+
+                    <h2 id="totalAssets">0</h2>
+
+                    <p>Hospital Inventory</p>
+
+                </div>
+
+            </div>
+
+            <div class="asset-card active-card">
+
+                <div class="asset-card-icon">
+
+                    <i data-lucide="shield-check"></i>
+
+                </div>
+
+                <div class="asset-card-content">
+
+                    <h4>Active Assets</h4>
+
+                    <span class="asset-kpi-mode">All teams</span>
+
+                    <h2 id="activeAssets">0</h2>
+
+                    <p>Operational Equipment</p>
+
+                </div>
+
+            </div>
+
+            <div class="asset-card pm-card">
+
+                <div class="asset-card-icon">
+
+                    <i data-lucide="calendar-check"></i>
+
+                </div>
+
+                <div class="asset-card-content">
+
+                    <h4>PM Due</h4>
+
+                    <span class="asset-kpi-mode">All teams</span>
+
+                    <h2 id="pmDue">0</h2>
+
+                    <p>Scheduled Maintenance</p>
+
+                </div>
+
+            </div>
+
+            <div class="asset-card calibration-card">
+
+                <div class="asset-card-icon">
+
+                    <i data-lucide="flask-conical"></i>
+
+                </div>
+
+                <div class="asset-card-content">
+
+                    <h4>Calibration Due</h4>
+
+                    <span class="asset-kpi-mode">All teams</span>
+
+                    <h2 id="calibrationDue">0</h2>
+
+                    <p>Calibration Schedule</p>
+
+                </div>
+
+            </div>
+
+            <div class="asset-card warranty-card">
+
+                <div class="asset-card-icon">
+
+                    <i data-lucide="shield"></i>
+
+                </div>
+
+                <div class="asset-card-content">
+
+                    <h4>Warranty</h4>
+
+                    <span class="asset-kpi-mode">All teams</span>
+
+                    <h2 id="warrantyDue">0</h2>
+
+                    <p>Expiring Soon</p>
+
+                </div>
+
+            </div>
+
+            <div class="asset-card critical-card">
+
+                <div class="asset-card-icon">
+
+                    <i data-lucide="heart-pulse"></i>
+
+                </div>
+
+                <div class="asset-card-content">
+
+                    <h4>Critical Assets</h4>
+
+                    <span class="asset-kpi-mode">All teams</span>
+
+                    <h2 id="criticalAssets">0</h2>
+
+                    <p>Life Support</p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ==========================================
+             FILTER BAR
+        =========================================== -->
+
+        <div class="asset-toolbar">
+
+            <input
+                id="assetSearch"
+                type="text"
+                placeholder="🔍 Search equipment..."
+                class="asset-search"
+            >
+
+            <select id="assetDepartmentFilter">
+
+                <option>All Departments</option>
+
+            </select>
+
+            <select id="assetStatusFilter">
+
+                <option>All Status</option>
+
+            </select>
+
+            <select id="assetCategoryFilter">
+
+                <option>All Categories</option>
+
+            </select>
+
+        </div>
+
+        ${isAssetAdministrator() ? `
+            <section class="asset-bulk-toolbar" aria-label="Bulk asset actions">
+                <div class="asset-bulk-summary">
+                    <span class="asset-bulk-icon"><i data-lucide="list-checks"></i></span>
+                    <span><strong id="assetSelectionCount">0 selected</strong><small>Select rows, find duplicate records, or remove several assets together.</small></span>
+                </div>
+                <div class="asset-bulk-actions">
+                    <button type="button" id="assetSelectFilteredBtn" class="asset-bulk-secondary"><i data-lucide="check-check"></i> Select all</button>
+                    <button type="button" id="assetClearSelectionBtn" class="asset-bulk-secondary" disabled><i data-lucide="x"></i> Deselect all</button>
+                    <button type="button" id="assetFindDuplicatesBtn" class="asset-bulk-secondary"><i data-lucide="copy-check"></i> Find duplicates</button>
+                    <button type="button" id="assetDeleteSelectedBtn" class="asset-bulk-danger" disabled><i data-lucide="trash-2"></i> Delete selected</button>
+                </div>
+            </section>
+        ` : ""}
+
+
+        <!-- ==========================================
+             TABLE
+        =========================================== -->
+
+        <div class="asset-table-container">
+
+            <table class="asset-table">
+
+                <thead>
+
+                    <tr>
+
+                        ${isAssetAdministrator() ? '<th class="asset-select-column"><input id="assetSelectPage" type="checkbox" aria-label="Select all assets on this page"></th>' : ""}
+
+                        <th>Equipment No</th>
+
+                        <th>Equipment Name</th>
+
+                        <th>Department</th>
+
+                        <th>Service Team</th>
+
+                        <th>Manufacturer</th>
+
+                        <th>Model</th>
+
+                        <th>Status</th>
+
+                        <th>QR</th>
+
+                        <th>Action</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="assetTableBody">
+
+                    <tr>
+
+                        <td colspan="${isAssetAdministrator() ? 10 : 9}" class="empty-table">
+
+                            No assets found.
+
+                            <br><br>
+
+                            Import an Excel sheet to begin.
+
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <div id="assetsPagination" class="table-pagination"></div>
+
+    </div>
+
+    `;
+    initializeAssetImport();
+    initializeAddAsset();
+    initializeAssetQR();
+    initializeAssetRelocations();
+    initializeAssetModeSwitcher();
+    initializeAssetFilters();
+    initializeAssetBulkActions();
+    loadAssets();
+}
+
+function initializeAssetQR() {
+    const button = document.getElementById("assetQrBtn");
+    if (button) button.onclick = () => openAssetQRGenerator();
+}
+
+function initializeAssetRelocations() {
+    const button = document.getElementById("assetRelocationRequestsBtn");
+    if (button) button.onclick = () => window.AssetRelocation?.openQueue();
+}
+
+// ==========================================
+// INITIALIZE IMPORT BUTTON
+// ==========================================
+
+function initializeAssetImport() {
+
+    const importButton = document.getElementById("importExcelBtn");
+    const excelInput = document.getElementById("excelFileInput");
+
+    if (!importButton || !excelInput) return;
+
+    importButton.onclick = () => {
+
+        const teamSelect = document.getElementById("assetImportTeam");
+        if (isAssetAdministrator() && !teamSelect?.value) {
+            BioTrackToast.warning(
+                "Select a service team",
+                "Choose Biomedical, Electrical or IT before importing the spreadsheet.",
+            );
+            teamSelect?.focus();
+            return;
+        }
+
+        excelInput.click();
+
+    };
+
+    excelInput.onchange = async () => {
+
+        if (!excelInput.files.length) return;
+
+        const formData = new FormData();
+
+        formData.append("file", excelInput.files[0]);
+        const selectedTeam = document.getElementById("assetImportTeam")?.value;
+        const uploadUrl = selectedTeam
+            ? `/api/assets/upload?service_team=${encodeURIComponent(selectedTeam)}`
+            : "/api/assets/upload";
+
+        try {
+
+            importButton.disabled = true;
+            importButton.textContent = "Importing...";
+
+            const response = await fetch(uploadUrl, {
+
+                method: "POST",
+                body: formData
+
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || result.success === false) {
+                const detail = Array.isArray(result.detail)
+                    ? result.detail.map(item => item.msg || String(item)).join("\n")
+                    : result.detail || result.message || "The spreadsheet could not be imported.";
+                throw new Error(detail);
+            }
+
+            BioTrackToast.success(
+                "Asset import complete",
+                `${result.imported} imported · ${result.skipped} skipped · ${result.errors} errors`,
+                { duration: 7000 },
+            );
+
+            await loadAssets();
+
+        }
+
+        catch (error) {
+
+            console.error(error);
+
+            BioTrackToast.error("Asset import failed", error.message || "The spreadsheet could not be imported.");
+
+        }
+
+        finally {
+
+            importButton.disabled = false;
+            importButton.innerHTML = "📄 Import Excel";
+
+            excelInput.value = "";
+
+        }
+
+    };
+
+}
+// ==========================================
+// INITIALIZE ADD ASSET BUTTON
+// ==========================================
+
+function initializeAddAsset() {
+
+    const addButton = document.getElementById("addAssetBtn");
+
+    if (!addButton) return;
+
+    addButton.onclick = () => {
+
+        navigate("assetForm");
+
+    };
+
+}
+// ==========================================
+// LOAD ASSETS
+// ==========================================
+
+async function loadAssets() {
+
+    try {
+
+        const response = await fetch("/api/assets/");
+
+        const assets = await response.json();
+
+        assetsCache = Array.isArray(assets) ? assets : [];
+        const availableIds = new Set(assetsCache.map(asset => Number(asset.id)));
+        selectedAssetIds = new Set([...selectedAssetIds].filter(id => availableIds.has(id)));
+        populateAssetFilters(assetsCache);
+        applyAssetFilters();
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        BioTrackToast.error("Assets unavailable", "Unable to load the asset registry.");
+
+    }
+
+}
+
+function initializeAssetFilters() {
+    ["assetSearch", "assetDepartmentFilter", "assetStatusFilter", "assetCategoryFilter"]
+        .forEach((id) => {
+            const element = document.getElementById(id);
+            if (!element) return;
+            element.addEventListener(element.tagName === "INPUT" ? "input" : "change", applyAssetFilters);
+        });
+}
+
+function initializeAssetBulkActions() {
+    if (!isAssetAdministrator()) return;
+
+    document.getElementById("assetSelectFilteredBtn")?.addEventListener("click", () => {
+        filteredAssets.forEach(asset => selectedAssetIds.add(Number(asset.id)));
+        populateAssetTable(filteredAssets);
+    });
+    document.getElementById("assetClearSelectionBtn")?.addEventListener("click", () => {
+        selectedAssetIds.clear();
+        populateAssetTable(filteredAssets);
+    });
+    document.getElementById("assetFindDuplicatesBtn")?.addEventListener("click", openAssetDuplicateReview);
+    document.getElementById("assetDeleteSelectedBtn")?.addEventListener("click", () => {
+        openAssetDeleteDialog([...selectedAssetIds], "Delete selected assets?");
+    });
+    document.getElementById("assetSelectPage")?.addEventListener("change", event => {
+        toggleVisibleAssetSelection(event.target.checked);
+    });
+    updateAssetBulkControls();
+}
+
+function getVisibleAssetPageItems() {
+    return TablePagination.pageItems(filteredAssets, assetsPagination);
+}
+
+function toggleAssetSelection(assetId, selected) {
+    const id = Number(assetId);
+    if (selected) selectedAssetIds.add(id);
+    else selectedAssetIds.delete(id);
+    updateAssetBulkControls();
+}
+
+function toggleVisibleAssetSelection(selected) {
+    getVisibleAssetPageItems().forEach(asset => {
+        const id = Number(asset.id);
+        if (selected) selectedAssetIds.add(id);
+        else selectedAssetIds.delete(id);
+    });
+    populateAssetTable(filteredAssets);
+}
+
+function updateAssetBulkControls() {
+    if (!isAssetAdministrator()) return;
+    const count = selectedAssetIds.size;
+    const selectionLabel = document.getElementById("assetSelectionCount");
+    if (selectionLabel) selectionLabel.textContent = `${count} selected`;
+    const clearButton = document.getElementById("assetClearSelectionBtn");
+    const deleteButton = document.getElementById("assetDeleteSelectedBtn");
+    if (clearButton) clearButton.disabled = count === 0;
+    if (deleteButton) deleteButton.disabled = count === 0;
+
+    const selectPage = document.getElementById("assetSelectPage");
+    if (selectPage) {
+        const visibleIds = getVisibleAssetPageItems().map(asset => Number(asset.id));
+        const selectedVisible = visibleIds.filter(id => selectedAssetIds.has(id)).length;
+        selectPage.checked = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+        selectPage.indeterminate = selectedVisible > 0 && selectedVisible < visibleIds.length;
+    }
+}
+
+function initializeAssetModeSwitcher() {
+    document.querySelectorAll(".asset-mode-options button").forEach((button) => {
+        button.addEventListener("click", () => {
+            selectedAssetServiceTeam = button.dataset.assetTeam || "";
+            document.querySelectorAll(".asset-mode-options button").forEach((option) => {
+                const active = option === button;
+                option.classList.toggle("is-active", active);
+                option.setAttribute("aria-selected", String(active));
+            });
+            assetsPagination.page = 1;
+            applyAssetFilters();
+        });
+    });
+}
+
+function populateAssetFilters(assets) {
+    const setup = (id, values, allLabel) => {
+        const select = document.getElementById(id);
+        if (!select) return;
+        select.innerHTML = `<option value="">${escapeHTML(allLabel)}</option>${values
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b))
+            .map((value) => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`)
+            .join("")}`;
+    };
+
+    setup("assetDepartmentFilter", [...new Set(assets.map(asset => asset.department))], "All Departments");
+    setup("assetStatusFilter", [...new Set(assets.map(asset => asset.status))], "All Status");
+    setup("assetCategoryFilter", [...new Set(assets.map(asset => asset.classification || asset.category))], "All Categories");
+}
+
+function applyAssetFilters() {
+    const search = (document.getElementById("assetSearch")?.value || "").trim().toLowerCase();
+    const department = document.getElementById("assetDepartmentFilter")?.value || "";
+    const status = document.getElementById("assetStatusFilter")?.value || "";
+    const category = document.getElementById("assetCategoryFilter")?.value || "";
+
+    filteredAssets = assetsCache.filter((asset) => {
+        const searchable = [
+            asset.equipment_no,
+            asset.equipment_name,
+            asset.department,
+            asset.service_team,
+            asset.manufacturer,
+            asset.model,
+            asset.classification || asset.category,
+        ].filter(Boolean).join(" ").toLowerCase();
+
+        return (!search || searchable.includes(search))
+            && (!department || asset.department === department)
+            && (!selectedAssetServiceTeam || asset.service_team === selectedAssetServiceTeam)
+            && (!status || asset.status === status)
+            && (!category || (asset.classification || asset.category) === category);
+    });
+
+    assetsPagination.page = 1;
+    populateAssetTable(filteredAssets);
+    updateAssetKPIs(
+        assetsCache.filter(asset => !selectedAssetServiceTeam || asset.service_team === selectedAssetServiceTeam)
+    );
+}
+
+
+// ==========================================
+// POPULATE TABLE
+// ==========================================
+
+function populateAssetTable(assets) {
+
+    const table = document.getElementById("assetTableBody");
+
+    if (!table) return;
+
+    if (assets.length === 0) {
+
+        table.innerHTML = `
+            <tr>
+                <td colspan="${isAssetAdministrator() ? 10 : 9}" class="empty-table">
+                    No assets found.
+                </td>
+            </tr>
+        `;
+
+        TablePagination.render(
+            document.getElementById("assetsPagination"),
+            assetsPagination,
+            0,
+            () => populateAssetTable(filteredAssets),
+            "assets"
+        );
+
+        updateAssetBulkControls();
+
+        return;
+
+    }
+
+    table.innerHTML = "";
+
+    const pageItems = TablePagination.pageItems(assets, assetsPagination);
+
+    pageItems.forEach(asset => {
+
+        table.innerHTML += `
+            <tr>
+
+                ${isAssetAdministrator() ? `<td class="asset-select-column"><input type="checkbox" ${selectedAssetIds.has(Number(asset.id)) ? "checked" : ""} onchange="toggleAssetSelection(${Number(asset.id)}, this.checked)" aria-label="Select ${escapeHTML(asset.equipment_name || asset.asset_code || "asset")}"></td>` : ""}
+
+                <td>${escapeHTML(asset.equipment_no ?? "")}</td>
+
+                <td>${escapeHTML(asset.equipment_name ?? "")}</td>
+
+                <td>${escapeHTML(asset.department ?? "")}</td>
+
+                <td><span class="asset-team-badge is-${String(asset.service_team || "Biomedical").toLowerCase()}">${escapeHTML(asset.service_team || "Biomedical")}</span></td>
+
+                <td>${escapeHTML(asset.manufacturer ?? "")}</td>
+
+                <td>${escapeHTML(asset.model ?? "")}</td>
+
+                <td>${escapeHTML(asset.status ?? "")}</td>
+
+                <td>${asset.qr_generated || canManageAssetQR() ? `<button type="button" class="asset-qr-table-button ${asset.qr_generated ? "is-ready" : ""}" onclick="openAssetQRGenerator(${Number(asset.id)})"><i data-lucide="qr-code"></i><span>${asset.qr_generated ? "View QR" : "Generate"}</span></button>` : '<span class="asset-qr-unavailable">Not generated</span>'}</td>
+
+                <td>
+
+                    <button
+                        class="btn-open-asset"
+                        onclick="openAssetPage(${Number(asset.id)})">
+
+                        👁 View Asset
+
+                    </button>
+
+                </td>
+
+            </tr>
+        `;
+
+    });
+
+    TablePagination.render(
+        document.getElementById("assetsPagination"),
+        assetsPagination,
+        assets.length,
+        () => populateAssetTable(filteredAssets),
+        "assets"
+    );
+
+    updateAssetBulkControls();
+
+    if (window.lucide) lucide.createIcons();
+
+}
+
+function normalizeAssetDuplicateValue(value) {
+    const normalized = String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+    return ["", "-", "na", "n/a", "none", "null", "unknown"].includes(normalized) ? "" : normalized;
+}
+
+function findDuplicateAssetGroups() {
+    const parent = new Map(assetsCache.map(asset => [Number(asset.id), Number(asset.id)]));
+    const reasonsByPair = [];
+    const find = id => {
+        const current = parent.get(id);
+        if (current === id) return id;
+        const root = find(current);
+        parent.set(id, root);
+        return root;
+    };
+    const union = (left, right) => {
+        const leftRoot = find(left);
+        const rightRoot = find(right);
+        if (leftRoot !== rightRoot) parent.set(rightRoot, leftRoot);
+    };
+
+    const duplicateMaps = [
+        ["Asset code", asset => normalizeAssetDuplicateValue(asset.asset_code)],
+        ["Equipment number", asset => normalizeAssetDuplicateValue(asset.equipment_no)],
+        ["Serial number", asset => normalizeAssetDuplicateValue(asset.serial_number)],
+    ];
+
+    duplicateMaps.forEach(([label, keyFor]) => {
+        const groups = new Map();
+        assetsCache.forEach(asset => {
+            const key = keyFor(asset);
+            if (!key) return;
+            const matches = groups.get(key) || [];
+            matches.push(Number(asset.id));
+            groups.set(key, matches);
+        });
+        groups.forEach(ids => {
+            if (ids.length < 2) return;
+            ids.slice(1).forEach(id => union(ids[0], id));
+            reasonsByPair.push({ ids, label });
+        });
+    });
+
+    // When identifiers are missing, an exact match across the descriptive
+    // equipment fields is presented as a possible duplicate for manual review.
+    const detailGroups = new Map();
+    assetsCache.forEach(asset => {
+        if (normalizeAssetDuplicateValue(asset.serial_number) || normalizeAssetDuplicateValue(asset.equipment_no)) return;
+        const parts = [asset.equipment_name, asset.manufacturer, asset.model, asset.department, asset.location]
+            .map(normalizeAssetDuplicateValue);
+        if (!parts[0] || !parts[2] || parts.filter(Boolean).length < 3) return;
+        const key = parts.join("|");
+        const matches = detailGroups.get(key) || [];
+        matches.push(Number(asset.id));
+        detailGroups.set(key, matches);
+    });
+    detailGroups.forEach(ids => {
+        if (ids.length < 2) return;
+        ids.slice(1).forEach(id => union(ids[0], id));
+        reasonsByPair.push({ ids, label: "Matching equipment details" });
+    });
+
+    const components = new Map();
+    assetsCache.forEach(asset => {
+        const id = Number(asset.id);
+        const root = find(id);
+        const component = components.get(root) || [];
+        component.push(asset);
+        components.set(root, component);
+    });
+
+    return [...components.values()]
+        .filter(group => group.length > 1)
+        .map(group => {
+            const groupIds = new Set(group.map(asset => Number(asset.id)));
+            const reasons = [...new Set(reasonsByPair
+                .filter(entry => entry.ids.some(id => groupIds.has(id)))
+                .map(entry => entry.label))];
+            return {
+                assets: group.sort((a, b) => Number(a.id) - Number(b.id)),
+                reasons,
+            };
+        })
+        .sort((a, b) => Number(a.assets[0].id) - Number(b.assets[0].id));
+}
+
+function closeAssetManagementDialog() {
+    document.getElementById("assetManagementOverlay")?.remove();
+    document.body.classList.remove("asset-management-dialog-open");
+}
+
+function openAssetDuplicateReview() {
+    const groups = findDuplicateAssetGroups();
+    if (!groups.length) {
+        BioTrackToast.success("No duplicates found", "Asset codes, equipment numbers and serial numbers are unique.");
+        return;
+    }
+
+    closeAssetManagementDialog();
+    const overlay = document.createElement("div");
+    overlay.id = "assetManagementOverlay";
+    overlay.className = "asset-management-overlay";
+    overlay.innerHTML = `
+        <section class="asset-management-dialog asset-duplicate-dialog" role="dialog" aria-modal="true" aria-labelledby="assetDuplicateTitle">
+            <header><span><i data-lucide="copy-check"></i></span><div><h2 id="assetDuplicateTitle">Review duplicate assets</h2><p>BioTrack will keep the oldest record in each group. Uncheck anything that should remain.</p></div><button type="button" class="asset-management-close" aria-label="Close"><i data-lucide="x"></i></button></header>
+            <div class="asset-duplicate-list">
+                ${groups.map((group, groupIndex) => `
+                    <article class="asset-duplicate-group">
+                        <div class="asset-duplicate-group-heading"><strong>Duplicate group ${groupIndex + 1}</strong><span>${escapeHTML(group.reasons.join(" · "))}</span></div>
+                        ${group.assets.map((asset, index) => `
+                            <label class="asset-duplicate-row ${index === 0 ? "is-kept" : ""}">
+                                <input type="checkbox" class="asset-duplicate-choice" value="${Number(asset.id)}" ${index === 0 ? "disabled" : "checked"}>
+                                <span><strong>${escapeHTML(asset.equipment_name || "Unnamed equipment")}</strong><small>${escapeHTML(asset.asset_code || asset.equipment_no || `Asset ${asset.id}`)} · ${escapeHTML(asset.serial_number || "No serial number")} · ${escapeHTML(asset.service_team || "Biomedical")}</small></span>
+                                <em>${index === 0 ? "Keep" : "Remove"}</em>
+                            </label>
+                        `).join("")}
+                    </article>
+                `).join("")}
+            </div>
+            <footer><button type="button" class="asset-dialog-secondary" id="cancelDuplicateReview">Cancel</button><button type="button" class="asset-dialog-danger" id="removeDuplicateAssets"><i data-lucide="trash-2"></i> Remove selected duplicates</button></footer>
+        </section>
+    `;
+    document.body.appendChild(overlay);
+    document.body.classList.add("asset-management-dialog-open");
+    overlay.querySelector(".asset-management-close").onclick = closeAssetManagementDialog;
+    overlay.querySelector("#cancelDuplicateReview").onclick = closeAssetManagementDialog;
+    overlay.addEventListener("click", event => { if (event.target === overlay) closeAssetManagementDialog(); });
+    overlay.querySelector("#removeDuplicateAssets").onclick = () => {
+        const duplicateIds = [...overlay.querySelectorAll(".asset-duplicate-choice:checked")]
+            .map(input => Number(input.value));
+        if (!duplicateIds.length) {
+            BioTrackToast.warning("No duplicates selected", "Select at least one duplicate record to remove.");
+            return;
+        }
+        closeAssetManagementDialog();
+        openAssetDeleteDialog(duplicateIds, "Remove selected duplicates?");
+    };
+    if (window.lucide) lucide.createIcons();
+}
+
+function openAssetDeleteDialog(assetIds, title = "Delete selected assets?") {
+    const ids = [...new Set(assetIds.map(Number).filter(Boolean))];
+    if (!ids.length) return;
+    const assets = ids.map(id => assetsCache.find(asset => Number(asset.id) === id)).filter(Boolean);
+
+    closeAssetManagementDialog();
+    const overlay = document.createElement("div");
+    overlay.id = "assetManagementOverlay";
+    overlay.className = "asset-management-overlay";
+    overlay.innerHTML = `
+        <section class="asset-management-dialog asset-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="assetDeleteTitle" aria-describedby="assetDeleteDescription">
+            <div class="asset-delete-icon"><i data-lucide="trash-2"></i></div>
+            <h2 id="assetDeleteTitle">${escapeHTML(title)}</h2>
+            <p id="assetDeleteDescription">${ids.length} asset record${ids.length === 1 ? "" : "s"} and related PM details will be permanently deleted.</p>
+            <div class="asset-delete-preview">${assets.slice(0, 6).map(asset => `<span><strong>${escapeHTML(asset.equipment_name || "Unnamed equipment")}</strong><small>${escapeHTML(asset.asset_code || asset.equipment_no || `Asset ${asset.id}`)}</small></span>`).join("")}${assets.length > 6 ? `<em>+ ${assets.length - 6} more</em>` : ""}</div>
+            <footer><button type="button" class="asset-dialog-secondary" id="cancelAssetDelete">Cancel</button><button type="button" class="asset-dialog-danger" id="confirmAssetDelete"><i data-lucide="trash-2"></i> Delete ${ids.length}</button></footer>
+        </section>
+    `;
+    document.body.appendChild(overlay);
+    document.body.classList.add("asset-management-dialog-open");
+    overlay.querySelector("#cancelAssetDelete").onclick = closeAssetManagementDialog;
+    overlay.addEventListener("click", event => { if (event.target === overlay) closeAssetManagementDialog(); });
+    overlay.querySelector("#confirmAssetDelete").onclick = () => deleteSelectedAssets(ids);
+    if (window.lucide) lucide.createIcons();
+}
+
+async function deleteSelectedAssets(assetIds) {
+    const button = document.getElementById("confirmAssetDelete");
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Deleting…";
+    }
+    try {
+        const response = await fetch("/api/assets/bulk-delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ asset_ids: assetIds }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) throw new Error(result.detail || "The selected assets could not be deleted.");
+        result.deleted_ids.forEach(id => selectedAssetIds.delete(Number(id)));
+        closeAssetManagementDialog();
+        BioTrackToast.success("Assets deleted", `${result.deleted} asset record${result.deleted === 1 ? " was" : "s were"} removed.`);
+        await loadAssets();
+    } catch (error) {
+        BioTrackToast.error("Assets not deleted", error.message || "The selected assets could not be deleted.");
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = `<i data-lucide="trash-2"></i> Delete ${assetIds.length}`;
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+}
+
+async function openAssetQRGenerator(assetId = null) {
+    const canGenerate = canManageAssetQR();
+    let assets = assetsCache;
+    if (!assets.length) {
+        try {
+            const response = await fetch("/api/assets/", { cache: "no-store" });
+            if (!response.ok) throw new Error("Unable to load assets.");
+            assets = await response.json();
+            assetsCache = Array.isArray(assets) ? assets : [];
+        } catch (error) {
+            BioTrackToast.error("Assets unavailable", error.message || "Unable to load assets.");
+            return;
+        }
+    }
+
+    const modalRoot = document.createElement("div");
+    modalRoot.className = "asset-qr-overlay";
+    modalRoot.innerHTML = `
+        <section class="asset-qr-dialog" role="dialog" aria-modal="true" aria-labelledby="assetQrTitle">
+            <header class="asset-qr-dialog-header"><span><i data-lucide="qr-code"></i></span><div><h2 id="assetQrTitle">Asset QR code</h2><p>Select an asset, then generate a printable equipment QR code.</p></div><button type="button" class="asset-qr-close" aria-label="Close"><i data-lucide="x"></i></button></header>
+            <div class="asset-qr-dialog-body">
+                <label class="asset-qr-select-label"><span>Hospital asset</span><select id="assetQrSelect"><option value="">Choose an asset</option>${assetsCache.map(asset => `<option value="${Number(asset.id)}" ${Number(asset.id) === Number(assetId) ? "selected" : ""}>${escapeHTML(asset.asset_code || asset.equipment_no || `Asset ${asset.id}`)} — ${escapeHTML(asset.equipment_name || "Equipment")}</option>`).join("")}</select></label>
+                <div id="assetQrPreview" class="asset-qr-preview"><span><i data-lucide="scan-line"></i></span><strong>No asset selected</strong><p>Choose an asset to create or view its QR code.</p></div>
+            </div>
+            <footer class="asset-qr-dialog-footer"><button type="button" class="asset-qr-cancel secondary-btn">${canGenerate ? "Cancel" : "Close"}</button>${canGenerate ? '<button type="button" class="asset-qr-generate primary-btn" disabled><i data-lucide="qr-code"></i><span>Generate QR</span></button>' : ""}</footer>
+        </section>`;
+    document.body.appendChild(modalRoot);
+    document.body.classList.add("asset-qr-open");
+
+    const close = () => { modalRoot.remove(); document.body.classList.remove("asset-qr-open"); };
+    const select = modalRoot.querySelector("#assetQrSelect");
+    const generate = modalRoot.querySelector(".asset-qr-generate");
+    const setGenerateLabel = label => {
+        const labelElement = generate?.querySelector("span");
+        if (labelElement) labelElement.textContent = label;
+    };
+    modalRoot.querySelector(".asset-qr-close").onclick = close;
+    modalRoot.querySelector(".asset-qr-cancel").onclick = close;
+    modalRoot.addEventListener("click", event => { if (event.target === modalRoot) close(); });
+    select.onchange = () => {
+        if (generate) generate.disabled = !select.value;
+        const asset = assetsCache.find(item => Number(item.id) === Number(select.value));
+        const preview = modalRoot.querySelector("#assetQrPreview");
+        if (asset?.qr_code) {
+            preview.innerHTML = `<img src="${escapeHTML(asset.qr_code)}" alt="QR code for ${escapeHTML(asset.equipment_name || "asset")}"><strong>${escapeHTML(asset.asset_code || asset.equipment_no || "Asset QR")}</strong><p>${escapeHTML(asset.equipment_name || "Equipment")}</p><a href="${escapeHTML(asset.qr_code)}" download><i data-lucide="download"></i> Download QR</a>`;
+            setGenerateLabel("Regenerate QR");
+        } else {
+            preview.innerHTML = asset ? `<span><i data-lucide="monitor-cog"></i></span><strong>${escapeHTML(asset.equipment_name || "Equipment")}</strong><p>${escapeHTML(asset.asset_code || asset.equipment_no || "No asset code")} · ${escapeHTML(asset.department || "No department")}</p>` : '<span><i data-lucide="scan-line"></i></span><strong>No asset selected</strong><p>Choose an asset to create or view its QR code.</p>';
+            setGenerateLabel("Generate QR");
+        }
+        if (window.lucide) lucide.createIcons();
+    };
+    if (generate) generate.onclick = async () => {
+        if (!select.value) return;
+        generate.disabled = true;
+        generate.classList.add("is-loading");
+        setGenerateLabel("Generating…");
+        try {
+            const response = await fetch(`/api/qr/generate/${Number(select.value)}`, { method: "POST" });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.detail || "Unable to generate QR code.");
+            const asset = assetsCache.find(item => Number(item.id) === Number(select.value));
+            modalRoot.querySelector("#assetQrPreview").innerHTML = `<img src="${escapeHTML(result.qr_url)}?t=${Date.now()}" alt="QR code for ${escapeHTML(asset?.equipment_name || "asset")}"><strong>${escapeHTML(asset?.asset_code || asset?.equipment_no || "Asset QR")}</strong><p>${escapeHTML(asset?.equipment_name || "Equipment")}</p><a href="${escapeHTML(result.qr_url)}" download><i data-lucide="download"></i> Download QR</a>`;
+            setGenerateLabel("Regenerate QR");
+            const cachedAsset = assetsCache.find(item => Number(item.id) === Number(select.value));
+            if (cachedAsset) {
+                cachedAsset.qr_generated = true;
+                cachedAsset.qr_code = result.qr_url;
+            }
+            // The generator is shared by the registry and the asset-details page.
+            // Registry KPI/table elements do not exist when this modal is opened
+            // from Asset Details, so only refresh filters when that view is mounted.
+            if (document.getElementById("assetTableBody")) applyAssetFilters();
+            BioTrackToast.success("QR code ready", "The equipment QR code was generated successfully.");
+        } catch (error) {
+            BioTrackToast.error("QR generation failed", error.message || "Unable to generate QR code.");
+            setGenerateLabel("Generate QR");
+        } finally {
+            generate.disabled = false;
+            generate.classList.remove("is-loading");
+            if (window.lucide) lucide.createIcons();
+        }
+    };
+    if (select.value) select.onchange();
+    if (window.lucide) lucide.createIcons();
+}
+
+
+// ==========================================
+// UPDATE KPI CARDS
+// ==========================================
+
+function updateAssetKPIs(assets) {
+
+    const modeLabel = selectedAssetServiceTeam || "All teams";
+    document.querySelectorAll(".asset-kpi-mode").forEach(element => {
+        element.textContent = modeLabel;
+    });
+    const modeTitle = document.getElementById("assetModeTitle");
+    if (modeTitle) modeTitle.textContent = selectedAssetServiceTeam
+        ? `${selectedAssetServiceTeam} assets`
+        : "All engineering assets";
+
+    document.getElementById("totalAssets").textContent =
+        assets.length;
+
+    document.getElementById("activeAssets").textContent =
+        assets.filter(asset => asset.status === "Active").length;
+
+    document.getElementById("criticalAssets").textContent =
+        assets.filter(asset => asset.status === "Critical").length;
+
+    document.getElementById("pmDue").textContent = 0;
+
+    document.getElementById("calibrationDue").textContent = 0;
+
+    document.getElementById("warrantyDue").textContent = 0;
+
+}
+
+;
+/* source: dashboard_v2/views/assetFormView.js */
+// ==========================================
+// ASSET FORM STATE
+// ==========================================
+
+let currentStep = 1;
+
+const assetFormData = {};
+
+function currentAssetServiceTeam() {
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    if (role === "electrical") return "Electrical";
+    if (role === "it") return "IT";
+    if (role === "engineer" || role === "bme") return "Biomedical";
+    return assetFormData.service_team || "";
+}
+// ==========================================
+// ASSET REGISTRATION PAGE
+// ==========================================
+
+function renderAssetForm() {
+
+    const adminView = isAssetAdministrator();
+    const serviceTeam = currentAssetServiceTeam();
+
+    pageContent.innerHTML = `
+
+    <div class="asset-form-page">
+
+        <!-- ==========================================
+             PAGE HEADER
+        ========================================== -->
+
+        <div class="asset-form-header">
+
+            <button
+                class="btn-secondary"
+                onclick="navigate('assets')">
+
+                ← Back to Assets
+
+            </button>
+
+            <div class="asset-form-title">
+
+                <span class="asset-badge">
+
+                    ${adminView ? "Multi-team Asset Registration" : `${serviceTeam} Asset Registration`}
+
+                </span>
+
+                <h1>Register New ${adminView ? "Hospital" : serviceTeam} Asset</h1>
+
+                <p>
+
+                    Create a complete equipment record with the correct engineering service-team ownership.
+
+                </p>
+
+            </div>
+
+        </div>
+
+        <!-- ==========================================
+             PROGRESS BAR
+        ========================================== -->
+
+        <div class="asset-progress">
+
+            <div class="progress-step active">
+
+                <span>1</span>
+
+                <p>Basic</p>
+
+            </div>
+
+            <div class="progress-line"></div>
+
+            <div class="progress-step">
+
+                <span>2</span>
+
+                <p>Purchase</p>
+
+            </div>
+
+            <div class="progress-line"></div>
+
+            <div class="progress-step">
+
+                <span>3</span>
+
+                <p>Technical</p>
+
+            </div>
+
+            <div class="progress-line"></div>
+
+            <div class="progress-step">
+
+                <span>4</span>
+
+                <p>Maintenance</p>
+
+            </div>
+
+            <div class="progress-line"></div>
+
+            <div class="progress-step">
+
+                <span>5</span>
+
+                <p>Documents</p>
+
+            </div>
+
+        </div>
+
+        <!-- ==========================================
+             FORM CONTAINER
+        ========================================== -->
+
+        <div class="asset-form-container">
+
+            <div id="assetFormSection">
+
+            </div>
+
+        </div>
+
+        <!-- ==========================================
+             FOOTER
+        ========================================== -->
+
+        <div class="asset-form-footer">
+
+            <button
+                id="previousStepBtn"
+                class="btn-secondary">
+
+                ← Previous
+
+            </button>
+
+            <button
+                id="nextStepBtn"
+                class="btn-primary">
+
+                Next →
+
+            </button>
+
+        </div>
+
+    </div>
+
+    `;
+
+    renderBasicInformationSection();
+
+    initializeAssetFormNavigation();
+
+
+}
+// ==========================================
+// BASIC INFORMATION
+// ==========================================
+
+function renderBasicInformationSection() {
+
+    document.getElementById("assetFormSection").innerHTML = `
+
+    <div class="asset-form-card">
+
+        <div class="asset-section-title">
+
+            <h2>Basic Information</h2>
+
+            <p>
+
+                Enter the primary identification details for the equipment.
+
+            </p>
+
+        </div>
+
+        <div class="asset-form-grid">
+
+            <div class="form-group">
+                <label>Service Team <span class="required">*</span></label>
+                ${isAssetAdministrator() ? `
+                    <select id="service_team">
+                        <option value="">Select Service Team</option>
+                        <option value="Biomedical">Biomedical</option>
+                        <option value="Electrical">Electrical</option>
+                        <option value="IT">IT</option>
+                    </select>
+                ` : `
+                    <input id="service_team" type="text" value="${currentAssetServiceTeam()}" disabled>
+                `}
+            </div>
+
+            <!-- Equipment ID -->
+
+            <div class="form-group">
+
+                <label>
+                    Equipment ID <span class="required">*</span>
+                </label>
+
+                <input
+                    id="equipmentId"
+                    type="text"
+                    placeholder="Example : LFH-INF-0001">
+
+            </div>
+
+            <!-- Equipment Name -->
+
+            <div class="form-group">
+
+                <label>Equipment Name</label>
+
+                <input
+                    id="equipmentName"
+                    type="text"
+                    placeholder="Example : Infusion Pump">
+
+            </div>
+
+            <!-- Asset Code -->
+
+            <div class="form-group">
+
+                <label>Asset Code</label>
+
+                <input
+                    id="assetCode"
+                    type="text">
+
+            </div>
+
+            <!-- Asset Category -->
+
+            <div class="form-group">
+
+                <label>Asset Category</label>
+
+                <select id="assetCategory">
+
+                    <option value="">Select Category</option>
+
+                    <option>Patient Monitor</option>
+                    <option>Infusion Pump</option>
+                    <option>Syringe Pump</option>
+                    <option>Defibrillator</option>
+                    <option>ECG Machine</option>
+                    <option>Ventilator</option>
+                    <option>Ultrasound</option>
+                    <option>X-Ray</option>
+                    <option>Laboratory Equipment</option>
+                    <option>Electrical Panel</option>
+                    <option>Generator</option>
+                    <option>UPS</option>
+                    <option>HVAC</option>
+                    <option>Server</option>
+                    <option>Network Device</option>
+                    <option>Computer</option>
+                    <option>Other</option>
+
+                </select>
+
+            </div>
+
+            <!-- Department -->
+
+            <div class="form-group">
+
+                <label>Department</label>
+
+                <select id="department">
+                    ${renderHospitalDepartmentOptions()}
+                </select>
+
+            </div>
+
+            <!-- Location -->
+
+            <div class="form-group">
+
+                <label>Location</label>
+
+                <input
+                    id="location"
+                    type="text"
+                    placeholder="Example : ICU Room 4">
+
+            </div>
+
+            <!-- Room -->
+
+            <div class="form-group">
+
+                <label>Room / Ward</label>
+
+                <input
+                    id="room"
+                    type="text">
+
+            </div>
+
+            <!-- Status -->
+
+            <div class="form-group">
+
+                <label>Status</label>
+
+                <select id="status">
+
+                    <option>Active</option>
+                    <option>Standby</option>
+                    <option>Under Repair</option>
+                    <option>Out of Service</option>
+                    <option>Condemned</option>
+
+                </select>
+
+            </div>
+
+            <!-- Critical Asset -->
+
+            <div class="form-group">
+
+                <label>Critical Asset</label>
+
+                <select id="criticalAsset">
+
+                    <option>No</option>
+                    <option>Yes</option>
+
+                </select>
+
+            </div>
+
+            <!-- Equipment Type -->
+
+            <div class="form-group">
+
+                <label>Equipment Type</label>
+
+                <input
+                    id="equipmentType"
+                    type="text"
+                    placeholder="Example : Diagnostic">
+
+            </div>
+
+        </div>
+
+        <div class="form-group full-width">
+
+            <label>Description</label>
+
+            <textarea
+                id="description"
+                rows="5"
+                placeholder="Enter additional information about this equipment..."></textarea>
+
+        </div>
+
+        </div>
+
+    </div>
+
+    `;
+    restoreFormValues();
+}
+// ==========================================
+// SHOW CURRENT STEP
+// ==========================================
+
+function showCurrentStep() {
+
+    switch (currentStep) {
+
+        case 1:
+            renderBasicInformationSection();
+            break;
+
+        case 2:
+            renderPurchaseInformationSection();
+            break;
+
+        case 3:
+            renderTechnicalInformationSection();
+            break;
+
+        case 4:
+            renderWarrantyInformationSection();
+            break;
+
+        case 5:
+            renderDocumentsSection();
+            break;
+
+    }
+
+    updateProgress();
+
+}
+// ==========================================
+// FORM NAVIGATION
+// ==========================================
+
+function initializeAssetFormNavigation() {
+
+    const nextButton = document.getElementById("nextStepBtn");
+    const previousButton = document.getElementById("previousStepBtn");
+
+    if (!nextButton || !previousButton) return;
+
+    previousButton.onclick = () => {
+
+        switch (currentStep) {
+
+            case 2:
+                savePurchaseInformation();
+                break;
+
+            case 3:
+                saveTechnicalInformation();
+                break;
+
+            case 4:
+                saveWarrantyInformation();
+                break;
+
+        }
+
+        if (currentStep <= 1) return;
+
+    currentStep--;
+
+    showCurrentStep();
+
+};
+
+    nextButton.onclick = () => {
+
+        switch (currentStep) {
+
+            case 1:
+                if (saveBasicInformation() === false) return;
+                break;
+
+            case 2:
+                savePurchaseInformation();
+                break;
+
+            case 3:
+                saveTechnicalInformation();
+                break;
+
+            case 4:
+                saveWarrantyInformation();
+                break;
+
+        }
+
+        if (currentStep < 5) {
+
+            currentStep++;
+
+            showCurrentStep();
+
+        }
+
+    };
+
+    updateProgress();
+
+}
+
+// ==========================================
+// SAVE BASIC INFORMATION
+// ==========================================
+
+function saveBasicInformation() {
+
+    assetFormData.service_team =
+        document.getElementById("service_team")?.value || currentAssetServiceTeam();
+
+    if (!assetFormData.service_team) {
+        BioTrackToast.warning("Select a service team", "Choose Biomedical, Electrical or IT for this asset.");
+        document.getElementById("service_team")?.focus();
+        return false;
+    }
+
+    assetFormData.equipmentId =
+        document.getElementById("equipmentId").value;
+
+    assetFormData.equipmentName =
+        document.getElementById("equipmentName").value;
+
+    assetFormData.assetCode =
+        document.getElementById("assetCode").value;
+
+    assetFormData.assetCategory =
+        document.getElementById("assetCategory").value;
+
+    assetFormData.department =
+        document.getElementById("department").value;
+
+    assetFormData.location =
+        document.getElementById("location").value;
+
+    assetFormData.room =
+        document.getElementById("room").value;
+
+    assetFormData.status =
+        document.getElementById("status").value;
+
+    assetFormData.criticalAsset =
+        document.getElementById("criticalAsset").value;
+
+    assetFormData.equipmentType =
+        document.getElementById("equipmentType").value;
+
+    assetFormData.description =
+        document.getElementById("description").value;
+
+    console.log(assetFormData);
+
+    return true;
+
+}
+ 
+// ==========================================
+// PURCHASE INFORMATION
+// ==========================================
+
+function renderPurchaseInformationSection() {
+
+    document.getElementById("assetFormSection").innerHTML = `
+
+    <div class="asset-form-card">
+
+        <div class="asset-section-title">
+
+            <h2>Purchase Information</h2>
+
+            <p>
+
+                Enter purchase and supplier details.
+
+            </p>
+
+        </div>
+
+        <div class="asset-form-grid">
+
+            <div class="form-group">
+
+                <label>Purchase Date</label>
+
+                <input
+                    id="purchaseDate"
+                    type="date">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Installation Date</label>
+
+                <input
+                    id="installationDate"
+                    type="date">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Supplier</label>
+
+                <input
+                    id="supplier"
+                    type="text"
+                    placeholder="Supplier Name">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Vendor</label>
+
+                <input
+                    id="vendor"
+                    type="text"
+                    placeholder="Vendor Name">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Purchase Cost</label>
+
+                <input
+                    id="purchaseCost"
+                    type="number"
+                    placeholder="₹">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>GST (%)</label>
+
+                <input
+                    id="gst"
+                    type="number">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Invoice Number</label>
+
+                <input
+                    id="invoiceNumber"
+                    type="text">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Purchase Order Number</label>
+
+                <input
+                    id="poNumber"
+                    type="text">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Tender Number</label>
+
+                <input
+                    id="tenderNumber"
+                    type="text">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Funding Source</label>
+
+                <input
+                    id="fundingSource"
+                    type="text">
+
+            </div>
+
+        </div>
+
+    </div>
+
+    `;
+
+    restoreFormValues();
+
+    }
+// ==========================================
+// TECHNICAL INFORMATION
+// ==========================================
+
+function renderTechnicalInformationSection() {
+
+    document.getElementById("assetFormSection").innerHTML = `
+
+    <div class="asset-form-card">
+
+        <div class="asset-section-title">
+
+            <h2>Technical Information</h2>
+
+            <p>
+
+                Enter equipment technical specifications.
+
+            </p>
+
+        </div>
+
+        <div class="asset-form-grid">
+
+            <div class="form-group">
+
+                <label>Manufacturer</label>
+
+                <input
+                    id="manufacturer"
+                    type="text">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Manufacturer Address</label>
+
+                <input
+                    id="manufacturerAddress"
+                    type="text">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Model</label>
+
+                <input
+                    id="model"
+                    type="text">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Model Number</label>
+
+                <input
+                    id="modelNumber"
+                    type="text">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Serial Number</label>
+
+                <input
+                    id="serialNumber"
+                    type="text">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Manufacturer Year</label>
+
+                <input
+                    id="manufacturerYear"
+                    type="number">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Electrical Rating</label>
+
+                <input
+                    id="electricalRating"
+                    type="text">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Power Requirement</label>
+
+                <input
+                    id="powerRequirement"
+                    type="text">
+
+            </div>
+
+        </div>
+
+    </div>
+
+`;
+
+    restoreFormValues();
+
+}
+// ==========================================
+// WARRANTY INFORMATION
+// ==========================================
+
+function renderWarrantyInformationSection() {
+
+    document.getElementById("assetFormSection").innerHTML = `
+
+    <div class="asset-form-card">
+
+        <div class="asset-section-title">
+
+            <h2>Warranty & Service Contracts</h2>
+
+            <p>
+
+                Enter warranty, AMC and CMC details.
+
+            </p>
+
+        </div>
+
+        <div class="asset-form-grid">
+
+            <div class="form-group">
+
+                <label>Warranty Available</label>
+
+                <select id="warrantyAvailable">
+
+                    <option>No</option>
+                    <option>Yes</option>
+
+                </select>
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Warranty Start</label>
+
+                <input
+                    id="warrantyStart"
+                    type="date">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Warranty End</label>
+
+                <input
+                    id="warrantyEnd"
+                    type="date">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>AMC Available</label>
+
+                <select id="amcAvailable">
+
+                    <option>No</option>
+                    <option>Yes</option>
+
+                </select>
+
+            </div>
+
+            <div class="form-group">
+
+                <label>AMC Provider</label>
+
+                <input
+                    id="amcProvider"
+                    type="text">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>AMC Expiry</label>
+
+                <input
+                    id="amcExpiry"
+                    type="date">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>CMC Available</label>
+
+                <select id="cmcAvailable">
+
+                    <option>No</option>
+                    <option>Yes</option>
+
+                </select>
+
+            </div>
+
+            <div class="form-group">
+
+                <label>CMC Provider</label>
+
+                <input
+                    id="cmcProvider"
+                    type="text">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>CMC Expiry</label>
+
+                <input
+                    id="cmcExpiry"
+                    type="date">
+
+            </div>
+
+        </div>
+
+    </div>
+
+`;
+
+    restoreFormValues();
+
+}
+// ==========================================
+// DOCUMENTS & FINAL REVIEW
+// ==========================================
+
+function renderDocumentsSection() {
+
+    document.getElementById("assetFormSection").innerHTML = `
+
+    <div class="asset-form-card">
+
+        <div class="asset-section-title">
+
+            <h2>Documents & Images</h2>
+
+            <p>
+
+                Upload equipment related files before saving.
+
+            </p>
+
+        </div>
+
+        <div class="asset-form-grid">
+
+            <div class="form-group">
+
+                <label>Equipment Image</label>
+
+                <input
+                    id="equipmentImage"
+                    type="file"
+                    accept="image/*">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>User Manual</label>
+
+                <input
+                    id="manualFile"
+                    type="file"
+                    accept=".pdf,.doc,.docx">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Invoice Copy</label>
+
+                <input
+                    id="invoiceFile"
+                    type="file"
+                    accept=".pdf,.jpg,.png">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Warranty Certificate</label>
+
+                <input
+                    id="warrantyFile"
+                    type="file">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Calibration Certificate</label>
+
+                <input
+                    id="calibrationFile"
+                    type="file">
+
+            </div>
+
+            <div class="form-group">
+
+                <label>Other Documents</label>
+
+                <input
+                    id="otherFiles"
+                    type="file"
+                    multiple>
+
+            </div>
+
+        </div>
+
+        <hr style="margin:40px 0;">
+
+        <div class="asset-section-title">
+
+            <h2>Final Review</h2>
+
+            <p>
+
+                Verify all information before saving.
+
+            </p>
+
+        </div>
+
+        <div id="assetSummary"></div>
+
+        <div style="margin-top:35px;display:flex;gap:15px;flex-wrap:wrap;">
+
+            <button
+                id="saveAssetBtn"
+                class="btn-primary">
+
+                💾 Save Asset
+
+            </button>
+
+            <button
+                id="saveQrBtn"
+                class="btn-secondary">
+
+                🏷 Save & Generate QR
+
+            </button>
+
+        </div>
+
+    </div>
+
+    `;
+
+    renderAssetSummary();
+
+    initializeFinalButtons();
+
+    restoreFormValues();
+
+ 
+
+    
+
+}
+// ==========================================
+// REVIEW SUMMARY
+// ==========================================
+
+function renderAssetSummary() {
+
+    const container =
+        document.getElementById("assetSummary");
+
+    container.innerHTML = `
+
+        <table class="asset-summary-table">
+
+            <tr>
+
+                <td><strong>Service Team</strong></td>
+
+                <td>${escapeHTML(assetFormData.service_team || "-")}</td>
+
+            </tr>
+
+            <tr>
+
+                <td><strong>Equipment ID</strong></td>
+
+                <td>${assetFormData.equipmentId || "-"}</td>
+
+            </tr>
+
+            <tr>
+
+                <td><strong>Equipment Name</strong></td>
+
+                <td>${assetFormData.equipmentName || "-"}</td>
+
+            </tr>
+
+            <tr>
+
+                <td><strong>Department</strong></td>
+
+                <td>${assetFormData.department || "-"}</td>
+
+            </tr>
+
+            <tr>
+
+                <td><strong>Manufacturer</strong></td>
+
+                <td>${assetFormData.manufacturer || "-"}</td>
+
+            </tr>
+
+            <tr>
+
+                <td><strong>Purchase Cost</strong></td>
+
+                <td>${assetFormData.purchaseCost || "-"}</td>
+
+            </tr>
+
+            <tr>
+
+                <td><strong>Warranty End</strong></td>
+
+                <td>${assetFormData.warrantyEnd || "-"}</td>
+
+            </tr>
+
+        </table>
+
+    `;
+
+}
+// ==========================================
+// FINAL BUTTONS
+// ==========================================
+
+function initializeFinalButtons() {
+
+    document
+        .getElementById("saveAssetBtn")
+        .onclick = saveAsset;
+
+    document
+        .getElementById("saveQrBtn")
+        .onclick = saveAndGenerateQR;
+
+}
+// ==========================================
+// SAVE ASSET
+// ==========================================
+
+async function saveAsset() {
+    saveWarrantyInformation();
+
+    try {
+
+        const response = await fetch("/api/assets/", {
+
+            method: "POST",
+
+            headers: {
+
+                "Content-Type": "application/json"
+
+            },
+
+            body: JSON.stringify(assetFormData)
+
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+
+            BioTrackToast.success("Asset saved", "The equipment record was added successfully.");
+
+            navigate("assets");
+
+        }
+
+        else {
+
+            BioTrackToast.error("Asset not saved", result.detail || "Failed to save the asset.");
+
+        }
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        BioTrackToast.error("Server error", error.message || "The asset could not be saved.");
+
+    }
+
+}
+// ==========================================
+// SAVE & QR
+// ==========================================
+
+function saveAndGenerateQR() {
+
+    console.log(assetFormData);
+
+    BioTrackToast.info("QR generation", "Save the asset, then generate its QR code from Asset Management.");
+
+}
+// ==========================================
+// SAVE PURCHASE INFORMATION
+// ==========================================
+
+function savePurchaseInformation() {
+
+    assetFormData.purchaseDate =
+        document.getElementById("purchaseDate").value;
+
+    assetFormData.installationDate =
+        document.getElementById("installationDate").value;
+
+    assetFormData.supplier =
+        document.getElementById("supplier").value;
+
+    assetFormData.vendor =
+        document.getElementById("vendor").value;
+
+    assetFormData.purchaseCost =
+        document.getElementById("purchaseCost").value;
+
+    assetFormData.gst =
+        document.getElementById("gst").value;
+
+    assetFormData.invoiceNumber =
+        document.getElementById("invoiceNumber").value;
+
+    assetFormData.poNumber =
+        document.getElementById("poNumber").value;
+
+    assetFormData.tenderNumber =
+        document.getElementById("tenderNumber").value;
+
+    assetFormData.fundingSource =
+        document.getElementById("fundingSource").value;
+
+}
+// ==========================================
+// SAVE TECHNICAL INFORMATION
+// ==========================================
+
+function saveTechnicalInformation() {
+
+    assetFormData.manufacturer =
+        document.getElementById("manufacturer").value;
+
+    assetFormData.manufacturerAddress =
+        document.getElementById("manufacturerAddress").value;
+
+    assetFormData.model =
+        document.getElementById("model").value;
+
+    assetFormData.modelNumber =
+        document.getElementById("modelNumber").value;
+
+    assetFormData.serialNumber =
+        document.getElementById("serialNumber").value;
+
+    assetFormData.manufacturerYear =
+        document.getElementById("manufacturerYear").value;
+
+    assetFormData.electricalRating =
+        document.getElementById("electricalRating").value;
+
+    assetFormData.powerRequirement =
+        document.getElementById("powerRequirement").value;
+
+}
+// ==========================================
+// SAVE WARRANTY INFORMATION
+// ==========================================
+
+function saveWarrantyInformation() {
+
+    assetFormData.warrantyAvailable =
+        document.getElementById("warrantyAvailable").value;
+
+    assetFormData.warrantyStart =
+        document.getElementById("warrantyStart").value;
+
+    assetFormData.warrantyEnd =
+        document.getElementById("warrantyEnd").value;
+
+    assetFormData.amcAvailable =
+        document.getElementById("amcAvailable").value;
+
+    assetFormData.amcProvider =
+        document.getElementById("amcProvider").value;
+
+    assetFormData.amcExpiry =
+        document.getElementById("amcExpiry").value;
+
+    assetFormData.cmcAvailable =
+        document.getElementById("cmcAvailable").value;
+
+    assetFormData.cmcProvider =
+        document.getElementById("cmcProvider").value;
+
+    assetFormData.cmcExpiry =
+        document.getElementById("cmcExpiry").value;
+
+}
+
+
+// ==========================================
+// UPDATE PROGRESS
+// ==========================================
+
+function updateProgress() {
+
+    const steps = document.querySelectorAll(".progress-step");
+
+    steps.forEach((step, index) => {
+
+        step.classList.toggle("active", index < currentStep);
+
+    });
+
+    const previousButton = document.getElementById("previousStepBtn");
+    const nextButton = document.getElementById("nextStepBtn");
+
+    if (previousButton) {
+
+        previousButton.style.display =
+            currentStep === 1 ? "none" : "inline-flex";
+
+    }
+
+    if (nextButton) {
+
+        nextButton.style.display =
+            currentStep === 5 ? "none" : "inline-flex";
+
+    }
+
+}
+
+// ==========================================
+// UPDATE FOOTER BUTTONS
+// ==========================================
+
+function updateFooterButtons() {
+
+    const nextButton = document.getElementById("nextStepBtn");
+    const previousButton = document.getElementById("previousStepBtn");
+
+    if (!nextButton || !previousButton) return;
+
+    if (currentStep === 5) {
+
+        nextButton.style.display = "none";
+
+    } else {
+
+        nextButton.style.display = "inline-flex";
+
+    }
+
+}
+// ==========================================
+// RESTORE FORM VALUES
+// ==========================================
+
+function restoreFormValues() {
+
+    Object.keys(assetFormData).forEach(key => {
+
+        const element = document.getElementById(key);
+
+        if (!element) return;
+
+        if (element.type === "checkbox") {
+
+            element.checked = assetFormData[key];
+
+        }
+
+        else {
+
+            element.value = assetFormData[key] || "";
+
+        }
+
+    });
+
+}   
+
+;
+/* source: dashboard_v2/views/assetProfileView.js */
+// ==========================================
+// ASSET PROFILE VIEW
+// ==========================================
+
+function renderAssetDetails() {
+
+    pageContent.innerHTML = `
+
+    <div class="asset-profile-page">
+
+        <!-- ==========================================
+             TOP BAR
+        ========================================== -->
+
+        <div class="asset-profile-top">
+
+            <button
+                class="btn-secondary"
+                onclick="navigate('assets')">
+
+                ← Back to Assets
+
+            </button>
+
+            <div class="asset-profile-actions">
+
+                <button class="btn-secondary">
+
+                    Edit Asset
+
+                </button>
+
+                <button class="btn-primary">
+
+                    Generate QR
+
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- ==========================================
+             HERO
+        ========================================== -->
+
+        <div id="assetProfileHero">
+
+            Loading asset...
+
+        </div>
+
+
+        <!-- ==========================================
+             TABS
+        ========================================== -->
+
+        <div class="asset-profile-tabs">
+
+            <button class="tab-btn active">
+                Overview
+            </button>
+
+            <button class="tab-btn">
+                Maintenance
+            </button>
+
+            <button class="tab-btn">
+                PM
+            </button>
+
+            <button class="tab-btn">
+                Calibration
+            </button>
+
+            <button class="tab-btn">
+                Documents
+            </button>
+
+            <button class="tab-btn">
+                Warranty
+            </button>
+
+        </div>
+
+
+        <!-- ==========================================
+             CONTENT
+        ========================================== -->
+
+        <div id="assetProfileContent">
+
+        </div>
+
+    </div>
+
+    `;
+
+    loadAssetProfile();
+
+}
+;
+/* source: dashboard_v2/views/assetDetailsView.js */
+// ==========================================
+// ASSET DETAILS PAGE
+// ==========================================
+
+function renderAssetDetails() {
+
+    const departmentView = isDepartmentAssetDetailsView();
+
+    pageContent.innerHTML = `
+
+    <div class="asset-details-page">
+
+        <div class="asset-details-header">
+
+            <button
+                class="btn-secondary"
+                onclick="navigate('${departmentView ? "myAssets" : "assets"}')">
+
+                ← Back to ${departmentView ? "My Assets" : "Assets"}
+
+            </button>
+
+            <div>
+
+                <h1>${departmentView ? "Equipment Details" : "Asset Details"}</h1>
+
+                <p>
+                    Asset ID :
+                    <strong>${currentAssetId}</strong>
+                </p>
+
+            </div>
+
+        </div>
+
+        <div id="assetProfileHero"></div>
+
+        <div id="assetGeneralInfo"></div>
+
+        <div id="assetPurchaseInfo"></div>
+
+        <div id="assetTechnicalInfo"></div>
+
+        <div id="assetMaintenanceOverview"></div>
+
+        <div id="assetPMHistory"></div>
+
+        <div id="assetTabs"></div>
+
+        <div id="assetTabContent"></div>
+
+            </div>
+
+    `;
+
+    loadAssetDetails(currentAssetId);
+
+}
+
+// ==========================================
+// LOAD ASSET DETAILS
+// ==========================================
+
+// ==========================================
+// LOAD ASSET DETAILS
+// ==========================================
+
+async function loadAssetDetails(assetId) {
+
+    try {
+
+        const response = await fetch(`/api/assets/${assetId}`);
+
+        if (!response.ok) {
+            throw new Error("Asset not found.");
+        }
+
+        const asset = await response.json();
+
+        const safeAsset = Object.fromEntries(
+            Object.entries(asset).map(([key, value]) => [
+                key,
+                typeof value === "string" ? escapeHTML(value) : value
+            ])
+        );
+
+        renderAssetHero(safeAsset);
+
+        if (isDepartmentAssetDetailsView()) {
+            renderDepartmentAssetInformation(safeAsset);
+            renderDepartmentLastPM(safeAsset);
+            clearRestrictedAssetSections();
+        } else {
+            renderGeneralInformation(safeAsset);
+            renderPurchaseInformation(safeAsset);
+            renderTechnicalInformation(safeAsset);
+            renderMaintenanceOverview(safeAsset);
+            renderPMHistory(safeAsset);
+            renderAssetTabs(safeAsset);
+        }
+
+    }
+
+    catch(error){
+
+        console.error(error);
+
+        if (window.BioTrackToast) {
+            BioTrackToast.error("Asset unavailable", error.message || "The equipment details could not be loaded.");
+        }
+
+    }
+
+}
+
+function isDepartmentAssetDetailsView() {
+    const storedRole = localStorage.getItem("role");
+    const role = typeof normalizeDashboardRole === "function"
+        ? normalizeDashboardRole(storedRole)
+        : String(storedRole || "").trim().toLowerCase();
+    return role === "user";
+}
+
+function clearRestrictedAssetSections() {
+    ["assetPurchaseInfo", "assetTechnicalInfo", "assetPMHistory", "assetTabs", "assetTabContent"]
+        .forEach(id => {
+            const element = document.getElementById(id);
+            if (element) element.replaceChildren();
+        });
+}
+
+function renderDepartmentAssetInformation(asset) {
+    document.getElementById("assetGeneralInfo").innerHTML = `
+        <section class="asset-section department-asset-general">
+            <div class="asset-section-header">
+                <div>
+                    <h2>General Information</h2>
+                    <p>Essential identification and current location for this equipment.</p>
+                </div>
+            </div>
+            <div class="asset-info-grid">
+                <div class="asset-info-card"><span>Equipment Number</span><strong>${asset.equipment_no || "-"}</strong></div>
+                <div class="asset-info-card"><span>Asset Code</span><strong>${asset.asset_code || "-"}</strong></div>
+                <div class="asset-info-card"><span>Equipment Name</span><strong>${asset.equipment_name || "-"}</strong></div>
+                <div class="asset-info-card"><span>Serial Number</span><strong>${asset.serial_number || "-"}</strong></div>
+                <div class="asset-info-card"><span>Manufacturer</span><strong>${asset.manufacturer || "-"}</strong></div>
+                <div class="asset-info-card"><span>Model</span><strong>${asset.model || "-"}</strong></div>
+                <div class="asset-info-card"><span>Department</span><strong>${asset.department || "-"}</strong></div>
+                <div class="asset-info-card"><span>Location / Room</span><strong>${asset.location || "-"}</strong></div>
+                <div class="asset-info-card"><span>Status</span><strong>${asset.status || "-"}</strong></div>
+            </div>
+        </section>
+    `;
+}
+
+function formatAssetDetailDate(value) {
+    if (!value) return "Not recorded";
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleDateString("en-GB");
+}
+
+function renderDepartmentLastPM(asset) {
+    document.getElementById("assetMaintenanceOverview").innerHTML = `
+        <section class="asset-section department-last-pm-section">
+            <div class="department-last-pm-icon"><i data-lucide="calendar-check-2"></i></div>
+            <div>
+                <span>Last preventive maintenance completed</span>
+                <strong>${formatAssetDetailDate(asset.last_pm_date)}</strong>
+                <p>${asset.last_pm_date ? "This is the latest completed PM recorded for this equipment." : "No completed preventive-maintenance visit has been recorded yet."}</p>
+            </div>
+        </section>
+    `;
+    if (window.lucide) window.lucide.createIcons();
+}
+// ==========================================
+// GENERAL INFO
+// ==========================================
+
+// ==========================================
+// GENERAL INFORMATION
+// ==========================================
+
+function renderGeneralInformation(asset){
+
+    document.getElementById("assetGeneralInfo").innerHTML = `
+
+    <section class="asset-section">
+
+        <div class="asset-section-header">
+
+            <div>
+                <h2>General Information</h2>
+                <p>Basic equipment identification and operational details.</p>
+            </div>
+
+        </div>
+
+        <div class="asset-info-grid">
+
+            <div class="asset-info-card">
+                <span>Equipment Number</span>
+                <strong>${asset.equipment_no || "-"}</strong>
+            </div>
+
+            <div class="asset-info-card">
+                <span>Asset Code</span>
+                <strong>${asset.asset_code || "-"}</strong>
+            </div>
+
+            <div class="asset-info-card">
+                <span>Equipment Name</span>
+                <strong>${asset.equipment_name || "-"}</strong>
+            </div>
+
+            <div class="asset-info-card">
+                <span>Serial Number</span>
+                <strong>${asset.serial_number || "-"}</strong>
+            </div>
+
+            <div class="asset-info-card">
+                <span>Manufacturer</span>
+                <strong>${asset.manufacturer || "-"}</strong>
+            </div>
+
+            <div class="asset-info-card">
+                <span>Model</span>
+                <strong>${asset.model || "-"}</strong>
+            </div>
+
+            <div class="asset-info-card">
+                <span>Department</span>
+                <strong>${asset.department || "-"}</strong>
+            </div>
+
+            <div class="asset-info-card">
+                <span>Location</span>
+                <strong>${asset.location || "-"}</strong>
+            </div>
+
+            <div class="asset-info-card">
+                <span>Status</span>
+                <strong>${asset.status || "-"}</strong>
+            </div>
+
+            <div class="asset-info-card">
+                <span>Equipment Type</span>
+                <strong>${asset.equipment_type || "-"}</strong>
+            </div>
+
+            <div class="asset-info-card">
+                <span>Classification</span>
+                <strong>${asset.classification || "-"}</strong>
+            </div>
+
+        </div>
+
+    </section>
+
+    `;
+
+}
+
+function showAssetPMScheduleDetails(row){
+    if(!row)return;
+    let dialog=document.getElementById("assetPMScheduleDialog");
+    if(!dialog){
+        dialog=document.createElement("dialog");
+        dialog.id="assetPMScheduleDialog";
+        dialog.className="reports-chart-dialog asset-pm-detail-dialog";
+        dialog.innerHTML='<form method="dialog"><button class="reports-chart-dialog-close" aria-label="Close visit details">×</button></form><h2>Preventive maintenance visit</h2><dl></dl>';
+        dialog.addEventListener("click",event=>{if(event.target===dialog)dialog.close();});
+        document.body.appendChild(dialog);
+    }
+    const labels=["Schedule","Scheduled date","Completed date","Service provider","Status"];
+    const values=[...row.cells].slice(0,5).map(cell=>cell.textContent.trim()||"—");
+    const list=dialog.querySelector("dl");
+    list.replaceChildren();
+    labels.forEach((label,index)=>{
+        const term=document.createElement("dt");
+        const value=document.createElement("dd");
+        term.textContent=label;
+        value.textContent=values[index]||"—";
+        list.append(term,value);
+    });
+    if(!dialog.open)dialog.showModal();
+}
+
+// ==========================================
+// PURCHASE INFORMATION
+// ==========================================
+
+function renderPurchaseInformation(asset){
+
+    document.getElementById("assetPurchaseInfo").innerHTML = `
+
+    <section class="asset-section">
+
+        <div class="asset-section-header">
+
+            <div>
+
+                <h2>Purchase Information</h2>
+
+                <p>Procurement and financial information for this asset.</p>
+
+            </div>
+
+        </div>
+
+        <div class="asset-property-grid">
+
+            <div class="asset-property-row">
+                <label>Supplier</label>
+                <span>${asset.supplier || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Purchase Date</label>
+                <span>${asset.purchase_date || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Installation Date</label>
+                <span>${asset.installation_date || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Purchase Value</label>
+                <span>${asset.purchase_value || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Tax Amount</label>
+                <span>${asset.tax_amount || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Net Value</label>
+                <span>${asset.net_value || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Warranty</label>
+                <span>${asset.warranty || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Maintained By</label>
+                <span>${asset.maintained_by || "-"}</span>
+            </div>
+
+        </div>
+
+    </section>
+
+    `;
+
+}
+// ==========================================
+// TECHNICAL INFORMATION
+// ==========================================
+
+function renderTechnicalInformation(asset){
+
+    document.getElementById("assetTechnicalInfo").innerHTML = `
+
+    <section class="asset-section">
+
+        <div class="asset-section-header">
+
+            <div>
+
+                <h2>Technical Information</h2>
+
+                <p>Technical specifications and classification of this equipment.</p>
+
+            </div>
+
+        </div>
+
+        <div class="asset-property-grid">
+
+            <div class="asset-property-row">
+                <label>Equipment Type</label>
+                <span>${asset.equipment_type || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Classification</label>
+                <span>${asset.classification || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Manufacturing Year</label>
+                <span>${asset.manufacturing_year || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Manufacturer</label>
+                <span>${asset.manufacturer || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Manufacturer Address</label>
+                <span>${asset.manufacturer_address || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Model</label>
+                <span>${asset.model || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Serial Number</label>
+                <span>${asset.serial_number || "-"}</span>
+            </div>
+
+            <div class="asset-property-row">
+                <label>Remarks</label>
+                <span>${asset.remarks || "-"}</span>
+            </div>
+
+        </div>
+
+    </section>
+
+    `;
+
+}
+// ==========================================
+// MAINTENANCE OVERVIEW
+// ==========================================
+
+// ==========================================
+// MAINTENANCE OVERVIEW
+// ==========================================
+
+function renderMaintenanceOverview(asset){
+
+    document.getElementById("assetMaintenanceOverview").innerHTML = `
+
+    <section class="asset-section">
+
+        <div class="asset-section-header">
+
+            <div>
+
+                <h2>Maintenance Overview</h2>
+
+                <p>Current operational health and maintenance status.</p>
+
+            </div>
+
+        </div>
+
+        <div class="maintenance-grid">
+
+            <div class="maintenance-card status">
+
+                <span class="maintenance-label">
+                    Equipment Status
+                </span>
+
+                <div class="maintenance-value active">
+
+                    ● Active
+
+                </div>
+
+            </div>
+
+            <div class="maintenance-card">
+
+                <span class="maintenance-label">
+                    Last PM
+                </span>
+
+                <div class="maintenance-value">
+
+                    --
+
+                </div>
+
+            </div>
+
+            <div class="maintenance-card">
+
+                <span class="maintenance-label">
+                    Next PM
+                </span>
+
+                <div class="maintenance-value">
+
+                    --
+
+                </div>
+
+            </div>
+
+            <div class="maintenance-card">
+
+                <span class="maintenance-label">
+                    Warranty
+                </span>
+
+                <div class="maintenance-value">
+
+                    --
+
+                </div>
+
+            </div>
+
+            <div class="maintenance-card">
+
+                <span class="maintenance-label">
+                    Calibration
+                </span>
+
+                <div class="maintenance-value">
+
+                    --
+
+                </div>
+
+            </div>
+
+            <div class="maintenance-card">
+
+                <span class="maintenance-label">
+                    Breakdown Count
+                </span>
+
+                <div class="maintenance-value">
+
+                    0
+
+                </div>
+
+            </div>
+
+            <div class="maintenance-card">
+
+                <span class="maintenance-label">
+                    Downtime
+                </span>
+
+                <div class="maintenance-value">
+
+                    0 Hours
+
+                </div>
+
+            </div>
+
+            <div class="maintenance-card">
+
+                <span class="maintenance-label">
+                    Assigned Engineer
+                </span>
+
+                <div class="maintenance-value">
+
+                    --
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    `;
+
+    document.querySelectorAll("#assetMaintenanceOverview .btn-view").forEach(button=>{
+        button.type="button";
+        button.setAttribute("aria-label","View preventive maintenance visit details");
+        button.addEventListener("click",()=>showAssetPMScheduleDetails(button.closest("tr")));
+    });
+
+}
+// ==========================================
+// PM HISTORY
+// ==========================================
+
+function renderPMHistory(asset){
+
+    document.getElementById("assetPMHistory").innerHTML = `
+
+    <section class="asset-section">
+
+        <div class="asset-section-header">
+
+            <div>
+
+                <h2>Preventive Maintenance History</h2>
+
+                <p>Scheduled preventive maintenance records for this equipment.</p>
+
+            </div>
+
+        </div>
+
+        <div class="pm-history-table">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>PM ID</th>
+
+                        <th>Scheduled</th>
+
+                        <th>Completed</th>
+
+                        <th>Engineer</th>
+
+                        <th>Status</th>
+
+                        <th>Report</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    <tr>
+
+                        <td>PM-2026-001</td>
+
+                        <td>15 Jan 2026</td>
+
+                        <td>15 Jan 2026</td>
+
+                        <td>N2 Healthcare</td>
+
+                        <td>
+
+                            <span class="status completed">
+
+                                Completed
+
+                            </span>
+
+                        </td>
+
+                        <td>
+
+                            <button class="btn-view">
+
+                                View
+
+                            </button>
+
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <td>PM-2026-002</td>
+
+                        <td>15 Apr 2026</td>
+
+                        <td>-</td>
+
+                        <td>-</td>
+
+                        <td>
+
+                            <span class="status pending">
+
+                                Pending
+
+                            </span>
+
+                        </td>
+
+                        <td>
+
+                            <button class="btn-view">
+
+                                View
+
+                            </button>
+
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <td>PM-2026-003</td>
+
+                        <td>15 Jul 2026</td>
+
+                        <td>-</td>
+
+                        <td>-</td>
+
+                        <td>
+
+                            <span class="status upcoming">
+
+                                Upcoming
+
+                            </span>
+
+                        </td>
+
+                        <td>
+
+                            <button class="btn-view">
+
+                                View
+
+                            </button>
+
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+    `;
+
+}
+// ==========================================
+// TABS
+// ==========================================
+
+function renderAssetTabs(asset){
+
+    document.getElementById("assetTabs").innerHTML = "";
+
+}
+
+;
+/* source: dashboard_v2/views/maintenanceModuleView.js */
+// ==========================================
+// MAINTENANCE MODULE
+// ==========================================
+
+function renderMaintenanceModule() {
+
+    pageContent.innerHTML = `
+
+    <div class="maintenance-module-page">
+
+        <h1>Maintenance</h1>
+
+        <p>
+            This page will contain the Biomedical Engineer maintenance workflow.
+        </p>
+
+    </div>
+
+    `;
+
+}
+;
+/* source: dashboard_v2/views/inventoryView.js */
+// ==========================================
+// INVENTORY MODULE
+// ==========================================
+
+const INVENTORY_API = "/api/inventory";
+
+let inventoryData = [];
+
+let filteredInventory = [];
+
+let currentInventoryId = null;
+
+const inventoryPagination = { page: 1, pageSize: 25 };
+
+
+// ==========================================
+// RENDER INVENTORY PAGE
+// ==========================================
+
+async function renderInventory() {
+
+    pageContent.innerHTML = `
+
+    <div class="inventory-page">
+
+        <div class="page-header">
+
+            <div>
+
+                <h1>Inventory Management</h1>
+
+                <p>
+
+                    Manage biomedical spare parts and consumables.
+
+                </p>
+
+            </div>
+
+            <div class="page-actions">
+
+                <button id="importInventoryBtn">
+
+                    <i data-lucide="upload"></i>
+
+                    Import Excel
+
+                </button>
+
+                <button id="exportInventoryBtn">
+
+                    <i data-lucide="download"></i>
+
+                    Export
+
+                </button>
+
+                <button id="addInventoryBtn">
+
+                    <i data-lucide="plus"></i>
+
+                    Add Item
+
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- KPI -->
+
+        <div class="inventory-kpis">
+
+            <div class="kpi-card">
+
+                <div class="kpi-info">
+
+                    <span>Total Items</span>
+
+                    <h2 id="inventoryTotalItems">0</h2>
+
+                </div>
+
+                <div class="kpi-icon">
+
+                    <i data-lucide="boxes"></i>
+
+                </div>
+
+            </div>
+
+            <div class="kpi-card">
+
+                <div class="kpi-info">
+
+                    <span>Low Stock</span>
+
+                    <h2 id="inventoryLowStock">0</h2>
+
+                </div>
+
+                <div class="kpi-icon">
+
+                    <i data-lucide="triangle-alert"></i>
+
+                </div>
+
+            </div>
+
+            <div class="kpi-card">
+
+                <div class="kpi-info">
+
+                    <span>Out Of Stock</span>
+
+                    <h2 id="inventoryOutStock">0</h2>
+
+                </div>
+
+                <div class="kpi-icon">
+
+                    <i data-lucide="circle-x"></i>
+
+                </div>
+
+            </div>
+
+            <div class="kpi-card">
+
+                <div class="kpi-info">
+
+                    <span>Total Value</span>
+
+                    <h2 id="inventoryValue">₹0</h2>
+
+                </div>
+
+                <div class="kpi-icon">
+
+                    <i data-lucide="indian-rupee"></i>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Toolbar -->
+
+        <div class="inventory-toolbar">
+
+            <input
+
+                id="inventorySearch"
+
+                type="text"
+
+                placeholder="Search BPK, Item Name, Category..."
+
+            >
+
+            <select id="inventoryFilter">
+
+                <option value="all">
+
+                    All Items
+
+                </option>
+
+                <option value="available">
+
+                    Available
+
+                </option>
+
+                <option value="low">
+
+                    Low Stock
+
+                </option>
+
+                <option value="out">
+
+                    Out Of Stock
+
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <!-- Table -->
+
+        <div class="table-container">
+
+            <table class="inventory-table">
+
+                <thead>
+
+                    <tr>
+
+                        <th>BPK No.</th>
+
+                        <th>Item</th>
+
+                        <th>Category</th>
+
+                        <th>Manufacturer</th>
+
+                        <th>Stock</th>
+
+                        <th>Minimum</th>
+
+                        <th>Status</th>
+
+                        <th>Location</th>
+
+                        <th>Actions</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="inventoryTableBody">
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <div id="inventoryPagination" class="table-pagination"></div>
+
+    </div>
+
+    `;
+
+
+    // Load data
+
+    await loadInventory();
+
+
+    // Events
+
+    document
+        .getElementById("inventorySearch")
+        .addEventListener("input", applyInventoryFilters);
+
+    document
+        .getElementById("inventoryFilter")
+        .addEventListener("change", applyInventoryFilters);
+
+    document
+        .getElementById("importInventoryBtn")
+        .addEventListener("click", importInventoryExcel);
+
+    document
+        .getElementById("exportInventoryBtn")
+        .addEventListener("click", exportInventoryExcel);
+
+    document
+    .getElementById("addInventoryBtn")
+    .addEventListener("click", () => {
+
+        currentInventoryId = null;
+        openInventoryModal();
+
+    });
+
+
+    if (window.lucide) {
+
+        lucide.createIcons();
+
+    }
+
+}
+// ==========================================
+// LOAD INVENTORY
+// ==========================================
+
+async function loadInventory() {
+
+    try {
+
+        const response = await fetch(INVENTORY_API);
+
+        if (!response.ok) {
+
+            throw new Error("Failed to load inventory.");
+
+        }
+
+        inventoryData = await response.json();
+
+        filteredInventory = [...inventoryData];
+
+        updateInventoryKPIs();
+
+        renderInventoryTable(filteredInventory);
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        BioTrackToast.error("Inventory unavailable", error.message || "Unable to load inventory items.");
+
+        inventoryData = [];
+
+        filteredInventory = [];
+
+        updateInventoryKPIs();
+
+        renderInventoryTable([]);
+
+    }
+
+}
+
+
+// ==========================================
+// UPDATE KPI CARDS
+// ==========================================
+
+function updateInventoryKPIs() {
+
+    const totalItems = inventoryData.length;
+
+    const lowStock = inventoryData.filter(item =>
+
+        item.current_stock > 0 &&
+
+        item.current_stock <= item.minimum_stock
+
+    ).length;
+
+    const outOfStock = inventoryData.filter(item =>
+
+        item.current_stock <= 0
+
+    ).length;
+
+    const totalValue = inventoryData.reduce((sum, item) => {
+
+        return sum + ((item.current_stock || 0) * (item.purchase_price || 0));
+
+    }, 0);
+
+    document.getElementById("inventoryTotalItems").textContent = totalItems;
+
+    document.getElementById("inventoryLowStock").textContent = lowStock;
+
+    document.getElementById("inventoryOutStock").textContent = outOfStock;
+
+    document.getElementById("inventoryValue").textContent =
+        "₹" + totalValue.toLocaleString();
+
+}
+
+
+// ==========================================
+// RENDER INVENTORY TABLE
+// ==========================================
+
+function renderInventoryTable(data) {
+
+    const tbody = document.getElementById("inventoryTableBody");
+
+    tbody.innerHTML = "";
+
+    if (data.length === 0) {
+
+        tbody.innerHTML = `
+
+        <tr>
+
+            <td colspan="9" class="table-empty">
+
+                No inventory items found.
+
+            </td>
+
+        </tr>
+
+        `;
+
+        TablePagination.render(
+            document.getElementById("inventoryPagination"),
+            inventoryPagination,
+            0,
+            () => renderInventoryTable(filteredInventory),
+            "inventory items"
+        );
+        return;
+
+    }
+
+    const pageItems = TablePagination.pageItems(data, inventoryPagination);
+
+    pageItems.forEach(item => {
+
+        let statusClass = "stock-ok";
+
+        let statusText = "Available";
+
+        let stockClass = "stock-green";
+
+        if (item.current_stock <= 0) {
+
+            statusClass = "stock-out";
+
+            statusText = "Out of Stock";
+
+            stockClass = "stock-red";
+
+        }
+
+        else if (item.current_stock <= item.minimum_stock) {
+
+            statusClass = "stock-low";
+
+            statusText = "Low Stock";
+
+            stockClass = "stock-orange";
+
+        }
+
+        tbody.innerHTML += `
+
+        <tr>
+
+            <td>
+
+                ${escapeHTML(item.bpk_number || "-")}
+
+            </td>
+
+            <td>
+
+                <strong>
+
+                    ${escapeHTML(item.item_name || "-")}
+
+                </strong>
+
+            </td>
+
+            <td>
+
+                ${escapeHTML(item.category || "-")}
+
+            </td>
+
+            <td>
+
+                ${escapeHTML(item.manufacturer || "-")}
+
+            </td>
+
+            <td class="${stockClass}">
+
+                ${item.current_stock ?? 0}
+
+            </td>
+
+            <td>
+
+                ${item.minimum_stock ?? 0}
+
+            </td>
+
+            <td>
+
+                <span class="stock-badge ${statusClass}">
+
+                    ${statusText}
+
+                </span>
+
+            </td>
+
+            <td>
+
+                ${escapeHTML(item.location || "-")}
+
+            </td>
+
+            <td>
+
+                <div class="action-buttons">
+
+                    <button
+
+                        class="table-btn edit-btn"
+
+                        onclick="editInventory(${Number(item.id)})"
+
+                        type="button"
+
+                        aria-label="Edit ${escapeHTML(item.item_name || item.bpk_number || "inventory item")}"
+
+                        title="Edit item"
+
+                    >
+
+                        <i data-lucide="square-pen"></i>
+
+                    </button>
+
+                    <button
+
+                        class="table-btn delete-btn"
+
+                        onclick="deleteInventory(${Number(item.id)})"
+
+                        type="button"
+
+                        aria-label="Delete ${escapeHTML(item.item_name || item.bpk_number || "inventory item")}"
+
+                        title="Delete item"
+
+                    >
+
+                        <i data-lucide="trash-2"></i>
+
+                    </button>
+
+                </div>
+
+            </td>
+
+        </tr>
+
+        `;
+
+    });
+
+    if (window.lucide) {
+
+        lucide.createIcons();
+
+    }
+
+    TablePagination.render(
+        document.getElementById("inventoryPagination"),
+        inventoryPagination,
+        data.length,
+        () => renderInventoryTable(filteredInventory),
+        "inventory items"
+    );
+
+}
+// ==========================================
+// APPLY SEARCH & FILTER
+// ==========================================
+
+function applyInventoryFilters() {
+
+    const search = document
+        .getElementById("inventorySearch")
+        .value
+        .trim()
+        .toLowerCase();
+
+    const filter = document
+        .getElementById("inventoryFilter")
+        .value;
+
+    filteredInventory = inventoryData.filter(item => {
+
+        const matchesSearch =
+
+            (item.bpk_number || "")
+                .toLowerCase()
+                .includes(search)
+
+            ||
+
+            (item.item_name || "")
+                .toLowerCase()
+                .includes(search)
+
+            ||
+
+            (item.category || "")
+                .toLowerCase()
+                .includes(search)
+
+            ||
+
+            (item.manufacturer || "")
+                .toLowerCase()
+                .includes(search);
+
+        if (!matchesSearch) {
+
+            return false;
+
+        }
+
+        switch (filter) {
+
+            case "available":
+
+                return item.current_stock >
+                    item.minimum_stock;
+
+            case "low":
+
+                return item.current_stock > 0 &&
+                    item.current_stock <= item.minimum_stock;
+
+            case "out":
+
+                return item.current_stock <= 0;
+
+            default:
+
+                return true;
+
+        }
+
+    });
+
+    inventoryPagination.page = 1;
+    renderInventoryTable(filteredInventory);
+
+}
+
+
+// ==========================================
+// EDIT INVENTORY
+// ==========================================
+
+function editInventory(id) {
+
+    const item = inventoryData.find(
+
+        x => x.id === id
+
+    );
+
+    if (!item) {
+
+        return;
+
+    }
+
+    currentInventoryId = id;
+
+    openInventoryModal(item);
+
+}
+
+
+// ==========================================
+// ADD / EDIT INVENTORY MODAL
+// ==========================================
+
+function inventoryFieldValue(value) {
+    return escapeHTML(value ?? "");
+}
+
+function inventoryTeamOptions(selectedTeam = "Biomedical") {
+    return ["Biomedical", "Electrical", "IT"]
+        .map(team => `<option value="${team}" ${team === selectedTeam ? "selected" : ""}>${team}</option>`)
+        .join("");
+}
+
+function openInventoryModal(item = null) {
+    closeInventoryModal();
+
+    const editing = Boolean(item);
+    currentInventoryId = editing ? Number(item.id) : null;
+    const role = typeof normalizeDashboardRole === "function"
+        ? normalizeDashboardRole(localStorage.getItem("role"))
+        : String(localStorage.getItem("role") || "").toLowerCase();
+    const canSelectTeam = role === "admin";
+    const selectedTeam = item?.service_team || (
+        role === "electrical" ? "Electrical" : role === "it" ? "IT" : "Biomedical"
+    );
+
+    const overlay = document.createElement("div");
+    overlay.id = "inventoryModalOverlay";
+    overlay.className = "inventory-modal-overlay";
+    overlay.setAttribute("role", "presentation");
+    overlay.innerHTML = `
+        <section class="inventory-modal" role="dialog" aria-modal="true" aria-labelledby="inventoryModalTitle">
+            <form id="inventoryItemForm">
+                <header class="modal-header">
+                    <div class="modal-header-copy">
+                        <h2 id="inventoryModalTitle">${editing ? "Edit inventory item" : "Add inventory item"}</h2>
+                        <p>${editing ? "Update stock, supplier and storage details." : "Register a spare part or consumable."}</p>
+                    </div>
+                    <button class="modal-close" type="button" aria-label="Close inventory form">
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="inv_bpk">BPK number <span aria-hidden="true">*</span></label>
+                            <input id="inv_bpk" required maxlength="160" value="${inventoryFieldValue(item?.bpk_number)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_name">Item name <span aria-hidden="true">*</span></label>
+                            <input id="inv_name" required maxlength="240" value="${inventoryFieldValue(item?.item_name)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_category">Category</label>
+                            <input id="inv_category" maxlength="160" value="${inventoryFieldValue(item?.category)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_team">Service team</label>
+                            <select id="inv_team" ${canSelectTeam ? "" : "disabled"}>
+                                ${inventoryTeamOptions(selectedTeam)}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_manufacturer">Manufacturer</label>
+                            <input id="inv_manufacturer" maxlength="200" value="${inventoryFieldValue(item?.manufacturer)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_supplier">Supplier</label>
+                            <input id="inv_supplier" maxlength="200" value="${inventoryFieldValue(item?.supplier)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_unit">Unit</label>
+                            <input id="inv_unit" maxlength="80" placeholder="e.g. pieces" value="${inventoryFieldValue(item?.unit)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_batch">Batch number</label>
+                            <input id="inv_batch" maxlength="160" value="${inventoryFieldValue(item?.batch_number)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_stock">Current stock</label>
+                            <input id="inv_stock" type="number" min="0" step="1" required value="${inventoryFieldValue(item?.current_stock ?? 0)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_min">Minimum stock</label>
+                            <input id="inv_min" type="number" min="0" step="1" required value="${inventoryFieldValue(item?.minimum_stock ?? 5)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_max">Maximum stock</label>
+                            <input id="inv_max" type="number" min="0" step="1" required value="${inventoryFieldValue(item?.maximum_stock ?? 100)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_price">Purchase price</label>
+                            <input id="inv_price" type="number" min="0" step="0.01" value="${inventoryFieldValue(item?.purchase_price ?? 0)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_location">Location</label>
+                            <input id="inv_location" maxlength="200" value="${inventoryFieldValue(item?.location)}">
+                        </div>
+                        <div class="form-group">
+                            <label for="inv_rack">Rack</label>
+                            <input id="inv_rack" maxlength="120" value="${inventoryFieldValue(item?.rack)}">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="inv_remarks">Remarks</label>
+                            <textarea id="inv_remarks" rows="3" maxlength="1000">${inventoryFieldValue(item?.remarks)}</textarea>
+                        </div>
+                    </div>
+                </div>
+                <footer class="modal-footer">
+                    <button class="secondary-btn" type="button" id="cancelInventoryModal">Cancel</button>
+                    <button class="success-btn" type="submit" id="saveInventoryButton">
+                        <i data-lucide="save"></i>
+                        <span>${editing ? "Save changes" : "Add item"}</span>
+                    </button>
+                </footer>
+            </form>
+        </section>
+    `;
+
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", event => {
+        if (event.target === overlay) closeInventoryModal();
+    });
+    overlay.querySelector(".modal-close").addEventListener("click", closeInventoryModal);
+    overlay.querySelector("#cancelInventoryModal").addEventListener("click", closeInventoryModal);
+    overlay.querySelector("#inventoryItemForm").addEventListener("submit", event => {
+        event.preventDefault();
+        void saveInventoryItem(currentInventoryId);
+    });
+    document.addEventListener("keydown", closeInventoryModalOnEscape);
+
+    if (window.lucide) lucide.createIcons();
+    window.setTimeout(() => overlay.querySelector("#inv_bpk")?.focus(), 0);
+}
+
+function closeInventoryModalOnEscape(event) {
+    if (event.key === "Escape") closeInventoryModal();
+}
+
+function closeInventoryModal() {
+    document.getElementById("inventoryModalOverlay")?.remove();
+    document.removeEventListener("keydown", closeInventoryModalOnEscape);
+}
+
+
+// ==========================================
+// DELETE INVENTORY
+// ==========================================
+
+function deleteInventory(id) {
+    const item = inventoryData.find(entry => Number(entry.id) === Number(id));
+    if (!item) {
+        BioTrackToast.error("Inventory item not found", "Refresh the inventory and try again.");
+        return;
+    }
+
+    closeInventoryDeleteDialog();
+    const overlay = document.createElement("div");
+    overlay.id = "inventoryDeleteOverlay";
+    overlay.className = "inventory-modal-overlay";
+    overlay.setAttribute("role", "presentation");
+    overlay.innerHTML = `
+        <section class="inventory-modal inventory-delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="inventoryDeleteTitle" aria-describedby="inventoryDeleteDescription">
+            <div class="inventory-delete-icon" aria-hidden="true"><i data-lucide="trash-2"></i></div>
+            <h2 id="inventoryDeleteTitle">Delete inventory item?</h2>
+            <p id="inventoryDeleteDescription"><strong>${escapeHTML(item.item_name || item.bpk_number)}</strong> will be permanently removed from inventory.</p>
+            <div class="inventory-delete-actions">
+                <button class="secondary-btn" type="button" id="cancelInventoryDelete">Keep item</button>
+                <button class="danger-btn" type="button" id="confirmInventoryDelete"><i data-lucide="trash-2"></i> Delete item</button>
+            </div>
+        </section>
+    `;
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", event => {
+        if (event.target === overlay) closeInventoryDeleteDialog();
+    });
+    overlay.querySelector("#cancelInventoryDelete").addEventListener("click", closeInventoryDeleteDialog);
+    overlay.querySelector("#confirmInventoryDelete").addEventListener("click", () => confirmDeleteInventory(id));
+    document.addEventListener("keydown", closeInventoryDeleteOnEscape);
+    if (window.lucide) lucide.createIcons();
+    overlay.querySelector("#cancelInventoryDelete")?.focus();
+}
+
+function closeInventoryDeleteOnEscape(event) {
+    if (event.key === "Escape") closeInventoryDeleteDialog();
+}
+
+function closeInventoryDeleteDialog() {
+    document.getElementById("inventoryDeleteOverlay")?.remove();
+    document.removeEventListener("keydown", closeInventoryDeleteOnEscape);
+}
+
+async function confirmDeleteInventory(id) {
+    const button = document.getElementById("confirmInventoryDelete");
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Deleting…";
+    }
+
+    try {
+        const response = await fetch(`${INVENTORY_API}/${id}`, { method: "DELETE" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) {
+            throw new Error(result.detail || "Unable to delete this inventory item.");
+        }
+        closeInventoryDeleteDialog();
+        showInventoryToast("Inventory item deleted.");
+        await loadInventory();
+    } catch (error) {
+        BioTrackToast.error("Inventory item not deleted", error.message || "Unable to delete this inventory item.");
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i data-lucide="trash-2"></i> Delete item';
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+
+}
+
+
+// ==========================================
+// SAVE INVENTORY
+// ==========================================
+
+async function saveInventoryItem(id = null) {
+
+    const payload = {
+
+        bpk_number:
+            document.getElementById("inv_bpk").value,
+
+        item_name:
+            document.getElementById("inv_name").value,
+
+        category:
+            document.getElementById("inv_category").value,
+
+        manufacturer:
+            document.getElementById("inv_manufacturer").value,
+
+        supplier:
+            document.getElementById("inv_supplier").value,
+
+        unit:
+            document.getElementById("inv_unit").value,
+
+        current_stock:
+            Number(document.getElementById("inv_stock").value),
+
+        minimum_stock:
+            Number(document.getElementById("inv_min").value),
+
+        maximum_stock:
+            Number(document.getElementById("inv_max").value),
+
+        purchase_price:
+            Number(document.getElementById("inv_price").value),
+
+        location:
+            document.getElementById("inv_location").value,
+
+        rack:
+            document.getElementById("inv_rack").value,
+
+        remarks:
+            document.getElementById("inv_remarks").value,
+
+        batch_number:
+            document.getElementById("inv_batch").value,
+
+        service_team:
+            document.getElementById("inv_team").value
+
+    };
+
+    const url = id
+
+        ? `${INVENTORY_API}/${id}`
+
+        : INVENTORY_API;
+
+    const method = id
+
+        ? "PUT"
+
+        : "POST";
+
+    try {
+        const saveButton = document.getElementById("saveInventoryButton");
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.querySelector("span").textContent = id ? "Saving…" : "Adding…";
+        }
+        const response = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) {
+            throw new Error(result.detail || "Unable to save this inventory item.");
+        }
+        closeInventoryModal();
+        showInventoryToast(id ? "Inventory item updated." : "Inventory item added.");
+        await loadInventory();
+    } catch (error) {
+        BioTrackToast.error("Inventory item not saved", error.message || "Unable to save this inventory item.");
+        const saveButton = document.getElementById("saveInventoryButton");
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.querySelector("span").textContent = id ? "Save changes" : "Add item";
+        }
+    }
+
+}
+
+
+// ==========================================
+// IMPORT INVENTORY
+// ==========================================
+
+function importInventoryExcel(){
+
+    const input = document.createElement("input");
+
+    input.type = "file";
+
+    input.accept = ".xlsx,.xls";
+
+    input.onchange = async () => {
+
+        if(!input.files.length){
+
+            return;
+
+        }
+
+        const formData = new FormData();
+
+        formData.append(
+
+            "file",
+
+            input.files[0]
+
+        );
+
+        const response = await fetch(
+
+            `${INVENTORY_API}/upload`,
+
+            {
+
+                method:"POST",
+
+                body:formData
+
+            }
+
+        );
+
+        const result = await response.json();
+
+        if(result.success){
+
+            BioTrackToast.success(
+                "Inventory import complete",
+                `${result.added} added · ${result.updated} updated`,
+                { duration: 7000 },
+            );
+
+            await loadInventory();
+
+        }
+
+        else{
+
+            BioTrackToast.error("Inventory import failed", result.detail || result.message || "The spreadsheet could not be imported.");
+
+        }
+
+    };
+
+    input.click();
+
+}
+
+
+// ==========================================
+// EXPORT INVENTORY
+// ==========================================
+
+function exportInventoryExcel(){
+
+    BioTrackToast.info("Inventory export", "The export module is not available yet.");
+
+}
+// ==========================================
+// LOADING OVERLAY
+// ==========================================
+
+function showInventoryLoading(message = "Loading...") {
+
+    const old = document.getElementById("inventoryLoading");
+
+    if (old) old.remove();
+
+    const div = document.createElement("div");
+
+    div.id = "inventoryLoading";
+
+    div.className = "loading-overlay";
+
+    div.innerHTML = `
+
+        <div class="loading-card">
+
+            <div class="loading-spinner"></div>
+
+            <h3>${escapeHTML(message)}</h3>
+
+        </div>
+
+    `;
+
+    document.body.appendChild(div);
+
+}
+
+function hideInventoryLoading(){
+
+    const loading = document.getElementById("inventoryLoading");
+
+    if(loading){
+
+        loading.remove();
+
+    }
+
+}
+
+
+// ==========================================
+// SUCCESS MESSAGE
+// ==========================================
+
+function showInventoryToast(message){
+    BioTrackToast.success("Inventory updated", message);
+}
+
+
+// ==========================================
+// IMPROVED IMPORT
+// ==========================================
+
+async function importInventoryExcel(){
+
+    const input=document.createElement("input");
+
+    input.type="file";
+
+    input.accept=".xlsx,.xls";
+
+    input.onchange=async()=>{
+
+        if(!input.files.length){
+
+            return;
+
+        }
+
+        showInventoryLoading("Importing Inventory...");
+
+        const formData=new FormData();
+
+        formData.append(
+
+            "file",
+
+            input.files[0]
+
+        );
+
+        try{
+
+            const response=await fetch(
+
+                `${INVENTORY_API}/upload`,
+
+                {
+
+                    method:"POST",
+
+                    body:formData
+
+                }
+
+            );
+
+            const result=await response.json();
+
+            hideInventoryLoading();
+
+            if(result.success){
+
+                showInventoryToast(
+
+                    `Inventory Imported Successfully (${result.added} Added, ${result.updated} Updated)`
+
+                );
+
+                await loadInventory();
+
+            }
+
+            else{
+
+                BioTrackToast.error("Inventory import failed", result.detail || result.message || "The spreadsheet could not be imported.");
+
+            }
+
+        }
+
+        catch(error){
+
+            hideInventoryLoading();
+
+            console.error(error);
+
+            BioTrackToast.error("Inventory import failed", error.message || "The server could not process the spreadsheet.");
+
+        }
+
+    };
+
+    input.click();
+
+}
+
+
+// ==========================================
+// EXPORT CSV
+// ==========================================
+
+function exportInventoryExcel(){
+
+    if(inventoryData.length===0){
+
+        showInventoryToast("Nothing to export.");
+
+        return;
+
+    }
+
+    let csv=
+
+`BPK Number,Item Name,Category,Manufacturer,Stock,Minimum Stock,Location\n`;
+
+    inventoryData.forEach(item=>{
+
+        csv+=`"${item.bpk_number}","${item.item_name}","${item.category}","${item.manufacturer}",${item.current_stock},${item.minimum_stock},"${item.location}"\n`;
+
+    });
+
+    const blob=new Blob(
+
+        [csv],
+
+        {
+
+            type:"text/csv"
+
+        }
+
+    );
+
+    const url=URL.createObjectURL(blob);
+
+    const a=document.createElement("a");
+
+    a.href=url;
+
+    a.download="Inventory.csv";
+
+    a.click();
+
+    URL.revokeObjectURL(url);
+
+    showInventoryToast("Inventory Exported");
+
+}
+
+;
+/* source: dashboard_v2/js/settings.js */
+/* ==========================================================
+   BIOTRACK SETTINGS
+   PART 3A
+========================================================== */
+function initSettings() {
+    initializeProfilePhoto();
+
+    initializeProfileEditor();
+
+    initializeNotificationSwitches();
+
+    initializeSecurity();
+
+    initializePreferences();
+
+    initializeBackup();
+
+    loadProfileData();
+
+    loadSavedPreferences();
+
+    initializeSmoothButtons();
+
+    initializeButtonEffects();
+
+    initializeCardEffects();
+
+    initializeKeyboardShortcuts();
+
+    showToast(
+        "Settings",
+        "Settings page loaded successfully.",
+        "fa-circle-check"
+    );
+
+}
+/* ==========================================================
+   LOAD PROFILE DATA
+========================================================== */
+
+async function loadProfileData() {
+
+    const username =
+        localStorage.getItem("username") || "Administrator";
+
+    const role =
+        localStorage.getItem("role") || "Administrator";
+
+    const email =
+        localStorage.getItem("email") || "admin@biotrack.com";
+
+    const department =
+        localStorage.getItem("department") || "Not assigned";
+
+    let profile = { username, name: localStorage.getItem("name") || username, role, email, department };
+    try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        if (response.ok) profile = await response.json();
+    } catch (error) {
+        console.warn("Unable to refresh profile data", error);
+    }
+
+    const fullName =
+        document.getElementById("settingsFullName");
+
+    const emailText =
+        document.getElementById("settingsEmail");
+
+    const roleText =
+        document.getElementById("settingsRole");
+
+    const employee =
+        document.getElementById("settingsEmployeeId");
+
+    if(fullName) fullName.textContent = profile.name || profile.username || username;
+
+    if(emailText) emailText.textContent = profile.email || "Not provided";
+
+    if(roleText) roleText.textContent = profile.role || role;
+
+    if(employee) employee.textContent = profile.department || department;
+
+}
+
+function initializeProfileEditor() {
+    const button = document.getElementById("editProfileBtn");
+    if (!button) return;
+
+    button.addEventListener("click", async () => {
+        let profile;
+        try {
+            const response = await fetch("/api/auth/me", { cache: "no-store" });
+            if (!response.ok) throw new Error("Unable to load your profile.");
+            profile = await response.json();
+        } catch (error) {
+            showToast("Profile", error.message, "fa-circle-exclamation");
+            return;
+        }
+
+        const overlay = document.createElement("div");
+        overlay.className = "profile-edit-overlay";
+        overlay.innerHTML = `
+            <form class="profile-edit-dialog" id="profileEditForm">
+                <div class="profile-edit-header"><div><h2>Edit profile</h2><p>Update your contact information.</p></div><button type="button" class="profile-edit-close" aria-label="Close">×</button></div>
+                <label>Full name<input id="profileEditName" required maxlength="120" value="${escapeHTML(profile.name || "")}"></label>
+                <label>Email address<input id="profileEditEmail" type="email" required value="${escapeHTML(profile.email || "")}"></label>
+                <label>Phone<input id="profileEditPhone" maxlength="30" value="${escapeHTML(profile.phone || "")}"></label>
+                <div class="profile-edit-actions"><button type="button" class="secondary-btn profile-edit-cancel">Cancel</button><button type="submit" class="primary-btn">Save profile</button></div>
+            </form>`;
+        document.body.appendChild(overlay);
+        const close = () => overlay.remove();
+        overlay.querySelector(".profile-edit-close").onclick = close;
+        overlay.querySelector(".profile-edit-cancel").onclick = close;
+        overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
+        overlay.querySelector("#profileEditForm").onsubmit = async event => {
+            event.preventDefault();
+            const saveButton = event.submitter;
+            saveButton.disabled = true;
+            try {
+                const response = await fetch("/api/auth/profile", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        name: overlay.querySelector("#profileEditName").value.trim(),
+                        email: overlay.querySelector("#profileEditEmail").value.trim(),
+                        phone: overlay.querySelector("#profileEditPhone").value.trim(),
+                    }),
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.detail || "Unable to save your profile.");
+                localStorage.setItem("name", result.name);
+                localStorage.setItem("email", result.email);
+                const topUsername = document.getElementById("topUsername");
+                if (topUsername) topUsername.textContent = result.name;
+                close();
+                await loadProfileData();
+                showToast("Profile updated", "Your changes were saved.", "fa-circle-check");
+            } catch (error) {
+                showToast("Profile", error.message, "fa-circle-exclamation");
+                saveButton.disabled = false;
+            }
+        };
+        overlay.querySelector("#profileEditName").focus();
+    });
+}
+
+/* ==========================================================
+   PROFILE IMAGE
+========================================================== */
+
+function initializeProfilePhoto() {
+
+    const uploadInput = document.getElementById("profileUpload");
+
+    const preview = document.getElementById("profilePreview");
+
+    const cameraButton = document.getElementById("changePhoto");
+
+    if (!uploadInput || !preview || !cameraButton) return;
+
+    const photoKey = `biotrack-profile-photo:${localStorage.getItem("username") || "user"}`;
+    const savedPhoto = localStorage.getItem(photoKey);
+    if (savedPhoto) {
+        preview.src = savedPhoto;
+        applyProfilePhotoToTopbar(savedPhoto);
+    }
+
+    cameraButton.addEventListener("click", () => {
+
+        uploadInput.click();
+
+    });
+
+    uploadInput.addEventListener("change", event => {
+
+        const file = event.target.files[0];
+
+        if (!file) return;
+
+        if (!file.type.startsWith("image/")) {
+
+            showToast(
+
+                "Invalid File",
+
+                "Please select an image.",
+
+                "fa-circle-exclamation"
+
+            );
+
+            return;
+
+        }
+
+        if (file.size > 1500000) {
+            showToast("Image Too Large", "Choose a profile image smaller than 1.5 MB.", "fa-circle-exclamation");
+            uploadInput.value = "";
+            return;
+        }
+
+        const reader = new FileReader();
+
+        reader.onload = e => {
+
+            preview.src = e.target.result;
+
+            try {
+                localStorage.setItem(photoKey, e.target.result);
+                applyProfilePhotoToTopbar(e.target.result);
+            } catch (error) {
+                showToast("Profile Photo", "The image could not be stored in this browser.", "fa-circle-exclamation");
+                return;
+            }
+
+            showToast(
+
+                "Profile Updated",
+
+                "Your profile picture has been changed.",
+
+                "fa-circle-check"
+
+            );
+
+        };
+
+        reader.readAsDataURL(file);
+
+    });
+
+}
+
+function applyProfilePhotoToTopbar(source) {
+    const avatar = document.getElementById("topAvatar");
+    const sidebarAvatar = document.getElementById("sidebarAvatar");
+    [avatar, sidebarAvatar].forEach(element => {
+        if (!element) return;
+        element.style.backgroundImage = `url("${source}")`;
+        element.style.backgroundPosition = "center";
+        element.style.backgroundSize = "cover";
+        element.textContent = "";
+    });
+}
+
+/* ==========================================================
+   BUTTON SCROLL EFFECT
+========================================================== */
+
+function initializeSmoothButtons() {
+
+    document.querySelectorAll(".primary-btn, .secondary-btn").forEach(button => {
+
+        button.addEventListener("click", createRipple);
+
+    });
+
+}
+
+/* ==========================================================
+   RIPPLE EFFECT
+========================================================== */
+
+function createRipple(event) {
+
+    const button = event.currentTarget;
+
+    const ripple = document.createElement("span");
+
+    const size = Math.max(button.clientWidth, button.clientHeight);
+
+    const rect = button.getBoundingClientRect();
+
+    ripple.className = "ripple";
+
+    ripple.style.width = size + "px";
+
+    ripple.style.height = size + "px";
+
+    ripple.style.left = event.clientX - rect.left - size / 2 + "px";
+
+    ripple.style.top = event.clientY - rect.top - size / 2 + "px";
+
+    button.appendChild(ripple);
+
+    setTimeout(() => {
+
+        ripple.remove();
+
+    }, 600);
+
+}
+ 
+
+/* ==========================================================
+   NOTIFICATION SWITCHES
+========================================================== */
+
+function initializeNotificationSwitches() {
+
+    const switches = document.querySelectorAll(
+        "#inAppNotification, #desktopNotification, #requestUpdates, #pmReminder"
+    );
+
+    const saved = JSON.parse(localStorage.getItem("biotrack-notifications") || "{}");
+
+    switches.forEach(toggle => {
+
+        if (typeof saved[toggle.id] === "boolean") toggle.checked = saved[toggle.id];
+
+        toggle.addEventListener("change", async function () {
+
+            if (this.id === "desktopNotification" && this.checked && "Notification" in window) {
+                const permission = await Notification.requestPermission();
+                if (permission !== "granted") this.checked = false;
+            }
+
+            const title = getSettingName(this.id);
+
+            const status = this.checked ? "Enabled" : "Disabled";
+
+            showToast(
+                title,
+                `${title} ${status}.`,
+                this.checked
+                    ? "fa-circle-check"
+                    : "fa-circle-minus"
+            );
+
+        });
+
+    });
+
+    const saveButton = document.getElementById("saveNotificationSettings");
+    if (saveButton) {
+        saveButton.addEventListener("click", () => {
+            const preferences = {};
+            switches.forEach(toggle => { preferences[toggle.id] = toggle.checked; });
+            localStorage.setItem("biotrack-notifications", JSON.stringify(preferences));
+            document.dispatchEvent(new CustomEvent("biotrack:notification-preferences-changed", { detail: preferences }));
+            showToast("Notifications", "Notification preferences saved.", "fa-circle-check");
+        });
+    }
+
+}
+
+function getSettingName(id) {
+
+    switch (id) {
+
+        case "inAppNotification":
+            return "In-app Notifications";
+
+        case "desktopNotification":
+            return "Desktop Notifications";
+
+        case "requestUpdates":
+            return "Request Updates";
+
+        case "pmReminder":
+            return "Preventive Maintenance Reminder";
+
+        default:
+            return "Setting";
+
+    }
+
+}
+
+/* ==========================================================
+   SYSTEM PREFERENCES
+========================================================== */
+
+function initializePreferences() {
+
+    const theme = document.getElementById("themeSelect");
+    const density = document.getElementById("densitySelect");
+    const date = document.getElementById("dateFormat");
+    const time = document.getElementById("timeFormat");
+
+    if (theme) theme.addEventListener("change", () => saveSystemPreference("biotrack-theme", theme.value, "Theme", `${theme.options[theme.selectedIndex].text} theme applied.`));
+
+    if (density) density.addEventListener("change", () => saveSystemPreference("biotrack-density", density.value, "Interface Density", `${density.options[density.selectedIndex].text} spacing applied.`));
+
+    if (date) {
+
+        date.addEventListener("change", () => saveSystemPreference("dateFormat", date.value, "Date Format", `${date.value} selected.`));
+
+    }
+
+    if (time) {
+
+        time.addEventListener("change", () => saveSystemPreference("timeFormat", time.value, "Time Format", `${time.value} selected.`));
+
+    }
+
+}
+
+function saveSystemPreference(key, value, title, message) {
+    localStorage.setItem(key, value);
+    window.applyBioTrackPreferences?.();
+    document.dispatchEvent(new CustomEvent("biotrack:preferences-changed"));
+    showToast(title, message, "fa-circle-check");
+}
+
+/* ==========================================================
+   SECURITY
+========================================================== */
+
+function initializeSecurity() {
+
+    const changePassword =
+        document.getElementById("changePassword");
+
+    const sessions =
+        document.getElementById("viewSessions");
+
+    if (changePassword) {
+
+        changePassword.addEventListener("click", openPasswordModal);
+
+    }
+
+    if (sessions) {
+
+        sessions.addEventListener("click", openSessionDialog);
+
+    }
+
+}
+
+async function openSessionDialog() {
+    const button = document.getElementById("viewSessions");
+    if (button) button.disabled = true;
+    try {
+        const response = await fetch("/api/settings/session", { cache: "no-store" });
+        const session = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(session.detail || "Unable to load the current session.");
+        const overlay = document.createElement("div");
+        overlay.className = "profile-edit-overlay";
+        overlay.innerHTML = `
+            <section class="profile-edit-dialog session-dialog" role="dialog" aria-modal="true" aria-labelledby="sessionDialogTitle">
+                <div class="profile-edit-header"><div><h2 id="sessionDialogTitle">Current session</h2><p>This is the browser currently signed in to BioTrack.</p></div><button type="button" class="profile-edit-close" aria-label="Close">×</button></div>
+                <div class="session-details">
+                    <div><span>Account</span><strong id="sessionAccount"></strong></div>
+                    <div><span>Device</span><strong id="sessionDevice"></strong></div>
+                    <div><span>Network address</span><strong id="sessionIp"></strong></div>
+                    <div><span>Signed in</span><strong id="sessionIssued"></strong></div>
+                    <div><span>Expires</span><strong id="sessionExpires"></strong></div>
+                </div>
+                <div class="profile-edit-actions"><button type="button" class="secondary-btn session-close">Close</button><button type="button" class="danger-btn session-logout"><i data-lucide="log-out"></i> Sign out this device</button></div>
+            </section>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector("#sessionAccount").textContent = `${session.username} · ${session.role}`;
+        overlay.querySelector("#sessionDevice").textContent = friendlyBrowserName(session.user_agent);
+        overlay.querySelector("#sessionIp").textContent = session.ip_address || "Unknown";
+        overlay.querySelector("#sessionIssued").textContent = formatSettingsTimestamp(session.issued_at);
+        overlay.querySelector("#sessionExpires").textContent = formatSettingsTimestamp(session.expires_at);
+        const close = () => overlay.remove();
+        overlay.querySelector(".profile-edit-close").onclick = close;
+        overlay.querySelector(".session-close").onclick = close;
+        overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
+        overlay.querySelector(".session-logout").onclick = () => document.querySelector(".logout-btn")?.click();
+        if (window.lucide) window.lucide.createIcons();
+    } catch (error) {
+        showToast("Current Session", error.message, "fa-circle-exclamation");
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+function friendlyBrowserName(userAgent) {
+    const value = String(userAgent || "");
+    if (/Edg\//.test(value)) return "Microsoft Edge on this device";
+    if (/Chrome\//.test(value)) return "Google Chrome on this device";
+    if (/Firefox\//.test(value)) return "Mozilla Firefox on this device";
+    if (/Safari\//.test(value)) return "Safari on this device";
+    return "Current browser";
+}
+
+function formatSettingsTimestamp(value) {
+    if (!value) return "Not available";
+    const timestamp = new Date(value);
+    return Number.isNaN(timestamp.getTime()) ? "Not available" : timestamp.toLocaleString();
+}
+
+function openPasswordModal() {
+    const modal = document.getElementById("passwordModal");
+    if (!modal) return;
+    modal.hidden = false;
+    document.getElementById("currentPassword")?.focus();
+
+    document.getElementById("closePasswordModal").onclick = closePasswordModal;
+    document.getElementById("cancelPasswordChange").onclick = closePasswordModal;
+    document.getElementById("savePasswordChange").onclick = submitPasswordChange;
+}
+
+function closePasswordModal() {
+    const modal = document.getElementById("passwordModal");
+    if (!modal) return;
+    modal.hidden = true;
+    ["currentPassword", "newPassword", "confirmPassword"].forEach(id => {
+        const field = document.getElementById(id);
+        if (field) field.value = "";
+    });
+}
+
+async function submitPasswordChange() {
+    const currentPassword = document.getElementById("currentPassword")?.value || "";
+    const newPassword = document.getElementById("newPassword")?.value || "";
+    const confirmPassword = document.getElementById("confirmPassword")?.value || "";
+
+    if (newPassword.length < 12) {
+        showToast("Password", "Use at least 12 characters.", "fa-circle-exclamation");
+        return;
+    }
+    if (newPassword !== confirmPassword) {
+        showToast("Password", "The new passwords do not match.", "fa-circle-exclamation");
+        return;
+    }
+
+    if (!currentPassword) {
+        showToast("Password", "Enter your current password.", "fa-circle-exclamation");
+        return;
+    }
+    const saveButton = document.getElementById("savePasswordChange");
+    if (saveButton) saveButton.disabled = true;
+    try {
+        const response = await fetch("/api/auth/change-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || "Unable to change password.");
+        closePasswordModal();
+        showToast("Password", "Password changed successfully.", "fa-circle-check");
+    } catch (error) {
+        showToast("Password", error.message, "fa-circle-exclamation");
+    } finally {
+        if (saveButton) saveButton.disabled = false;
+    }
+}
+
+/* ==========================================================
+   TOAST NOTIFICATION
+========================================================== */
+
+function showToast(title, message, icon) {
+    const type = icon === "fa-circle-exclamation" ? "error" : "success";
+    BioTrackToast.show({ title, message, type });
+}
+
+
+/* ==========================================================
+   BACKUP & EXPORT
+========================================================== */
+
+function initializeBackup() {
+
+    const backupBtn = document.getElementById("backupNow");
+    const exportBtn = document.getElementById("exportData");
+
+    if (backupBtn) {
+
+        backupBtn.addEventListener("click", () => downloadSettingsFile(backupBtn, "/api/settings/backup", "Creating backup…", "Backup Complete", "Your scoped BioTrack backup was downloaded."));
+
+    }
+
+    if (exportBtn) {
+
+        exportBtn.addEventListener("click", () => downloadSettingsFile(exportBtn, "/api/settings/export", "Preparing export…", "Export Complete", "Maintenance data was downloaded as CSV."));
+
+    }
+
+}
+
+async function downloadSettingsFile(button, url, busyLabel, successTitle, successMessage) {
+    const original = button.innerHTML;
+    button.disabled = true;
+    button.textContent = busyLabel;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.detail || "The download could not be prepared.");
+        }
+        const blob = await response.blob();
+        const disposition = response.headers.get("Content-Disposition") || "";
+        const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || "biotrack-download";
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = objectUrl;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(objectUrl);
+        showToast(successTitle, successMessage, "fa-circle-check");
+    } catch (error) {
+        showToast("Download Failed", error.message, "fa-circle-exclamation");
+    } finally {
+        button.disabled = false;
+        button.innerHTML = original;
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+
+/* ==========================================================
+   THEME
+========================================================== */
+
+function initializeTheme() {
+
+    const selector = document.getElementById("themeSelect");
+
+    if (!selector) return;
+
+    selector.addEventListener("change", () => {
+
+        localStorage.setItem("biotrack-theme", selector.value);
+
+        applyTheme(selector.value);
+
+    });
+
+}
+
+function applyTheme(theme) {
+
+    document.body.classList.remove("dark-theme");
+
+    if (theme === "dark") {
+
+        document.body.classList.add("dark-theme");
+
+    }
+
+    showToast(
+        "Theme Updated",
+        `${theme} theme applied.`,
+        "fa-palette"
+    );
+
+}
+
+/* ==========================================================
+   SAVE PREFERENCES
+========================================================== */
+
+function loadSavedPreferences() {
+
+    const theme = localStorage.getItem("biotrack-theme");
+
+    if (theme) {
+
+        const selector = document.getElementById("themeSelect");
+
+        if (selector) {
+
+            selector.value = theme;
+
+            window.applyBioTrackPreferences?.();
+
+        }
+
+    }
+
+    const density = localStorage.getItem("biotrack-density");
+    const densitySelector = document.getElementById("densitySelect");
+    if (density && densitySelector) densitySelector.value = density;
+
+    ["dateFormat", "timeFormat"].forEach(id => {
+        const element = document.getElementById(id);
+        const saved = localStorage.getItem(id);
+        if (element && saved) element.value = saved;
+    });
+
+}
+
+function saveDropdown(id) {
+
+    const element = document.getElementById(id);
+
+    if (!element) return;
+
+    const saved = localStorage.getItem(id);
+
+    if (saved) {
+
+        element.value = saved;
+
+    }
+
+    element.addEventListener("change", () => {
+
+        localStorage.setItem(id, element.value);
+
+    });
+
+}
+
+/* ==========================================================
+   GLOBAL BUTTON EFFECT
+========================================================== */
+
+/* ==========================================================
+   BUTTON EFFECTS
+========================================================== */
+
+function initializeButtonEffects() {
+
+    if (window.settingsButtonEffectsBound) return;
+    window.settingsButtonEffectsBound = true;
+
+    document.addEventListener("click", function (event) {
+
+        const button = event.target.closest("button");
+
+        if (!button) return;
+
+        button.style.transform = "scale(.97)";
+
+        setTimeout(() => {
+
+            button.style.transform = "";
+
+        }, 120);
+
+    });
+
+}
+
+/* ==========================================================
+   CARD HOVER EFFECT
+========================================================== */
+
+function initializeCardEffects(){
+
+    document.querySelectorAll(".settings-card")
+        .forEach(card=>{
+
+            card.style.transition=".3s ease";
+
+        });
+
+}
+
+/* ==========================================================
+   KEYBOARD SHORTCUTS
+========================================================== */
+
+function initializeKeyboardShortcuts(){
+
+    if (window.settingsKeyboardShortcutsBound) return;
+    window.settingsKeyboardShortcutsBound = true;
+
+    document.addEventListener("keydown", event => {
+
+        if (!document.querySelector(".settings-page")) return;
+
+        if(event.ctrlKey &&
+           event.key.toLowerCase()==="s"){
+
+            event.preventDefault();
+
+            showToast(
+                "Settings Saved",
+                "Your preferences have been saved.",
+                "fa-floppy-disk"
+            );
+
+        }
+
+    });
+
+}
+
+/* ==========================================================
+   FINAL INITIALIZATION
+========================================================== */
+
+console.log(
+    "%cBioTrack Settings Module Loaded",
+    "color:#2563eb;font-size:16px;font-weight:bold;"
+);
+
+console.log("Version : 1.0.0");
+
+console.log("Status  : Ready");
+
+ 
+
+;
+/* source: dashboard_v2/views/pmView.js */
+// ==========================================
+// PM DASHBOARD V2
+// ==========================================
+
+function renderPM() {
+
+    pageContent.innerHTML = `
+
+    <!-- ==========================================
+         PM PAGE
+    ========================================== -->
+
+    <div class="pm-page">
+
+        <!-- ==========================================
+             HEADER
+        ========================================== -->
+
+        <section class="pm-header">
+
+            <div class="pm-header-left">
+
+                <h1>
+                    Preventive Maintenance
+                </h1>
+
+                <p>
+
+                    Schedule, monitor and manage preventive maintenance
+                    across all biomedical equipment from one centralized
+                    calendar.
+
+                </p>
+
+            </div>
+
+            <div class="pm-header-right">
+
+                <img
+                    src="/static/assets/pm_calendar.png"
+                    alt="Preventive Maintenance"
+                    class="pm-header-image"
+                >
+
+            </div>
+
+        </section>
+
+        <!-- ==========================================
+             CALENDAR
+        ========================================== -->
+
+        <section class="pm-calendar-card">
+
+            <div class="pm-calendar-toolbar">
+
+                <div class="pm-calendar-navigation">
+
+                    <button id="pmPrevMonth">
+
+                        <i data-lucide="chevron-left"></i>
+
+                    </button>
+
+                    <h2 id="pmCurrentMonth">
+
+                        July 2026
+
+                    </h2>
+
+                    <button id="pmNextMonth">
+
+                        <i data-lucide="chevron-right"></i>
+
+                    </button>
+
+                </div>
+
+                <button
+                    class="pm-today-btn"
+                    id="pmTodayButton">
+
+                    Today
+
+                </button>
+
+                <div class="pm-google-calendar" id="pmGoogleCalendar">
+                    <span class="pm-google-calendar-status" id="pmGoogleCalendarStatus">Add any visit to Google Calendar directly from its schedule row.</span>
+                    <a class="pm-google-calendar-btn" href="https://calendar.google.com/calendar/" target="_blank" rel="noopener">Open Google Calendar</a>
+                </div>
+
+            </div>
+
+            <div id="pmCalendar">
+
+                <!-- Calendar generated by pmCalendar.js -->
+
+            </div>
+
+        </section>
+
+        <!-- ==========================================
+             CALENDAR LEGEND
+        ========================================== -->
+
+        <section class="pm-legend">
+
+            <div class="legend-item">
+
+                <span class="legend-dot scheduled"></span>
+
+                Scheduled
+
+            </div>
+
+            <div class="legend-item">
+
+                <span class="legend-dot due"></span>
+
+                Due Today
+
+            </div>
+
+            <div class="legend-item">
+
+                <span class="legend-dot overdue"></span>
+
+                Overdue
+
+            </div>
+
+            <div class="legend-item">
+
+                <span class="legend-dot completed"></span>
+
+                Completed
+
+            </div>
+
+            <div class="legend-item">
+
+                <span class="legend-dot empty"></span>
+
+                No PM
+
+            </div>
+
+        </section>
+
+        <!-- ==========================================
+             KPI CARDS
+        ========================================== -->
+
+        <section
+            id="pmKpiCards"
+            class="pm-kpi-section">
+
+        </section>
+
+        <section
+            id="pmScheduleOverview"
+            class="pm-section">
+
+        </section>
+
+        <!-- ==========================================
+             UPCOMING PM
+        ========================================== -->
+
+        <section
+            id="pmUpcomingSection"
+            class="pm-section">
+
+        </section>
+
+        <!-- ==========================================
+             OVERDUE PM
+        ========================================== -->
+
+        <section
+            id="pmOverdueSection"
+            class="pm-section">
+
+        </section>
+
+        <!-- ==========================================
+             PM HISTORY
+        ========================================== -->
+
+        <section
+            id="pmHistorySection"
+            class="pm-section">
+
+        </section>
+        <!-- ==========================================
+            PM DRAWER
+        ========================================== -->
+
+        <div
+            id="pmDrawerOverlay"
+            class="pm-drawer-overlay">
+
+            <div
+                id="pmDrawer"
+                class="pm-drawer">
+
+                <div class="pm-drawer-header">
+
+                    <div>
+
+                        <h2>
+                            Schedule Preventive Maintenance
+                        </h2>
+
+                        <p>
+
+                            Create a preventive maintenance schedule.
+
+                        </p>
+
+                    </div>
+
+                    <button
+                        id="pmDrawerClose"
+                        class="pm-drawer-close">
+
+                        <i data-lucide="x"></i>
+
+                    </button>
+
+                </div>
+
+                <div class="pm-drawer-body">
+
+                <!-- Date -->
+
+                <div class="pm-form-group">
+
+                    <label>Date</label>
+
+                    <input
+                        id="pmDate"
+                        type="text"
+                        readonly
+                    >
+
+                </div>
+
+                <!-- Department -->
+
+                <div class="pm-form-group">
+
+                    <label>Department</label>
+
+                    <select id="pmDepartment">
+
+                        <option value="">
+                            Select Department
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <!-- Equipment -->
+
+                <div class="pm-form-group">
+
+                    <label>Equipment</label>
+
+                    <p class="pm-form-hint">Choose an asset assigned to this department. Unassigned biomedical assets are included and will be assigned when you schedule the visit.</p>
+
+                    <select id="pmEquipment">
+
+                        <option value="">
+                            Select a department first
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <!-- Engineer -->
+
+                <div class="pm-form-group">
+
+                    <label>Biomedical Engineer</label>
+
+                    <select id="pmEngineer">
+
+                        <option value="">
+                            Assign Engineer
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <!-- Frequency -->
+
+                <div class="pm-form-group">
+
+                    <label>Frequency</label>
+
+                    <select id="pmFrequency">
+
+                        <option value="30">
+                            Every 30 Days
+                        </option>
+
+                        <option value="90">
+                            Every 90 Days
+                        </option>
+
+                        <option value="180">
+                            Every 180 Days
+                        </option>
+
+                        <option value="365">
+                            Every Year
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <!-- Remarks -->
+
+                <div class="pm-form-group">
+
+                    <label>Remarks</label>
+
+                    <textarea
+                        id="pmRemarks"
+                        rows="5"
+                        placeholder="Additional remarks..."
+                    ></textarea>
+
+                </div>
+
+                <div class="pm-drawer-footer">
+
+                    <button
+                        id="pmCancelButton"
+                        class="secondary-btn">
+
+                        Cancel
+
+                    </button>
+
+                    <button
+                        id="pmScheduleButton"
+                        class="primary-btn">
+
+                        Schedule PM
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    `;
+
+    lucide.createIcons();
+
+    // Calendar engine (next phase)
+    initializePMCalendar();
+
+    initializePMDrawer();
+
+
+    loadEngineeringPMSchedules();
+
+}
+
+;
+/* source: dashboard_v2/js/pmCalendar.js */
+// ==========================================
+// PM CALENDAR ENGINE
+// ==========================================
+
+
+// ==========================================
+// CURRENT DATE
+// ==========================================
+
+let pmCurrentDate = new Date();
+
+let pmSelectedDate = null;
+
+
+// ==========================================
+// MONTHS
+// ==========================================
+
+const pmMonths = [
+
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December"
+
+];
+
+
+// ==========================================
+// WEEK DAYS
+// ==========================================
+
+const pmWeekDays = [
+
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+    "Sat",
+    "Sun"
+
+];
+
+
+// ==========================================
+// DEMO EVENTS
+// (Temporary until backend integration)
+// ==========================================
+
+let pmEvents = [];
+
+
+// ==========================================
+// INITIALIZE
+// ==========================================
+
+function initializePMCalendar(){
+
+    initializePMCalendarButtons();
+
+    renderPMCalendar();
+
+}
+
+
+// ==========================================
+// BUTTON EVENTS
+// ==========================================
+
+function initializePMCalendarButtons(){
+
+    document
+
+        .getElementById("pmPrevMonth")
+
+        .addEventListener(
+
+            "click",
+
+            previousPMMonth
+
+        );
+
+    document
+
+        .getElementById("pmNextMonth")
+
+        .addEventListener(
+
+            "click",
+
+            nextPMMonth
+
+        );
+
+    document
+
+        .getElementById("pmTodayButton")
+
+        .addEventListener(
+
+            "click",
+
+            goToTodayPM
+
+        );
+
+}
+
+
+// ==========================================
+// PREVIOUS MONTH
+// ==========================================
+
+function previousPMMonth(){
+
+    pmCurrentDate.setMonth(
+
+        pmCurrentDate.getMonth()-1
+
+    );
+
+    renderPMCalendar();
+
+}
+
+
+// ==========================================
+// NEXT MONTH
+// ==========================================
+
+function nextPMMonth(){
+
+    pmCurrentDate.setMonth(
+
+        pmCurrentDate.getMonth()+1
+
+    );
+
+    renderPMCalendar();
+
+}
+
+
+// ==========================================
+// TODAY
+// ==========================================
+
+function goToTodayPM(){
+
+    pmCurrentDate = new Date();
+
+    renderPMCalendar();
+
+}
+// ==========================================
+// RENDER CALENDAR
+// ==========================================
+
+function renderPMCalendar() {
+
+    const calendar =
+        document.getElementById("pmCalendar");
+
+    if (!calendar) return;
+
+    const year =
+        pmCurrentDate.getFullYear();
+
+    const month =
+        pmCurrentDate.getMonth();
+
+    document.getElementById("pmCurrentMonth").textContent =
+        `${pmMonths[month]} ${year}`;
+
+    calendar.innerHTML = "";
+
+    renderWeekHeader(calendar);
+
+    renderCalendarDays(calendar);
+
+}
+
+
+// ==========================================
+// WEEK HEADER
+// ==========================================
+
+function renderWeekHeader(calendar){
+
+    const grid =
+        document.createElement("div");
+
+    grid.className =
+        "pm-calendar-grid";
+
+    pmWeekDays.forEach(day=>{
+
+        const weekday =
+            document.createElement("div");
+
+        weekday.className =
+            "pm-weekday";
+
+        weekday.textContent =
+            day;
+
+        grid.appendChild(weekday);
+
+    });
+
+    calendar.appendChild(grid);
+
+}
+// ==========================================
+// RENDER CALENDAR DAYS
+// ==========================================
+
+function renderCalendarDays(calendar){
+
+    const grid =
+        document.createElement("div");
+
+    grid.className =
+        "pm-calendar-grid";
+
+    const year =
+        pmCurrentDate.getFullYear();
+
+    const month =
+        pmCurrentDate.getMonth();
+
+    // First day of month
+    const firstDay =
+        new Date(year, month, 1);
+
+    // Last day of month
+    const lastDay =
+        new Date(year, month + 1, 0);
+
+    // Monday = first column
+    let startingDay =
+        firstDay.getDay();
+
+    startingDay =
+        startingDay === 0 ? 6 : startingDay - 1;
+
+    // Previous month
+    const previousMonthLastDay =
+        new Date(year, month, 0).getDate();
+
+    // Previous month dates
+    for(
+
+        let i = startingDay;
+
+        i > 0;
+
+        i--
+
+    ){
+
+        grid.appendChild(
+
+            createDayCard(
+
+                previousMonthLastDay - i + 1,
+
+                true
+
+            )
+
+        );
+
+    }
+
+    // Current month dates
+    for(
+
+        let day = 1;
+
+        day <= lastDay.getDate();
+
+        day++
+
+    ){
+
+        const currentDate =
+
+            new Date(
+
+                year,
+
+                month,
+
+                day
+
+            );
+
+        grid.appendChild(
+
+            createDayCard(
+
+                day,
+
+                false,
+
+                currentDate
+
+            )
+
+        );
+
+    }
+
+    // Fill remaining cells
+    const totalCells =
+        grid.children.length;
+
+    const remaining =
+        42 - totalCells;
+
+    for(
+
+        let day = 1;
+
+        day <= remaining;
+
+        day++
+
+    ){
+
+        grid.appendChild(
+
+            createDayCard(
+
+                day,
+
+                true
+
+            )
+
+        );
+
+    }
+
+    calendar.appendChild(grid);
+
+}
+// ==========================================
+// CREATE DAY CARD
+// ==========================================
+
+function createDayCard(day, otherMonth = false, date = null) {
+
+    const card =
+        document.createElement("div");
+
+    card.className =
+        "pm-day";
+
+    if (otherMonth) {
+
+        card.classList.add("other-month");
+
+    }
+
+    // Today's Date
+    if (date && isToday(date)) {
+
+        card.classList.add("today");
+
+    }
+
+    // Day Number
+    const number =
+        document.createElement("div");
+
+    number.className =
+        "pm-day-number";
+
+    number.textContent =
+        day;
+
+    card.appendChild(number);
+
+    // Event
+    if (date) {
+
+        const event =
+            getPMEvent(date);
+
+        if (event) {
+
+            // Status Dot
+            const dot =
+                document.createElement("div");
+
+            dot.className =
+                `pm-status-dot ${event.status.toLowerCase()}`;
+
+            card.appendChild(dot);
+
+            // Event Chip
+            const chip =
+                document.createElement("div");
+
+            chip.className =
+                `pm-event ${event.status.toLowerCase()}`;
+
+            chip.textContent =
+                event.status;
+
+            card.appendChild(chip);
+
+        }
+
+        card.addEventListener("click", () => {
+
+            selectPMDate(date);
+
+            openPMDrawer(date);
+
+        });
+
+    }
+
+    return card;
+
+}
+
+
+// ==========================================
+// TODAY CHECK
+// ==========================================
+
+function isToday(date){
+
+    const today = new Date();
+
+    return (
+
+        today.getFullYear() === date.getFullYear()
+
+        &&
+
+        today.getMonth() === date.getMonth()
+
+        &&
+
+        today.getDate() === date.getDate()
+
+    );
+
+}
+
+
+// ==========================================
+// GET EVENT
+// ==========================================
+
+function getPMEvent(date){
+
+    const formatted =
+        formatPMDate(date);
+
+    const events = pmEvents.filter(event =>
+
+        event.date === formatted
+
+    );
+
+    if (!events.length) return null;
+
+    const priority = { Overdue: 4, Due: 3, Upcoming: 2, Completed: 1 };
+    const primary = [...events].sort(
+        (a, b) => (priority[b.status] || 0) - (priority[a.status] || 0)
+    )[0];
+
+    return {
+        ...primary,
+        count: events.length
+    };
+
+}
+
+
+// ==========================================
+// FORMAT DATE
+// ==========================================
+
+function formatPMDate(date){
+
+    const year =
+        date.getFullYear();
+
+    const month =
+        String(
+
+            date.getMonth() + 1
+
+        ).padStart(2,"0");
+
+    const day =
+        String(
+
+            date.getDate()
+
+        ).padStart(2,"0");
+
+    return `${year}-${month}-${day}`;
+
+}
+
+
+// ==========================================
+// SELECT DATE
+// ==========================================
+
+function selectPMDate(date){
+
+    pmSelectedDate = date;
+
+    console.log(
+
+        "Selected PM Date:",
+
+        formatPMDate(date)
+
+    );
+
+    // Next Phase:
+    // openPMScheduleDrawer(date);
+
+}
+// ==========================================
+// SET EVENTS
+// ==========================================
+
+function setPMEvents(events = []) {
+
+    pmEvents = Array.isArray(events)
+
+        ? events
+
+        : [];
+
+    refreshPMCalendar();
+
+}
+
+
+// ==========================================
+// ADD EVENT
+// ==========================================
+
+function addPMEvent(event) {
+
+    if (!event) return;
+
+    pmEvents.push(event);
+
+    refreshPMCalendar();
+
+}
+
+
+// ==========================================
+// REMOVE EVENT
+// ==========================================
+
+function removePMEvent(date) {
+
+    pmEvents = pmEvents.filter(event =>
+
+        event.date !== date
+
+    );
+
+    refreshPMCalendar();
+
+}
+
+
+// ==========================================
+// CLEAR EVENTS
+// ==========================================
+
+function clearPMEvents() {
+
+    pmEvents = [];
+
+    refreshPMCalendar();
+
+}
+
+
+// ==========================================
+// REFRESH
+// ==========================================
+
+function refreshPMCalendar() {
+
+    renderPMCalendar();
+
+}
+
+
+// ==========================================
+// GET SELECTED DATE
+// ==========================================
+
+function getSelectedPMDate() {
+
+    return pmSelectedDate;
+
+}
+
+
+// ==========================================
+// GET CURRENT MONTH
+// ==========================================
+
+function getCurrentPMMonth() {
+
+    return {
+
+        month: pmCurrentDate.getMonth(),
+
+        year: pmCurrentDate.getFullYear()
+
+    };
+
+}
+
+
+// ==========================================
+// GO TO DATE
+// ==========================================
+
+function goToPMDate(date) {
+
+    if (!(date instanceof Date)) {
+
+        date = new Date(date);
+
+    }
+
+    if (isNaN(date)) return;
+
+    pmCurrentDate = new Date(date);
+
+    refreshPMCalendar();
+
+}
+
+
+// ==========================================
+// INITIALIZE SAFELY
+// ==========================================
+
+function initializePMCalendarSafely() {
+
+    if (
+
+        !document.getElementById("pmCalendar")
+
+    ) {
+
+        return;
+
+    }
+
+    initializePMCalendar();
+
+}
+
+
+// ==========================================
+// PUBLIC API
+// ==========================================
+
+window.initializePMCalendar =
+    initializePMCalendar;
+
+window.refreshPMCalendar =
+    refreshPMCalendar;
+
+window.setPMEvents =
+    setPMEvents;
+
+window.addPMEvent =
+    addPMEvent;
+
+window.removePMEvent =
+    removePMEvent;
+
+window.clearPMEvents =
+    clearPMEvents;
+
+window.goToPMDate =
+    goToPMDate;
+
+window.getCurrentPMMonth =
+    getCurrentPMMonth;
+
+window.getSelectedPMDate =
+    getSelectedPMDate;
+
+;
+/* source: dashboard_v2/js/pmDrawer.js */
+// PM scheduling drawer: one API-driven form, no fragmented dropdown calls.
+let selectedPMDate = null;
+let pmFormData = { departments: [], assets: [], engineers: [] };
+
+const pmDrawerOverlay = () => document.getElementById("pmDrawerOverlay");
+const pmDateInput = () => document.getElementById("pmDate");
+
+function initializePMDrawer() {
+    if (!pmDrawerOverlay()) return;
+    document.getElementById("pmDrawerClose")?.addEventListener("click", closePMDrawer);
+    document.getElementById("pmCancelButton")?.addEventListener("click", closePMDrawer);
+    pmDrawerOverlay().addEventListener("click", event => {
+        if (event.target === pmDrawerOverlay()) closePMDrawer();
+    });
+    document.getElementById("pmScheduleButton")?.addEventListener("click", savePMSchedule);
+    document.getElementById("pmDepartment")?.addEventListener("change", event => populateDepartmentAssets(event.target.value));
+    document.getElementById("pmEquipment")?.addEventListener("change", event => setPMFrequencyFromAsset(event.target.value));
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && pmDrawerOverlay()?.classList.contains("active")) closePMDrawer();
+    });
+}
+
+async function openPMDrawer(date) {
+    selectedPMDate = date instanceof Date ? date : new Date(date);
+    if (Number.isNaN(selectedPMDate.getTime())) return;
+    pmDateInput().value = formatDrawerDate(selectedPMDate);
+    document.getElementById("pmDepartment").value = "";
+    document.getElementById("pmEquipment").innerHTML = '<option value="">Select a department first</option>';
+    document.getElementById("pmEquipment").disabled = true;
+    document.getElementById("pmEngineer").value = "";
+    document.getElementById("pmFrequency").value = "90";
+    document.getElementById("pmRemarks").value = "";
+    pmDrawerOverlay().classList.add("active");
+    await loadPMDrawerData();
+}
+
+function closePMDrawer() {
+    pmDrawerOverlay()?.classList.remove("active");
+}
+
+function formatDrawerDate(date) {
+    return date.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+
+async function loadPMDrawerData() {
+    const department = document.getElementById("pmDepartment");
+    const equipment = document.getElementById("pmEquipment");
+    const engineer = document.getElementById("pmEngineer");
+    const button = document.getElementById("pmScheduleButton");
+    try {
+        if (button) button.disabled = true;
+        department.innerHTML = '<option value="">Loading departments…</option>';
+        equipment.innerHTML = '<option value="">Select a department first</option>';
+        equipment.disabled = true;
+        engineer.innerHTML = '<option value="">Loading engineers…</option>';
+        const response = await fetch("/api/pm/form-data", { cache: "no-store" });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || "Unable to load PM scheduling data.");
+        pmFormData = {
+            departments: Array.isArray(result.departments) ? result.departments : [],
+            assets: Array.isArray(result.assets) ? result.assets : [],
+            engineers: Array.isArray(result.engineers) ? result.engineers : [],
+        };
+        department.innerHTML = '<option value="">Select Department</option>' + pmFormData.departments.map(item => `<option value="${pmDrawerEscape(item)}">${pmDrawerEscape(item)}</option>`).join("");
+        engineer.innerHTML = '<option value="">Assign Biomedical Engineer</option>' + pmFormData.engineers.map(item => `<option value="${item.id}">${pmDrawerEscape(item.name)}</option>`).join("");
+        if (!pmFormData.departments.length) {
+            department.innerHTML = '<option value="">No department users are available</option>';
+        }
+        if (!pmFormData.engineers.length) {
+            engineer.innerHTML = '<option value="">No biomedical engineer is available</option>';
+        }
+    } catch (error) {
+        console.error(error);
+        department.innerHTML = '<option value="">Could not load departments</option>';
+        engineer.innerHTML = '<option value="">Could not load engineers</option>';
+        BioTrackToast.error("PM form unavailable", error.message);
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+function populateDepartmentAssets(department) {
+    const equipment = document.getElementById("pmEquipment");
+    equipment.innerHTML = '<option value="">Select Equipment</option>';
+    if (!department) {
+        equipment.disabled = true;
+        return;
+    }
+    const matching = pmFormData.assets.filter(asset => !asset.department || asset.department === department);
+    matching.forEach(asset => {
+        const assignment = asset.department ? "" : " — unassigned (will be assigned)";
+        equipment.innerHTML += `<option value="${asset.id}">${pmDrawerEscape(asset.equipment_name || asset.asset_code || "Unnamed asset")}${assignment}</option>`;
+    });
+    equipment.disabled = matching.length === 0;
+    if (!matching.length) equipment.innerHTML = '<option value="">No biomedical assets are available</option>';
+}
+
+function setPMFrequencyFromAsset(assetId) {
+    const asset = pmFormData.assets.find(item => String(item.id) === String(assetId));
+    const frequency = document.getElementById("pmFrequency");
+    if (asset && asset.pm_frequency && frequency.querySelector(`option[value="${asset.pm_frequency}"]`)) {
+        frequency.value = String(asset.pm_frequency);
+    } else {
+        frequency.value = "90";
+    }
+}
+
+async function savePMSchedule() {
+    const department = document.getElementById("pmDepartment").value;
+    const equipment = document.getElementById("pmEquipment").value;
+    const engineer = document.getElementById("pmEngineer").value;
+    const frequency = Number(document.getElementById("pmFrequency").value);
+    const remarks = document.getElementById("pmRemarks").value.trim();
+    const button = document.getElementById("pmScheduleButton");
+    if (!department || !equipment || !engineer || !selectedPMDate) {
+        BioTrackToast.warning("Complete the PM schedule", "Select a department, equipment and biomedical engineer.");
+        return;
+    }
+    if (!Number.isInteger(frequency) || frequency <= 0) {
+        BioTrackToast.warning("Invalid PM frequency", "Choose a frequency greater than zero.");
+        return;
+    }
+    const payload = {
+        asset_id: Number(equipment),
+        department,
+        frequency_days: frequency,
+        scheduled_date: formatPMDate(selectedPMDate),
+        engineer_id: Number(engineer),
+        remarks,
+    };
+    try {
+        button.disabled = true;
+        button.textContent = "Scheduling…";
+        const response = await fetch("/api/pm/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || "Unable to schedule preventive maintenance.");
+        closePMDrawer();
+        if (typeof loadEngineeringPMSchedules === "function") await loadEngineeringPMSchedules();
+        if (typeof showSuccess === "function") {
+            showSuccess({ title: "PM scheduled", message: "The department will now be able to approve or decline the planned visit.", buttonText: "Continue" });
+        } else {
+            BioTrackToast.success("PM scheduled", "The preventive-maintenance visit was scheduled successfully.");
+        }
+    } catch (error) {
+        console.error(error);
+        BioTrackToast.error("PM schedule failed", error.message);
+    } finally {
+        button.disabled = false;
+        button.textContent = "Schedule PM";
+    }
+}
+
+function getSelectedPMDate() {
+    return selectedPMDate;
+}
+function pmDrawerEscape(value) {
+    return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+window.openPMDrawer = openPMDrawer;
+window.closePMDrawer = closePMDrawer;
+window.getSelectedPMDate = getSelectedPMDate;
+
+;
+/* source: dashboard_v2/js/pmScheduleOverview.js */
+// Live PM schedule overview for biomedical engineers and administrators.
+async function loadEngineeringPMSchedules() {
+    const container = document.getElementById("pmScheduleOverview");
+    if (!container) return;
+    container.innerHTML = '<div class="pm-overview-loading">Loading scheduled PM visits…</div>';
+    try {
+        const response = await fetch("/api/pm/all");
+        if (!response.ok) throw new Error("Unable to load PM schedules.");
+        const schedules = await response.json();
+        const items = Array.isArray(schedules) ? schedules : [];
+        setPMEvents(items.map(item => ({ date: item.scheduled_date, status: item.status })));
+        renderEngineeringPMSchedules(items);
+    } catch (error) {
+        console.error(error);
+        container.innerHTML = `<div class="pm-overview-empty">${pmOverviewEscape(error.message)}</div>`;
+    }
+}
+
+function renderEngineeringPMSchedules(schedules) {
+    const container = document.getElementById("pmScheduleOverview");
+    if (!container) return;
+    if (!schedules.length) {
+        container.innerHTML = `<div class="pm-overview-card"><div class="pm-overview-header"><div><span>Live schedule</span><h2>Department confirmations</h2></div></div><div class="pm-overview-empty">No PM visits have been scheduled yet.</div></div>`;
+        return;
+    }
+    container.innerHTML = `
+      <div class="pm-overview-card">
+        <div class="pm-overview-header"><div><span>Live schedule</span><h2>Department confirmations</h2><p>PM dates, approval decisions and notes from department users.</p></div><button class="pm-overview-refresh" onclick="loadEngineeringPMSchedules()"><i data-lucide="refresh-cw"></i> Refresh</button></div>
+        <div class="pm-overview-list">
+          ${schedules.map(item => `
+            <article class="pm-overview-row">
+              <div class="pm-overview-date"><strong>${pmOverviewDay(item.scheduled_date)}</strong><span>${pmOverviewMonth(item.scheduled_date)}</span></div>
+              <div class="pm-overview-equipment"><strong>${pmOverviewEscape(item.equipment_name || "Department equipment")}</strong><span>${pmOverviewEscape(item.asset_code || "-")} · ${pmOverviewEscape(item.department || "No department")}</span></div>
+              <div class="pm-overview-state"><b class="pm-overview-badge ${pmOverviewClass(item.status)}">${pmOverviewEscape(item.status || "Upcoming")}</b><small>PM status</small></div>
+              <div class="pm-overview-response"><b class="pm-overview-response-badge ${pmOverviewClass(item.department_response)}">${pmOverviewEscape(item.department_response || "Pending")}</b><small>Department response</small>${item.department_response_note ? `<p>“${pmOverviewEscape(item.department_response_note)}”</p>` : ""}</div>
+              <a class="pm-overview-calendar-link" href="${pmOverviewGoogleCalendarUrl(item)}" target="_blank" rel="noopener noreferrer" aria-label="Add ${pmOverviewEscape(item.equipment_name || "PM visit")} to Google Calendar"><i data-lucide="calendar-plus"></i> Add to Google Calendar</a>
+            </article>
+          `).join("")}
+        </div>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+}
+
+function pmOverviewGoogleCalendarUrl(item) {
+    const startDate = String(item.scheduled_date || "").replaceAll("-", "");
+    const parsedDate = new Date(`${item.scheduled_date}T00:00:00Z`);
+    if (!startDate || Number.isNaN(parsedDate.getTime())) return "https://calendar.google.com/calendar/";
+    parsedDate.setUTCDate(parsedDate.getUTCDate() + 1);
+    const endDate = parsedDate.toISOString().slice(0, 10).replaceAll("-", "");
+    const title = `Preventive Maintenance — ${item.equipment_name || item.asset_code || "Equipment"}`;
+    const details = [
+        `BioTrack PM schedule #${item.id}`,
+        `Asset: ${item.asset_code || "—"}`,
+        `Department: ${item.department || "—"}`,
+        `Location: ${item.location || "—"}`,
+        `Status: ${item.status || "Upcoming"}`,
+        item.remarks ? `Remarks: ${item.remarks}` : "",
+    ].filter(Boolean).join("\n");
+    const params = new URLSearchParams({
+        action: "TEMPLATE",
+        text: title,
+        dates: `${startDate}/${endDate}`,
+        details,
+        location: item.location || "",
+    });
+    return `https://calendar.google.com/calendar/u/0/r/eventedit?${params.toString()}`;
+}
+
+function pmOverviewDay(value) {
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? "—" : String(date.getDate()).padStart(2, "0");
+}
+function pmOverviewMonth(value) {
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(undefined, { month: "short" }).format(date);
+}
+function pmOverviewClass(value) {
+    return String(value || "pending").toLowerCase().replaceAll(/[^a-z0-9]+/g, "-");
+}
+function pmOverviewEscape(value) {
+    return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+;
+/* source: dashboard_v2/views/reportsView.js */
+
+
+function reportsView() {
+
+    return `
+
+<section class="reports-page">
+
+    <!-- ==========================================
+        REPORTS HEADER
+    =========================================== -->
+
+    <header class="reports-header">
+
+        <div class="reports-header-left">
+
+            <div class="reports-icon">
+
+                <i class="fa-solid fa-chart-pie"></i>
+
+            </div>
+
+            <div class="reports-title">
+
+                <h1>Reports</h1>
+
+                <p>
+
+                    Get insights and analytics on maintenance
+                    activities, equipment performance and
+                    biomedical service efficiency.
+
+                </p>
+
+            </div>
+
+        </div>
+
+        <div class="reports-header-image">
+
+            <img
+                src="/static/assets/reports-banner.svg"
+                alt="Reports Illustration"
+                loading="lazy"
+                decoding="async">
+
+        </div>
+
+    </header>
+
+
+
+    <!-- ==========================================
+        FILTERS
+    =========================================== -->
+
+    <section class="reports-filters">
+
+        <div class="reports-filter-grid">
+
+            <div class="reports-filter">
+
+                <label>Date Range</label>
+
+                <div class="reports-input">
+
+                    <i class="fa-regular fa-calendar"></i>
+
+                    <input
+                        type="date"
+                        id="reportsStartDate">
+
+                    <span>-</span>
+
+                    <input
+                        type="date"
+                        id="reportsEndDate">
+
+                </div>
+
+            </div>
+
+            <div class="reports-filter">
+
+                <label>Department</label>
+
+                <div class="reports-input">
+
+                    <i class="fa-solid fa-building"></i>
+
+                    <select id="reportsDepartment">
+
+                        <option>All Departments</option>
+
+                        <option>ICU</option>
+
+                        <option>Radiology</option>
+
+                        <option>Operation Theatre</option>
+
+                        <option>Emergency</option>
+
+                        <option>Laboratory</option>
+
+                        <option>Biomedical Engineering</option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+            <div class="reports-filter">
+
+                <label>Location</label>
+
+                <div class="reports-input">
+
+                    <i class="fa-solid fa-location-dot"></i>
+
+                    <select id="reportsLocation">
+
+                        <option>All Locations</option>
+
+                        <option>Main Building</option>
+
+                        <option>Block A</option>
+
+                        <option>Block B</option>
+
+                        <option>Emergency Wing</option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+            <div class="reports-filter">
+
+                <label>Equipment</label>
+
+                <div class="reports-input">
+
+                    <i class="fa-solid fa-stethoscope"></i>
+
+                    <select id="reportsEquipment">
+
+                        <option>All Equipment</option>
+
+                        <option>Ventilator</option>
+
+                        <option>Patient Monitor</option>
+
+                        <option>ECG</option>
+
+                        <option>X-Ray</option>
+
+                        <option>Ultrasound</option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+            <div class="reports-filter-buttons">
+
+                <button
+                    class="reports-btn-secondary"
+                    id="reportsResetBtn">
+
+                    Reset
+
+                </button>
+
+                <button
+                    class="reports-btn-primary"
+                    id="reportsApplyBtn">
+
+                    <i class="fa-solid fa-filter"></i>
+
+                    Apply Filters
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ==========================================
+        KPI SECTION
+    =========================================== -->
+
+    <section class="reports-kpi-grid">
+    <!-- ==========================================
+        KPI CARDS
+    =========================================== -->
+
+    <section class="reports-kpi-section">
+
+        <!-- Total Requests -->
+
+        <div class="reports-kpi-card">
+
+            <div class="reports-kpi-icon reports-blue">
+
+                <i class="fa-solid fa-clipboard-list"></i>
+
+            </div>
+
+            <div class="reports-kpi-content">
+
+                <span class="reports-kpi-title">
+
+                    Total Requests
+
+                </span>
+
+                <h2 id="reportsTotalRequests">
+
+                    128
+
+                </h2>
+
+                <p class="reports-kpi-trend positive">
+
+                    <i class="fa-solid fa-arrow-trend-up"></i>
+
+                    +12.4% from last month
+
+                </p>
+
+            </div>
+
+        </div>
+
+        <!-- Completed -->
+
+        <div class="reports-kpi-card">
+
+            <div class="reports-kpi-icon reports-green">
+
+                <i class="fa-solid fa-circle-check"></i>
+
+            </div>
+
+            <div class="reports-kpi-content">
+
+                <span class="reports-kpi-title">
+
+                    Completed
+
+                </span>
+
+                <h2 id="reportsCompletedRequests">
+
+                    89
+
+                </h2>
+
+                <p class="reports-kpi-trend positive">
+
+                    <i class="fa-solid fa-arrow-trend-up"></i>
+
+                    +15.7% completion
+
+                </p>
+
+            </div>
+
+        </div>
+
+        <!-- Pending -->
+
+        <div class="reports-kpi-card">
+
+            <div class="reports-kpi-icon reports-yellow">
+
+                <i class="fa-solid fa-clock"></i>
+
+            </div>
+
+            <div class="reports-kpi-content">
+
+                <span class="reports-kpi-title">
+
+                    Pending
+
+                </span>
+
+                <h2 id="reportsPendingRequests">
+
+                    26
+
+                </h2>
+
+                <p class="reports-kpi-trend warning">
+
+                    Awaiting Engineer
+
+                </p>
+
+            </div>
+
+        </div>
+
+        <!-- Overdue -->
+
+        <div class="reports-kpi-card">
+
+            <div class="reports-kpi-icon reports-red">
+
+                <i class="fa-solid fa-triangle-exclamation"></i>
+
+            </div>
+
+            <div class="reports-kpi-content">
+
+                <span class="reports-kpi-title">
+
+                    Overdue
+
+                </span>
+
+                <h2 id="reportsOverdueRequests">
+
+                    13
+
+                </h2>
+
+                <p class="reports-kpi-trend negative">
+
+                    Immediate attention required
+
+                </p>
+
+            </div>
+
+        </div>
+
+        <!-- Average Downtime -->
+
+        <div class="reports-kpi-card">
+
+            <div class="reports-kpi-icon reports-cyan">
+
+                <i class="fa-solid fa-stopwatch"></i>
+
+            </div>
+
+            <div class="reports-kpi-content">
+
+                <span class="reports-kpi-title">
+
+                    Avg. Downtime
+
+                </span>
+
+                <h2>
+
+                    <span id="reportsAvgDowntime">
+
+                        24.6
+
+                    </span>
+
+                    <small>hrs</small>
+
+                </h2>
+
+                <p class="reports-kpi-trend positive">
+
+                    −9.8% from last month
+
+                </p>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ==========================================
+        REPORT GRID
+    =========================================== -->
+
+    <section class="reports-grid">
+    <!-- ==========================================
+        REQUESTS OVERVIEW
+    =========================================== -->
+
+    <section class="reports-card reports-card-large">
+
+        <div class="reports-card-header">
+
+            <div>
+
+                <h3>Requests Overview</h3>
+
+                <p>Monthly biomedical maintenance requests</p>
+
+            </div>
+
+            <select
+                class="reports-select"
+                id="reportsOverviewRange">
+
+                <option>Last 30 Days</option>
+                <option selected>Last 12 Months</option>
+                <option>This Year</option>
+
+            </select>
+
+        </div>
+
+        <div class="reports-chart-container">
+
+            <canvas id="reportsOverviewChart"></canvas>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ==========================================
+        REQUEST STATUS
+    =========================================== -->
+
+    <section class="reports-card">
+
+        <div class="reports-card-header">
+
+            <div>
+
+                <h3>Requests by Status</h3>
+
+                <p>Current maintenance request status</p>
+
+            </div>
+
+        </div>
+
+        <div class="reports-chart-container reports-chart-small">
+
+            <canvas id="reportsStatusChart"></canvas>
+
+        </div>
+
+        <div class="reports-legend">
+
+            <div class="reports-legend-item">
+
+                <span class="reports-dot reports-green"></span>
+
+                <span>Completed</span>
+
+                <strong>89</strong>
+
+            </div>
+
+            <div class="reports-legend-item">
+
+                <span class="reports-dot reports-yellow"></span>
+
+                <span>Pending</span>
+
+                <strong>26</strong>
+
+            </div>
+
+            <div class="reports-legend-item">
+
+                <span class="reports-dot reports-red"></span>
+
+                <span>Overdue</span>
+
+                <strong>13</strong>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ==========================================
+        PROBLEM CATEGORIES
+    =========================================== -->
+
+    <section class="reports-card">
+
+        <div class="reports-card-header">
+
+            <div>
+
+                <h3>Top Problem Categories</h3>
+
+                <p>Distribution of reported faults</p>
+
+            </div>
+
+        </div>
+
+        <div class="reports-chart-container reports-chart-small">
+
+            <canvas id="reportsCategoryChart"></canvas>
+
+        </div>
+
+        <div class="reports-legend">
+
+            <div class="reports-legend-item">
+
+                <span class="reports-dot reports-blue"></span>
+
+                <span>Electrical</span>
+
+                <strong>38</strong>
+
+            </div>
+
+            <div class="reports-legend-item">
+
+                <span class="reports-dot reports-purple"></span>
+
+                <span>Mechanical</span>
+
+                <strong>32</strong>
+
+            </div>
+
+            <div class="reports-legend-item">
+
+                <span class="reports-dot reports-cyan"></span>
+
+                <span>Software</span>
+
+                <strong>21</strong>
+
+            </div>
+
+            <div class="reports-legend-item">
+
+                <span class="reports-dot reports-green"></span>
+
+                <span>Calibration</span>
+
+                <strong>15</strong>
+
+            </div>
+
+            <div class="reports-legend-item">
+
+                <span class="reports-dot reports-gray"></span>
+
+                <span>Others</span>
+
+                <strong>22</strong>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ==========================================
+        REQUESTS BY DEPARTMENT
+    =========================================== -->
+
+    <section class="reports-card">
+
+        <div class="reports-card-header">
+
+            <h3>Requests by Department</h3>
+
+            <button class="reports-icon-button" type="button" aria-label="Expand requests by department chart">
+
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+
+            </button>
+
+        </div>
+
+        <div class="reports-chart-container">
+
+            <canvas id="reportsDepartmentChart"></canvas>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ==========================================
+        DOWNTIME TREND
+    =========================================== -->
+
+    <section class="reports-card">
+
+        <div class="reports-card-header">
+
+            <h3>Downtime Trend</h3>
+
+            <button class="reports-icon-button" type="button" aria-label="Expand downtime trend chart">
+
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+
+            </button>
+
+        </div>
+
+        <div class="reports-chart-container">
+
+            <canvas id="reportsDowntimeChart"></canvas>
+
+        </div>
+
+    </section>
+    <!-- ==========================================
+        REPORT SUMMARY
+    =========================================== -->
+
+    <section class="reports-summary-card">
+
+        <div class="reports-card-header">
+
+            <h3>Reports Summary</h3>
+
+        </div>
+
+        <div class="reports-summary-list">
+
+            <div class="reports-summary-item">
+
+                <span>
+
+                    <i class="fa-solid fa-clipboard-list reports-blue"></i>
+
+                    Total Requests
+
+                </span>
+
+                <strong>128</strong>
+
+            </div>
+
+            <div class="reports-summary-item">
+
+                <span>
+
+                    <i class="fa-solid fa-circle-check reports-green"></i>
+
+                    Completed Requests
+
+                </span>
+
+                <strong>89</strong>
+
+            </div>
+
+            <div class="reports-summary-item">
+
+                <span>
+
+                    <i class="fa-solid fa-clock reports-yellow"></i>
+
+                    Pending Requests
+
+                </span>
+
+                <strong>26</strong>
+
+            </div>
+
+            <div class="reports-summary-item">
+
+                <span>
+
+                    <i class="fa-solid fa-triangle-exclamation reports-red"></i>
+
+                    Overdue Requests
+
+                </span>
+
+                <strong>13</strong>
+
+            </div>
+
+            <div class="reports-summary-item">
+
+                <span>
+
+                    <i class="fa-solid fa-stopwatch reports-cyan"></i>
+
+                    Average Downtime
+
+                </span>
+
+                <strong>24.6 hrs</strong>
+
+            </div>
+
+            <div class="reports-summary-item">
+
+                <span>
+
+                    <i class="fa-solid fa-hospital reports-purple"></i>
+
+                    Active Departments
+
+                </span>
+
+                <strong>6</strong>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ==========================================
+        EXPORT REPORTS
+    =========================================== -->
+
+    <section class="reports-export-card">
+
+        <div class="reports-card-header">
+
+            <div>
+
+                <h3>Export Reports</h3>
+
+                <p>
+
+                    Download reports or schedule
+                    automatic report generation.
+
+                </p>
+
+            </div>
+
+        </div>
+
+        <div class="reports-export-grid">
+
+            <button
+                class="reports-btn-secondary reports-executive-pdf"
+                id="reportsPdfBtn">
+
+                <span class="reports-export-icon reports-export-icon-pdf" aria-hidden="true">
+                    <i class="fa-solid fa-file-pdf"></i>
+                </span>
+
+                <span class="reports-export-copy">
+                    <strong>Executive PDF</strong>
+                    <small>Charts, KPIs &amp; call register</small>
+                </span>
+
+                <span class="reports-export-badge">Recommended</span>
+
+            </button>
+
+            <button
+                class="reports-btn-secondary"
+                id="reportsExcelBtn">
+
+                <i class="fa-solid fa-file-excel"></i>
+
+                Export Excel
+
+            </button>
+
+            <button
+                class="reports-btn-secondary"
+                id="reportsCsvBtn">
+
+                <i class="fa-solid fa-file-csv"></i>
+
+                Export CSV
+
+            </button>
+
+            <button
+                class="reports-btn-primary"
+                id="reportsScheduleBtn">
+
+                <i class="fa-solid fa-calendar-days"></i>
+
+                Schedule Report
+
+            </button>
+
+        </div>
+
+    </section>
+
+</section>
+
+</section>
+
+`;
+}
+/* ==========================================
+   RENDER REPORTS
+========================================== */
+
+function renderReports() {
+
+    const pageContent = document.getElementById("page-content");
+
+    pageContent.innerHTML = reportsView();
+
+    if (typeof startReports === "function") {
+
+        startReports();
+
+    }
+
+}
+
+/* ==========================================
+   GLOBAL FUNCTIONS
+========================================== */
+
+window.reportsView = reportsView;
+window.renderReports = renderReports;
+
+;
+/* source: dashboard_v2/js/reports.js */
+/* ==========================================================
+   BIOTRACK REPORTS
+   reports.js
+========================================================== */
+/* ==========================================================
+   API
+========================================================== */
+
+let reportScheduleTimers = [];
+
+async function reportsApi(url){
+
+    const response = await fetch(url);
+
+    if(!response.ok){
+
+        throw new Error("Failed to load report data");
+
+    }
+
+    return await response.json();
+
+}
+/* ==========================================================
+   INITIALIZE REPORTS
+========================================================== */
+
+async function initializeReports(){
+
+    initializeReportsFilters();
+
+    initializeReportsRipple();
+
+    initializeReportChartExpanders();
+
+    await animateReportsKPIs();
+
+    loadReportsFilters();
+
+    initializeReportsCharts();
+
+    initializeReportsExport();
+
+}
+
+function initializeReportChartExpanders(){
+    document.querySelectorAll(".reports-icon-button").forEach(button=>{
+        button.addEventListener("click",()=>{
+            const card=button.closest(".reports-card");
+            const canvas=card?.querySelector("canvas");
+            const chart=canvas&&typeof Chart!=="undefined"?Chart.getChart(canvas):null;
+            if(!card||!canvas||!chart){
+                showReportsToast("Chart is not ready yet. Please try again.");
+                return;
+            }
+            let dialog=document.getElementById("reportsChartDialog");
+            if(!dialog){
+                dialog=document.createElement("dialog");
+                dialog.id="reportsChartDialog";
+                dialog.className="reports-chart-dialog";
+                dialog.innerHTML='<form method="dialog"><button class="reports-chart-dialog-close" aria-label="Close expanded chart">×</button></form><h2></h2><img alt="Expanded report chart">';
+                dialog.addEventListener("click",event=>{if(event.target===dialog)dialog.close();});
+                document.body.appendChild(dialog);
+            }
+            dialog.querySelector("h2").textContent=card.querySelector("h3")?.textContent||"Report chart";
+            dialog.querySelector("img").src=chart.toBase64Image();
+            if(!dialog.open)dialog.showModal();
+        });
+    });
+}
+
+/* ==========================================================
+   FILTERS
+========================================================== */
+
+function initializeReportsFilters(){
+
+    const applyButton=document.getElementById("reportsApplyBtn");
+    const resetButton=document.getElementById("reportsResetBtn");
+
+    if(applyButton){
+
+        applyButton.addEventListener(
+
+            "click",
+
+            applyReportsFilters
+
+        );
+
+    }
+
+    if(resetButton){
+
+        resetButton.addEventListener(
+
+            "click",
+
+            resetReportsFilters
+
+        );
+
+    }
+
+}
+
+function applyReportsFilters(){
+
+    const filters={
+
+        startDate:getReportsValue("reportsStartDate"),
+
+        endDate:getReportsValue("reportsEndDate"),
+
+        department:getReportsValue("reportsDepartment"),
+
+        location:getReportsValue("reportsLocation"),
+
+        equipment:getReportsValue("reportsEquipment")
+
+    };
+
+    localStorage.setItem(
+
+        "biotrackReportsFilters",
+
+        JSON.stringify(filters)
+
+    );
+
+    showReportsToast(
+
+        "Filters Applied",
+
+        "Reports updated successfully.",
+
+        "success"
+
+    );
+
+}
+
+function resetReportsFilters(){
+
+    setReportsValue(
+
+        "reportsStartDate",
+
+        ""
+
+    );
+
+    setReportsValue(
+
+        "reportsEndDate",
+
+        ""
+
+    );
+
+    setReportsSelect(
+
+        "reportsDepartment",
+
+        0
+
+    );
+
+    setReportsSelect(
+
+        "reportsLocation",
+
+        0
+
+    );
+
+    setReportsSelect(
+
+        "reportsEquipment",
+
+        0
+
+    );
+
+    localStorage.removeItem(
+
+        "biotrackReportsFilters"
+
+    );
+
+    showReportsToast(
+
+        "Filters Reset",
+
+        "Showing all maintenance reports.",
+
+        "info"
+
+    );
+
+}
+
+function loadReportsFilters(){
+
+    const saved=JSON.parse(
+
+        localStorage.getItem(
+
+            "biotrackReportsFilters"
+
+        )
+
+    );
+
+    if(!saved) return;
+
+    setReportsValue(
+
+        "reportsStartDate",
+
+        saved.startDate
+
+    );
+
+    setReportsValue(
+
+        "reportsEndDate",
+
+        saved.endDate
+
+    );
+
+    setReportsValue(
+
+        "reportsDepartment",
+
+        saved.department
+
+    );
+
+    setReportsValue(
+
+        "reportsLocation",
+
+        saved.location
+
+    );
+
+    setReportsValue(
+
+        "reportsEquipment",
+
+        saved.equipment
+
+    );
+
+}
+
+/* ==========================================================
+   HELPERS
+========================================================== */
+
+function getReportsValue(id){
+
+    const element=document.getElementById(id);
+
+    return element ? element.value : "";
+
+}
+
+function setReportsValue(id,value){
+
+    const element=document.getElementById(id);
+
+    if(element){
+
+        element.value=value;
+
+    }
+
+}
+
+function setReportsSelect(id,index){
+
+    const element=document.getElementById(id);
+
+    if(element){
+
+        element.selectedIndex=index;
+
+    }
+
+}
+
+/* ==========================================================
+   KPI ANIMATION
+========================================================== */
+
+async function animateReportsKPIs(){
+
+    try{
+
+        const summary = await reportsApi("/api/reports/summary");
+
+        animateCounter(
+            "reportsTotalRequests",
+            summary.maintenance_requests
+        );
+
+        animateCounter(
+            "reportsCompletedRequests",
+            summary.completed_requests
+        );
+
+        animateCounter(
+            "reportsPendingRequests",
+            summary.pending_requests
+        );
+
+        animateCounter(
+            "reportsOverdueRequests",
+            summary.overdue_requests
+        );
+
+        animateDecimal(
+            "reportsAvgDowntime",
+            summary.average_downtime
+        );
+
+    }
+
+    catch(error){
+
+        console.error(error);
+
+    }
+
+}
+
+function animateCounter(id,target){
+
+    const element=document.getElementById(id);
+
+    if(!element) return;
+
+    let current=0;
+
+    const step=Math.ceil(target/45);
+
+    const timer=setInterval(()=>{
+
+        current+=step;
+
+        if(current>=target){
+
+            current=target;
+
+            clearInterval(timer);
+
+        }
+
+        element.textContent=current;
+
+    },20);
+
+}
+
+function animateDecimal(id,target){
+
+    const element=document.getElementById(id);
+
+    if(!element) return;
+
+    let value=0;
+
+    const timer=setInterval(()=>{
+
+        value+=0.5;
+
+        if(value>=target){
+
+            value=target;
+
+            clearInterval(timer);
+
+        }
+
+        element.textContent=value.toFixed(1);
+
+    },20);
+
+}
+
+/* ==========================================================
+   RIPPLE EFFECT
+========================================================== */
+
+function initializeReportsRipple(){
+
+    document.querySelectorAll(
+
+        ".reports-btn-primary,.reports-btn-secondary,.reports-icon-button"
+
+    ).forEach(button=>{
+
+        button.addEventListener(
+
+            "click",
+
+            createReportsRipple
+
+        );
+
+    });
+
+}
+
+function createReportsRipple(event){
+
+    const button=event.currentTarget;
+
+    const ripple=document.createElement("span");
+
+    const size=Math.max(
+
+        button.clientWidth,
+
+        button.clientHeight
+
+    );
+
+    const rect=button.getBoundingClientRect();
+
+    ripple.className="reports-ripple";
+
+    ripple.style.width=size+"px";
+
+    ripple.style.height=size+"px";
+
+    ripple.style.left=
+
+        event.clientX-
+
+        rect.left-
+
+        size/2+"px";
+
+    ripple.style.top=
+
+        event.clientY-
+
+        rect.top-
+
+        size/2+"px";
+
+    button.appendChild(ripple);
+
+    setTimeout(()=>{
+
+        ripple.remove();
+
+    },600);
+
+}
+/* ==========================================================
+   CHARTS
+========================================================== */
+
+function reportsDarkModeEnabled(){
+    return document.body.classList.contains("dark-theme");
+}
+
+function reportsChartGridColor(){
+    return reportsDarkModeEnabled() ? "rgba(148,163,184,.18)" : "#eef2f7";
+}
+
+function applyReportsChartTheme(){
+    if(typeof Chart === "undefined") return;
+    Chart.defaults.color = reportsDarkModeEnabled() ? "#aebed2" : "#64748b";
+    Chart.defaults.borderColor = reportsChartGridColor();
+}
+
+function initializeReportsCharts(){
+
+    createReportsOverviewChart();
+
+    createReportsStatusChart();
+
+    createReportsCategoryChart();
+
+    createReportsDepartmentChart();
+
+    createReportsDowntimeChart();
+
+}
+
+/* ==========================================================
+   REQUESTS OVERVIEW
+========================================================== */
+
+function createReportsOverviewChart(){
+
+    applyReportsChartTheme();
+
+    const canvas=document.getElementById("reportsOverviewChart");
+
+    if(!canvas || typeof Chart==="undefined") return;
+
+    new Chart(canvas,{
+
+        type:"line",
+
+        data:{
+
+            labels:[
+                "Jan","Feb","Mar","Apr","May","Jun",
+                "Jul","Aug","Sep","Oct","Nov","Dec"
+            ],
+
+            datasets:[{
+
+                label:"Requests",
+
+                data:[62,71,69,84,90,86,98,104,99,113,121,128],
+
+                borderColor:"#2563eb",
+
+                backgroundColor:"rgba(37,99,235,.12)",
+
+                fill:true,
+
+                tension:.4,
+
+                pointRadius:4,
+
+                pointHoverRadius:6
+
+            }]
+
+        },
+
+        options:{
+
+            responsive:true,
+
+            maintainAspectRatio:false,
+
+            plugins:{
+
+                legend:{display:false}
+
+            },
+
+            scales:{
+
+                x:{
+
+                    grid:{display:false}
+
+                },
+
+                y:{
+
+                    beginAtZero:true,
+
+                    grid:{color:reportsChartGridColor()}
+
+                }
+
+            }
+
+        }
+
+    });
+
+}
+
+/* ==========================================================
+   STATUS CHART
+========================================================== */
+
+function createReportsStatusChart(){
+
+    applyReportsChartTheme();
+
+    const canvas=document.getElementById("reportsStatusChart");
+
+    if(!canvas || typeof Chart==="undefined") return;
+
+    new Chart(canvas,{
+
+        type:"doughnut",
+
+        data:{
+
+            labels:[
+
+                "Completed",
+
+                "Pending",
+
+                "Overdue"
+
+            ],
+
+            datasets:[{
+
+                data:[89,26,13],
+
+                backgroundColor:[
+
+                    "#16a34a",
+
+                    "#f59e0b",
+
+                    "#ef4444"
+
+                ],
+
+                borderWidth:0
+
+            }]
+
+        },
+
+        options:{
+
+            responsive:true,
+
+            maintainAspectRatio:false,
+
+            cutout:"72%",
+
+            plugins:{
+
+                legend:{display:false}
+
+            }
+
+        }
+
+    });
+
+}
+
+/* ==========================================================
+   CATEGORY CHART
+========================================================== */
+
+function createReportsCategoryChart(){
+
+    applyReportsChartTheme();
+
+    const canvas=document.getElementById("reportsCategoryChart");
+
+    if(!canvas || typeof Chart==="undefined") return;
+
+    new Chart(canvas,{
+
+        type:"doughnut",
+
+        data:{
+
+            labels:[
+
+                "Electrical",
+
+                "Mechanical",
+
+                "Software",
+
+                "Calibration",
+
+                "Others"
+
+            ],
+
+            datasets:[{
+
+                data:[38,32,21,15,22],
+
+                backgroundColor:[
+
+                    "#2563eb",
+
+                    "#8b5cf6",
+
+                    "#06b6d4",
+
+                    "#22c55e",
+
+                    "#94a3b8"
+
+                ],
+
+                borderWidth:0
+
+            }]
+
+        },
+
+        options:{
+
+            responsive:true,
+
+            maintainAspectRatio:false,
+
+            cutout:"68%",
+
+            plugins:{
+
+                legend:{display:false}
+
+            }
+
+        }
+
+    });
+
+}
+
+/* ==========================================================
+   DEPARTMENT CHART
+========================================================== */
+
+function createReportsDepartmentChart(){
+
+    applyReportsChartTheme();
+
+    const canvas=document.getElementById("reportsDepartmentChart");
+
+    if(!canvas || typeof Chart==="undefined") return;
+
+    new Chart(canvas,{
+
+        type:"bar",
+
+        data:{
+
+            labels:[
+
+                "ICU",
+
+                "Radiology",
+
+                "OT",
+
+                "Emergency",
+
+                "Lab",
+
+                "BME"
+
+            ],
+
+            datasets:[{
+
+                data:[28,20,17,25,15,23],
+
+                backgroundColor:"#2563eb",
+
+                borderRadius:8,
+
+                borderSkipped:false
+
+            }]
+
+        },
+
+        options:{
+
+            responsive:true,
+
+            maintainAspectRatio:false,
+
+            plugins:{
+
+                legend:{display:false}
+
+            },
+
+            scales:{
+
+                x:{
+
+                    grid:{display:false}
+
+                },
+
+                y:{
+
+                    beginAtZero:true,
+
+                    grid:{color:reportsChartGridColor()}
+
+                }
+
+            }
+
+        }
+
+    });
+
+}
+
+/* ==========================================================
+   DOWNTIME TREND
+========================================================== */
+
+function createReportsDowntimeChart(){
+
+    applyReportsChartTheme();
+
+    const canvas=document.getElementById("reportsDowntimeChart");
+
+    if(!canvas || typeof Chart==="undefined") return;
+
+    new Chart(canvas,{
+
+        type:"line",
+
+        data:{
+
+            labels:[
+                "Jan","Feb","Mar","Apr","May","Jun",
+                "Jul","Aug","Sep","Oct","Nov","Dec"
+            ],
+
+            datasets:[{
+
+                label:"Downtime",
+
+                data:[38,36,34,31,29,30,27,24,23,22,20,19],
+
+                borderColor:"#06b6d4",
+
+                backgroundColor:"rgba(6,182,212,.12)",
+
+                fill:true,
+
+                tension:.4,
+
+                pointRadius:4,
+
+                pointHoverRadius:6
+
+            }]
+
+        },
+
+        options:{
+
+            responsive:true,
+
+            maintainAspectRatio:false,
+
+            plugins:{
+
+                legend:{display:false}
+
+            },
+
+            scales:{
+
+                x:{
+
+                    grid:{display:false}
+
+                },
+
+                y:{
+
+                    beginAtZero:true,
+
+                    grid:{color:reportsChartGridColor()}
+
+                }
+
+            }
+
+        }
+
+    });
+
+}
+/* ==========================================================
+   EXPORT
+========================================================== */
+
+function initializeReportsExport(){
+
+    registerReportsExport("reportsPdfBtn", "pdf");
+    registerReportsExport("reportsExcelBtn", "xlsx");
+    registerReportsExport("reportsCsvBtn", "csv");
+
+    const scheduleButton=document.getElementById(
+
+        "reportsScheduleBtn"
+
+    );
+
+    if(scheduleButton){
+
+        scheduleButton.addEventListener(
+
+            "click",
+
+            openReportsScheduleDialog
+
+        );
+
+    }
+
+    void loadAndArmReportSchedules();
+
+}
+
+function currentReportsFilters(){
+    const normalize = (value, allPrefix) => value && !value.toLowerCase().startsWith(allPrefix) ? value : "";
+    return {
+        start_date:getReportsValue("reportsStartDate"),
+        end_date:getReportsValue("reportsEndDate"),
+        department:normalize(getReportsValue("reportsDepartment"), "all department"),
+        location:normalize(getReportsValue("reportsLocation"), "all location"),
+        equipment:normalize(getReportsValue("reportsEquipment"), "all equipment"),
+    };
+}
+
+function reportsExportUrl(type,filters=currentReportsFilters()){
+    const params=new URLSearchParams();
+    Object.entries(filters||{}).forEach(([key,value])=>{if(value)params.set(key,value);});
+    const query=params.toString();
+    return `/api/reports/export/${type}${query?`?${query}`:""}`;
+}
+
+async function downloadReportsExport(type,button=null,filters=currentReportsFilters(),notify=true){
+    const labels={pdf:"PDF",xlsx:"Excel",csv:"CSV"};
+    const original=button?.innerHTML;
+    if(button){
+        button.disabled=true;
+        button.innerHTML='<span class="reports-loader"></span> Generating...';
+    }
+    try{
+        const response=await fetch(reportsExportUrl(type,filters));
+        if(!response.ok){
+            const result=await response.json().catch(()=>({}));
+            throw new Error(result.detail||`Unable to generate the ${labels[type]||type} report.`);
+        }
+        const blob=await response.blob();
+        const disposition=response.headers.get("Content-Disposition")||"";
+        const filenameMatch=disposition.match(/filename="?([^";]+)"?/i);
+        const filename=filenameMatch?.[1]||`BioTrack-report.${type}`;
+        const url=URL.createObjectURL(blob);
+        const anchor=document.createElement("a");
+        anchor.href=url;
+        anchor.download=filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+        if(notify)showReportsToast(`${labels[type]||type} report ready`,`${filename} was downloaded.`,"success");
+        return true;
+    }catch(error){
+        showReportsToast("Report export failed",error.message||"The report could not be generated.","error");
+        return false;
+    }finally{
+        if(button){
+            button.disabled=false;
+            button.innerHTML=original;
+        }
+    }
+}
+
+function registerReportsExport(id,type){
+
+    const button=document.getElementById(id);
+
+    if(!button) return;
+
+    button.addEventListener(
+
+        "click",
+
+        ()=>downloadReportsExport(type,button)
+
+    );
+
+}
+
+function localDateTimeInputValue(date){
+    const local=new Date(date.getTime()-date.getTimezoneOffset()*60000);
+    return local.toISOString().slice(0,16);
+}
+
+function closeReportsScheduleDialog(){
+    document.getElementById("reportsScheduleOverlay")?.remove();
+}
+
+function cleanupReportsSchedules(){
+    closeReportsScheduleDialog();
+    reportScheduleTimers.forEach(timer=>window.clearTimeout(timer));
+    reportScheduleTimers=[];
+}
+
+function openReportsScheduleDialog(){
+    closeReportsScheduleDialog();
+    const firstRun=new Date(Date.now()+60*60*1000);
+    firstRun.setMinutes(Math.ceil(firstRun.getMinutes()/15)*15,0,0);
+    const overlay=document.createElement("div");
+    overlay.id="reportsScheduleOverlay";
+    overlay.className="reports-schedule-overlay";
+    overlay.innerHTML=`
+        <section class="reports-schedule-dialog" role="dialog" aria-modal="true" aria-labelledby="reportsScheduleTitle">
+            <header><span><i class="fa-solid fa-calendar-days"></i></span><div><h2 id="reportsScheduleTitle">Schedule a report</h2><p>Save a recurring export. BioTrack will download it when Reports is open at the scheduled time.</p></div><button type="button" class="reports-schedule-close" aria-label="Close">×</button></header>
+            <form id="reportsScheduleForm">
+                <label>Report format<select id="scheduledReportFormat"><option value="pdf">PDF</option><option value="xlsx">Excel</option><option value="csv">CSV</option></select></label>
+                <label>Frequency<select id="scheduledReportFrequency"><option value="once">One time</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
+                <label class="is-wide">First run<input id="scheduledReportDate" type="datetime-local" required value="${localDateTimeInputValue(firstRun)}"></label>
+                <div class="reports-schedule-filter-note is-wide"><i class="fa-solid fa-filter"></i><span>The current report filters will be saved with this schedule.</span></div>
+                <footer class="is-wide"><button type="button" class="reports-btn-secondary" id="cancelReportSchedule">Cancel</button><button type="submit" class="reports-btn-primary" id="saveReportSchedule"><i class="fa-solid fa-calendar-check"></i> Save schedule</button></footer>
+            </form>
+        </section>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector(".reports-schedule-close").onclick=closeReportsScheduleDialog;
+    overlay.querySelector("#cancelReportSchedule").onclick=closeReportsScheduleDialog;
+    overlay.addEventListener("click",event=>{if(event.target===overlay)closeReportsScheduleDialog();});
+    overlay.querySelector("#reportsScheduleForm").onsubmit=saveReportSchedule;
+}
+
+async function saveReportSchedule(event){
+    event.preventDefault();
+    const button=document.getElementById("saveReportSchedule");
+    button.disabled=true;
+    try{
+        const response=await fetch("/api/reports/schedules",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                report_format:getReportsValue("scheduledReportFormat"),
+                frequency:getReportsValue("scheduledReportFrequency"),
+                next_run_at:getReportsValue("scheduledReportDate"),
+                filters:currentReportsFilters(),
+            }),
+        });
+        const result=await response.json().catch(()=>({}));
+        if(!response.ok||!result.success)throw new Error(result.detail||"Unable to save this report schedule.");
+        closeReportsScheduleDialog();
+        showReportsToast("Report scheduled",`First export: ${new Date(result.next_run_at).toLocaleString()}.`,"success");
+        await loadAndArmReportSchedules();
+    }catch(error){
+        showReportsToast("Schedule not saved",error.message||"Unable to save this report schedule.","error");
+        button.disabled=false;
+    }
+}
+
+async function runScheduledReport(schedule){
+    const downloaded=await downloadReportsExport(schedule.report_format,null,schedule.filters,false);
+    if(!downloaded)return;
+    const response=await fetch(`/api/reports/schedules/${Number(schedule.id)}/complete`,{method:"POST"});
+    if(response.ok){
+        showReportsToast("Scheduled report ready",`${String(schedule.report_format).toUpperCase()} report downloaded automatically.`,"success");
+        await loadAndArmReportSchedules();
+    }
+}
+
+async function loadAndArmReportSchedules(){
+    reportScheduleTimers.forEach(timer=>window.clearTimeout(timer));
+    reportScheduleTimers=[];
+    try{
+        const response=await fetch("/api/reports/schedules");
+        if(!response.ok)return;
+        const schedules=await response.json();
+        schedules.forEach(schedule=>{
+            const delay=new Date(schedule.next_run_at).getTime()-Date.now();
+            if(delay>2147483647)return;
+            const timer=window.setTimeout(()=>runScheduledReport(schedule),Math.max(0,delay));
+            reportScheduleTimers.push(timer);
+        });
+    }catch(error){
+        console.error("Unable to arm report schedules",error);
+    }
+}
+
+/* ==========================================================
+   TOAST
+========================================================== */
+
+function showReportsToast(title,message,type="info"){
+    BioTrackToast.show({ title, message, type });
+}
+
+/* ==========================================================
+   KEYBOARD SHORTCUTS
+========================================================== */
+
+function initializeReportsKeyboard(){
+
+    document.addEventListener(
+
+        "keydown",
+
+        event=>{
+
+            if(event.ctrlKey && event.key==="r"){
+
+                event.preventDefault();
+
+                resetReportsFilters();
+
+            }
+
+            if(event.ctrlKey && event.key==="e"){
+
+                event.preventDefault();
+
+                document
+
+                    .getElementById("reportsPdfBtn")
+
+                    ?.click();
+
+            }
+
+        }
+
+    );
+
+}
+
+/* ==========================================================
+   WINDOW RESIZE
+========================================================== */
+
+window.addEventListener(
+
+    "resize",
+
+    ()=>{
+
+        if(typeof Chart==="undefined") return;
+
+        Object.values(Chart.instances).forEach(chart=>{
+
+            if(chart){
+
+                chart.resize();
+
+            }
+
+        });
+
+    }
+
+);
+
+/* ==========================================================
+   MODULE STARTUP
+========================================================== */
+
+async function startReports(){
+
+    await initializeReports();
+
+    initializeReportsKeyboard();
+
+}
+
+console.log(
+
+    "%cBioTrack Reports Loaded",
+
+    "color:#2563eb;font-size:16px;font-weight:bold;"
+
+);
+window.startReports = startReports;
+window.initializeReports = initializeReports;
+
+;
+/* source: dashboard_v2/views/usersView.js */
+let usersCache = [];
+let filteredUsers = [];
+let editingUserId = null;
+const usersPagination = { page: 1, pageSize: 10 };
+
+const USER_ROLE_LABELS = {
+    Manager: "Administrator",
+    BME: "Biomedical Engineer",
+    Electrical: "Electrical Engineer",
+    IT: "IT Department",
+    User: "Department User",
+    WardBoy: "Ward Boy",
+};
+
+function renderUsers() {
+    pageContent.innerHTML = `
+        <div class="users-page">
+            <section class="users-hero">
+                <div>
+                    <span class="users-eyebrow"><i data-lucide="users-round"></i> Access control</span>
+                    <h1>User Management</h1>
+                    <p>Manage staff accounts, departments and access roles from one place.</p>
+                </div>
+                <button class="users-primary-button" type="button" onclick="showRegisterUser()">
+                    <i data-lucide="user-plus"></i><span>Register user</span>
+                </button>
+            </section>
+
+            <section class="users-stats" aria-label="User summary">
+                <article><span class="is-blue"><i data-lucide="users"></i></span><div><small>Total users</small><strong id="usersTotalCount">—</strong></div></article>
+                <article><span class="is-violet"><i data-lucide="shield-check"></i></span><div><small>Administrators</small><strong id="usersAdminCount">—</strong></div></article>
+                <article><span class="is-green"><i data-lucide="wrench"></i></span><div><small>Engineering staff</small><strong id="usersEngineerCount">—</strong></div></article>
+                <article><span class="is-orange"><i data-lucide="building-2"></i></span><div><small>Departments</small><strong id="usersDepartmentCount">—</strong></div></article>
+            </section>
+
+            <section class="users-directory-card">
+                <header class="users-directory-header">
+                    <div><h2>Staff directory</h2><p id="usersResultLabel">Loading user accounts…</p></div>
+                    <button class="users-refresh-button" type="button" onclick="loadUsers()"><i data-lucide="refresh-cw"></i><span>Refresh</span></button>
+                </header>
+
+                <div class="users-controls">
+                    <label class="users-search-field">
+                        <span class="sr-only">Search users</span><i data-lucide="search"></i>
+                        <input id="userSearch" type="search" placeholder="Search name, username or email" autocomplete="off" oninput="filterUsers()">
+                    </label>
+                    <label class="users-filter-field"><span>Department</span><select id="deptFilter" onchange="filterUsers()"><option value="">All departments</option></select></label>
+                    <label class="users-filter-field"><span>Role</span><select id="roleFilter" onchange="filterUsers()"><option value="">All roles</option></select></label>
+                    <label class="users-filter-field users-sort-field"><span>Sort by</span><select id="sortUsers" onchange="filterUsers()"><option value="name">Name A–Z</option><option value="username">Username A–Z</option><option value="department">Department A–Z</option><option value="role">Role A–Z</option></select></label>
+                    <button id="clearUserFilters" class="users-clear-button" type="button" onclick="clearUserFilters()" hidden><i data-lucide="x"></i> Clear</button>
+                </div>
+
+                <div class="users-table-scroll">
+                    <table class="users-table">
+                        <thead><tr><th>User</th><th>Department</th><th>Role</th><th>Contact</th><th class="users-actions-heading">Actions</th></tr></thead>
+                        <tbody id="usersBody"><tr><td colspan="5"><div class="users-state"><span class="users-spinner"></span><strong>Loading users</strong><p>Fetching the latest staff directory.</p></div></td></tr></tbody>
+                    </table>
+                </div>
+                <div id="usersPagination" class="table-pagination users-pagination"></div>
+            </section>
+        </div>
+        <div id="userModal"></div>
+    `;
+
+    if (window.lucide) lucide.createIcons();
+    loadUsers();
+}
+
+async function loadUsers() {
+    const refreshButton = document.querySelector(".users-refresh-button");
+    refreshButton?.classList.add("is-loading");
+    try {
+        const response = await fetch("/api/users", { cache: "no-store" });
+        const data = await response.json().catch(() => []);
+        if (!response.ok) throw new Error(data.detail || "Unable to load users.");
+        usersCache = Array.isArray(data) ? data : [];
+        populateUserFilters(usersCache);
+        renderUserStats(usersCache);
+        filterUsers();
+    } catch (error) {
+        usersCache = [];
+        filteredUsers = [];
+        renderUserStats([]);
+        renderUsersState("wifi-off", "Unable to load users", error.message || "Please refresh and try again.", true);
+        const label = document.getElementById("usersResultLabel");
+        if (label) label.textContent = "Directory unavailable";
+    } finally {
+        refreshButton?.classList.remove("is-loading");
+        if (window.lucide) lucide.createIcons();
+    }
+}
+
+function populateUserFilters(users) {
+    const departmentSelect = document.getElementById("deptFilter");
+    const roleSelect = document.getElementById("roleFilter");
+    if (!departmentSelect || !roleSelect) return;
+    const selectedDepartment = departmentSelect.value;
+    const selectedRole = roleSelect.value;
+    const departments = [...new Set(users.map(user => String(user.department || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const roles = [...new Set(users.map(user => String(user.role || "").trim()).filter(Boolean))].sort((a, b) => (USER_ROLE_LABELS[a] || a).localeCompare(USER_ROLE_LABELS[b] || b));
+    departmentSelect.innerHTML = '<option value="">All departments</option>' + departments.map(value => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`).join("");
+    roleSelect.innerHTML = '<option value="">All roles</option>' + roles.map(value => `<option value="${escapeHTML(value)}">${escapeHTML(USER_ROLE_LABELS[value] || value)}</option>`).join("");
+    departmentSelect.value = departments.includes(selectedDepartment) ? selectedDepartment : "";
+    roleSelect.value = roles.includes(selectedRole) ? selectedRole : "";
+}
+
+function renderUserStats(users) {
+    const setValue = (id, value) => { const element = document.getElementById(id); if (element) element.textContent = value; };
+    setValue("usersTotalCount", users.length);
+    setValue("usersAdminCount", users.filter(user => user.role === "Manager").length);
+    setValue("usersEngineerCount", users.filter(user => ["BME", "Electrical", "IT"].includes(user.role)).length);
+    setValue("usersDepartmentCount", new Set(users.map(user => String(user.department || "").trim().toLowerCase()).filter(Boolean)).size);
+}
+
+function displayUsers(data) {
+    const body = document.getElementById("usersBody");
+    const pagination = document.getElementById("usersPagination");
+    const resultLabel = document.getElementById("usersResultLabel");
+    if (!body || !pagination) return;
+    if (resultLabel) resultLabel.textContent = `${data.length} ${data.length === 1 ? "account" : "accounts"} found`;
+
+    if (!data.length) {
+        renderUsersState("user-search", "No users found", "Try a different search or clear the active filters.");
+        TablePagination.render(pagination, usersPagination, 0, () => displayUsers(filteredUsers), "users");
+        return;
+    }
+
+    const pageItems = TablePagination.pageItems(data, usersPagination);
+    body.innerHTML = pageItems.map(user => {
+        const roleClass = userRoleClass(user.role);
+        const name = user.name || user.username || "Unnamed user";
+        return `
+            <tr>
+                <td><div class="users-identity"><span class="users-avatar is-${roleClass}">${escapeHTML(userInitials(name))}</span><div><strong>${escapeHTML(name)}</strong><small>@${escapeHTML(user.username || "—")}</small></div></div></td>
+                <td><div class="users-department"><i data-lucide="building-2"></i><span>${escapeHTML(user.department || "Not assigned")}</span></div></td>
+                <td><span class="users-role-badge is-${roleClass}"><i data-lucide="${userRoleIcon(user.role)}"></i>${escapeHTML(USER_ROLE_LABELS[user.role] || user.role || "Unknown")}</span></td>
+                <td><div class="users-contact"><a href="mailto:${escapeHTML(user.email || "")}">${escapeHTML(user.email || "No email")}</a><span>${escapeHTML(user.phone || "No phone")}</span></div></td>
+                <td class="users-actions"><button class="users-icon-button is-edit" type="button" onclick="editUser(${Number(user.id)})" aria-label="Edit ${escapeHTML(name)}"><i data-lucide="pencil"></i><span>Edit</span></button><button class="users-icon-button is-delete" type="button" onclick="deleteUser(${Number(user.id)})" aria-label="Delete ${escapeHTML(name)}"><i data-lucide="trash-2"></i><span>Delete</span></button></td>
+            </tr>`;
+    }).join("");
+
+    TablePagination.render(pagination, usersPagination, data.length, () => displayUsers(filteredUsers), "users");
+    if (window.lucide) lucide.createIcons();
+}
+
+function renderUsersState(icon, title, message, showRetry = false) {
+    const body = document.getElementById("usersBody");
+    const pagination = document.getElementById("usersPagination");
+    if (!body) return;
+    body.innerHTML = `<tr><td colspan="5"><div class="users-state"><span><i data-lucide="${icon}"></i></span><strong>${escapeHTML(title)}</strong><p>${escapeHTML(message)}</p>${showRetry ? '<button type="button" onclick="loadUsers()">Try again</button>' : ""}</div></td></tr>`;
+    if (pagination) pagination.innerHTML = "";
+    if (window.lucide) lucide.createIcons();
+}
+
+function filterUsers() {
+    const search = document.getElementById("userSearch");
+    const department = document.getElementById("deptFilter");
+    const role = document.getElementById("roleFilter");
+    const sort = document.getElementById("sortUsers");
+    if (!search || !department || !role || !sort) return;
+    const query = search.value.trim().toLowerCase();
+    filteredUsers = usersCache.filter(user => {
+        const haystack = [user.name, user.username, user.email, user.phone, user.department, USER_ROLE_LABELS[user.role], user.role].join(" ").toLowerCase();
+        return (!query || haystack.includes(query)) && (!department.value || user.department === department.value) && (!role.value || user.role === role.value);
+    });
+    const sortKey = sort.value || "name";
+    filteredUsers.sort((a, b) => String(a[sortKey] || "").localeCompare(String(b[sortKey] || ""), undefined, { sensitivity: "base" }));
+    usersPagination.page = 1;
+    const clearButton = document.getElementById("clearUserFilters");
+    if (clearButton) clearButton.hidden = !(query || department.value || role.value || sortKey !== "name");
+    displayUsers(filteredUsers);
+}
+
+function clearUserFilters() {
+    document.getElementById("userSearch").value = "";
+    document.getElementById("deptFilter").value = "";
+    document.getElementById("roleFilter").value = "";
+    document.getElementById("sortUsers").value = "name";
+    filterUsers();
+    document.getElementById("userSearch").focus();
+}
+
+function showRegisterUser() {
+    const currentUser = editingUserId ? usersCache.find(user => user.id === editingUserId) : null;
+    const modalRoot = document.getElementById("userModal");
+    if (!modalRoot) return;
+    modalRoot.innerHTML = `
+        <div class="user-modal-backdrop" role="presentation" onclick="if(event.target===this) closeUserModal()">
+            <section class="user-editor-modal" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
+                <header><span class="user-modal-icon"><i data-lucide="${currentUser ? "user-cog" : "user-plus"}"></i></span><div><h2 id="userModalTitle">${currentUser ? "Edit user" : "Register a new user"}</h2><p>${currentUser ? "Update account details and access." : "Create a staff account and assign its access role."}</p></div><button type="button" class="user-modal-close" onclick="closeUserModal()" aria-label="Close"><i data-lucide="x"></i></button></header>
+                <form class="user-editor-form" onsubmit="event.preventDefault();registerUser()">
+                    <div class="user-form-grid">
+                        <label><span>Full name</span><input id="newName" maxlength="120" autocomplete="name" placeholder="e.g. Anjali Thomas" required></label>
+                        <label><span>Username</span><input id="newUsername" minlength="3" maxlength="80" autocomplete="username" placeholder="e.g. anjali.thomas" required></label>
+                        <label><span>Department</span><select id="newDept" required>${renderHospitalDepartmentOptions(currentUser?.department)}</select></label>
+                        <label><span>Access role</span><select id="newRole" required><option value="">Select a role</option><option value="Manager">Administrator</option><option value="BME">Biomedical Engineer</option><option value="Electrical">Electrical Engineer</option><option value="IT">IT Department</option><option value="User">Department User</option><option value="WardBoy">Ward Boy</option></select></label>
+                        <label><span>Email address</span><input id="newEmail" type="email" autocomplete="email" placeholder="name@hospital.org" required></label>
+                        <label><span>Phone number</span><input id="newPhone" type="tel" autocomplete="tel" placeholder="10-digit mobile number" required></label>
+                        <label class="user-password-field"><span>${currentUser ? "New password" : "Password"}</span><div><input id="newPassword" type="password" minlength="12" maxlength="72" autocomplete="new-password" placeholder="${currentUser ? "Leave blank to keep current" : "At least 12 characters"}" ${currentUser ? "" : "required"}><button type="button" onclick="toggleUserPassword()" aria-label="Show password"><i data-lucide="eye"></i></button></div><small>${currentUser ? "Only enter a password if it needs to change." : "Use 12–72 characters."}</small></label>
+                    </div>
+                    <footer><button class="user-modal-cancel" type="button" onclick="closeUserModal()">Cancel</button><button class="user-modal-save" type="submit"><i data-lucide="save"></i><span>${currentUser ? "Save changes" : "Create user"}</span></button></footer>
+                </form>
+            </section>
+        </div>`;
+    if (currentUser) {
+        document.getElementById("newName").value = currentUser.name || "";
+        document.getElementById("newRole").value = currentUser.role || "";
+        document.getElementById("newEmail").value = currentUser.email || "";
+        document.getElementById("newPhone").value = currentUser.phone || "";
+        document.getElementById("newUsername").value = currentUser.username || "";
+    }
+    const roleSelect = document.getElementById("newRole");
+    const departmentSelect = document.getElementById("newDept");
+    if (departmentSelect) departmentSelect.dataset.previousDepartment = currentUser?.role === "WardBoy" ? "" : (currentUser?.department || "");
+    roleSelect?.addEventListener("change", syncWardBoyDepartment);
+    syncWardBoyDepartment();
+    document.body.classList.add("user-modal-open");
+    if (window.lucide) lucide.createIcons();
+    requestAnimationFrame(() => document.getElementById("newName")?.focus());
+}
+
+function syncWardBoyDepartment() {
+    const roleSelect = document.getElementById("newRole");
+    const departmentSelect = document.getElementById("newDept");
+    if (!roleSelect || !departmentSelect) return;
+    if (roleSelect.value === "WardBoy") {
+        if (!departmentSelect.disabled) departmentSelect.dataset.previousDepartment = departmentSelect.value || "";
+        departmentSelect.innerHTML = '<option value="Hospital Support Services">Hospital Support Services</option>';
+        departmentSelect.value = "Hospital Support Services";
+        departmentSelect.disabled = true;
+        departmentSelect.closest("label")?.classList.add("is-role-locked");
+        return;
+    }
+    if (departmentSelect.disabled) {
+        departmentSelect.disabled = false;
+        departmentSelect.innerHTML = renderHospitalDepartmentOptions(departmentSelect.dataset.previousDepartment || "");
+        departmentSelect.closest("label")?.classList.remove("is-role-locked");
+    }
+}
+
+function toggleUserPassword() {
+    const input = document.getElementById("newPassword");
+    const button = input?.nextElementSibling;
+    if (!input || !button) return;
+    const show = input.type === "password";
+    input.type = show ? "text" : "password";
+    button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    button.innerHTML = `<i data-lucide="${show ? "eye-off" : "eye"}"></i>`;
+    if (window.lucide) lucide.createIcons();
+}
+
+function validateUserForm() {
+    const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phone = /^(?:\+91|91)?[6-9][0-9]{9}$/;
+    const fields = [newName, newDept, newRole, newEmail, newPhone, newUsername];
+    if (fields.some(field => !field.value.trim())) { BioTrackToast.warning("Required fields missing", "Complete all required user details."); return false; }
+    if (!email.test(newEmail.value.trim())) { BioTrackToast.warning("Invalid email", "Enter a valid email address."); newEmail.focus(); return false; }
+    if (!phone.test(newPhone.value.replace(/[\s-]/g, ""))) { BioTrackToast.warning("Invalid phone number", "Enter a valid Indian mobile number."); newPhone.focus(); return false; }
+    if ((!editingUserId || newPassword.value) && (newPassword.value.length < 12 || newPassword.value.length > 72 || !newPassword.value.trim())) { BioTrackToast.warning("Invalid password", "Password must contain 12 to 72 characters and cannot be blank."); newPassword.focus(); return false; }
+    return true;
+}
+
+async function registerUser() {
+    if (!validateUserForm()) return;
+    const saveButton = document.querySelector(".user-modal-save");
+    saveButton?.classList.add("is-loading");
+    if (saveButton) saveButton.disabled = true;
+    const wasEditing = Boolean(editingUserId);
+    try {
+        const payload = { name: newName.value.trim(), department: newDept.value.trim(), role: newRole.value, email: newEmail.value.trim(), phone: newPhone.value.trim(), username: newUsername.value.trim(), password: newPassword.value };
+        const response = await fetch(editingUserId ? `/api/users/${editingUserId}` : "/api/users/register", { method: editingUserId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const detail = Array.isArray(result.detail) ? result.detail.map(item => item.msg).filter(Boolean).join(" ") : result.detail;
+            throw new Error(detail || "Unable to save user.");
+        }
+        closeUserModal();
+        if (typeof showSuccess === "function") showSuccess({ title: wasEditing ? "User updated" : "User registered", message: result.message || "The staff account was saved successfully.", buttonText: "Continue" });
+        await loadUsers();
+    } catch (error) {
+        BioTrackToast.error("User not saved", error.message || "Unable to save this user.");
+    } finally {
+        saveButton?.classList.remove("is-loading");
+        if (saveButton) saveButton.disabled = false;
+    }
+}
+
+function editUser(id) {
+    if (!usersCache.some(user => user.id === id)) return;
+    editingUserId = id;
+    showRegisterUser();
+}
+
+async function deleteUser(id) {
+    const user = usersCache.find(item => item.id === id);
+    if (!user || !confirm(`Delete ${user.name || user.username}? This account will no longer be able to sign in.`)) return;
+    try {
+        const response = await fetch(`/api/users/${id}`, { method: "DELETE" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to delete user.");
+        await loadUsers();
+        BioTrackToast.success("User deleted", "The staff account was removed successfully.");
+    } catch (error) {
+        BioTrackToast.error("User not deleted", error.message || "Unable to delete this user.");
+    }
+}
+
+function closeUserModal() {
+    const modalRoot = document.getElementById("userModal");
+    if (modalRoot) modalRoot.innerHTML = "";
+    document.body.classList.remove("user-modal-open");
+    editingUserId = null;
+}
+
+function userInitials(value) {
+    return String(value || "U").trim().split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join("").toUpperCase() || "U";
+}
+
+function userRoleClass(role) {
+    return ({ Manager: "admin", BME: "biomedical", Electrical: "electrical", IT: "it", User: "user", WardBoy: "ward-boy" })[role] || "user";
+}
+
+function userRoleIcon(role) {
+    return ({ Manager: "shield-check", BME: "heart-pulse", Electrical: "zap", IT: "monitor-cog", User: "user-round", WardBoy: "truck" })[role] || "user-round";
+}
+
+;
+/* source: dashboard_v2/views/qrScannerView.js */
+function renderQRScannerModule() {
+    pageContent.innerHTML = `
+        <section class="qr-scanner-module-page" aria-labelledby="qrModuleTitle">
+            <header class="qr-module-hero">
+                <div class="qr-module-copy">
+                    <span class="qr-module-eyebrow"><i data-lucide="scan-line"></i> Equipment identification</span>
+                    <h1 id="qrModuleTitle">QR Scanner</h1>
+                    <p>Scan an equipment label to open its asset profile, service history, preventive-maintenance schedule and current status.</p>
+                    <div class="qr-module-actions">
+                        <button class="qr-module-primary" id="reopenQrCamera" type="button"><i data-lucide="camera"></i> Open camera</button>
+                        <button class="qr-module-secondary" type="button" onclick="navigate('assets')"><i data-lucide="monitor-cog"></i> Open asset register</button>
+                    </div>
+                </div>
+                <div class="qr-module-visual" aria-hidden="true">
+                    <span class="qr-module-corner top-left"></span>
+                    <span class="qr-module-corner top-right"></span>
+                    <span class="qr-module-corner bottom-left"></span>
+                    <span class="qr-module-corner bottom-right"></span>
+                    <i data-lucide="qr-code"></i>
+                    <div class="qr-module-scan-line"></div>
+                </div>
+            </header>
+
+            <div class="qr-module-status" role="status">
+                <span class="qr-module-live-dot"></span>
+                <div><strong>Scanner ready</strong><p>The camera opens automatically when this module is selected.</p></div>
+            </div>
+
+            <div class="qr-module-grid">
+                <article><span><i data-lucide="camera"></i></span><div><small>Step 1</small><h2>Allow camera access</h2><p>Your browser may ask for permission the first time you scan on a device.</p></div></article>
+                <article><span><i data-lucide="focus"></i></span><div><small>Step 2</small><h2>Frame the equipment QR</h2><p>Hold the code inside the scanning frame until it is recognized.</p></div></article>
+                <article><span><i data-lucide="external-link"></i></span><div><small>Step 3</small><h2>Open the asset record</h2><p>BioTrack takes you directly to the matching equipment profile.</p></div></article>
+            </div>
+
+            <aside class="qr-module-note">
+                <i data-lucide="shield-check"></i>
+                <div><strong>Secure, role-aware lookup</strong><p>Only equipment available to your signed-in department and role can be opened.</p></div>
+            </aside>
+        </section>`;
+
+    document.getElementById("reopenQrCamera")?.addEventListener("click", openQRScanner);
+    if (window.lucide) lucide.createIcons();
+}
+
+window.renderQRScannerModule = renderQRScannerModule;
+
+;
+/* source: dashboard_v2/views/qrAssetProfileView.js */
+let currentQRProfile = null;
+
+function qrProfileEscape(value) {
+    return escapeHTML(value === null || value === undefined ? "" : String(value));
+}
+
+function qrProfileDate(value) {
+    if (!value) return "Not recorded";
+    const parsed = new Date(`${value}`.length === 10 ? `${value}T00:00:00` : value);
+    return Number.isNaN(parsed.getTime()) ? qrProfileEscape(value) : parsed.toLocaleDateString();
+}
+
+function qrProfileValue(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    if (typeof value === "boolean") return value ? "Yes" : "No";
+    return qrProfileEscape(value);
+}
+
+function renderQRAssetProfile() {
+    pageContent.innerHTML = `
+        <section class="qr-profile-page" aria-labelledby="qrProfileTitle">
+            <header class="qr-profile-topbar">
+                <button type="button" class="qr-profile-back" onclick="navigate('qr')"><i data-lucide="arrow-left"></i> Scan another asset</button>
+                <span><i data-lucide="shield-check"></i> Secure role-aware equipment record</span>
+            </header>
+            <div id="qrProfileContent" class="qr-profile-loading">
+                <span class="qr-profile-spinner"></span>
+                <strong>Loading scanned equipment…</strong>
+            </div>
+        </section>`;
+    if (window.lucide) lucide.createIcons();
+    loadQRAssetProfile();
+}
+
+async function loadQRAssetProfile() {
+    const container = document.getElementById("qrProfileContent");
+    if (!container || !currentQRAssetId) return;
+    try {
+        const response = await fetch(`/api/qr/profile/${currentQRAssetId}`);
+        const profile = await response.json();
+        if (!response.ok) throw new Error(profile.detail || "This equipment cannot be opened in your portal.");
+        currentQRProfile = profile;
+        container.className = "qr-profile-content";
+        container.innerHTML = `
+            ${renderQRProfileHero(profile)}
+            ${profile.view === "department" ? renderDepartmentQRProfile(profile) : ""}
+            ${profile.view === "engineer" ? renderEngineerQRProfile(profile) : ""}
+            ${profile.view === "admin" ? renderAdminQRProfile(profile) : ""}`;
+        if (window.lucide) lucide.createIcons();
+    } catch (error) {
+        console.error(error);
+        container.className = "qr-profile-error";
+        container.innerHTML = `<i data-lucide="circle-alert"></i><h2>Unable to open equipment</h2><p>${qrProfileEscape(error.message)}</p><button onclick="navigate('qr')">Return to scanner</button>`;
+        if (window.lucide) lucide.createIcons();
+    }
+}
+
+function renderQRProfileHero(profile) {
+    const asset = profile.asset;
+    const viewLabels = { admin: "Administrator equipment record", engineer: "Engineering service record", department: "Department equipment" };
+    return `
+        <section class="qr-profile-hero">
+            <div class="qr-profile-image">
+                <div class="qr-profile-image-fallback"><i data-lucide="monitor-cog"></i><span>${qrProfileEscape(asset.service_team || "Hospital asset")}</span></div>
+                ${asset.image_path ? `<img src="${qrProfileEscape(asset.image_path)}" alt="${qrProfileEscape(asset.equipment_name || "Equipment")}" onerror="this.remove()">` : ""}
+            </div>
+            <div class="qr-profile-hero-copy">
+                <span class="qr-profile-eyebrow"><i data-lucide="qr-code"></i> ${viewLabels[profile.view]}</span>
+                <h1 id="qrProfileTitle">${qrProfileEscape(asset.equipment_name || "Equipment")}</h1>
+                <p>${qrProfileEscape(asset.asset_code || asset.equipment_no || "No asset identifier")} ${asset.model ? `· ${qrProfileEscape(asset.model)}` : ""}</p>
+                <div class="qr-profile-hero-tags">
+                    <span><i data-lucide="activity"></i>${qrProfileEscape(asset.status || "Unknown status")}</span>
+                    ${asset.location ? `<span><i data-lucide="map-pin"></i>${qrProfileEscape(asset.location)}</span>` : ""}
+                </div>
+            </div>
+            <div class="qr-profile-role-badge"><i data-lucide="badge-check"></i><strong>${profile.view === "admin" ? "Full details" : profile.view === "engineer" ? "Engineering view" : "Department view"}</strong><small>Access limited by your signed-in role</small></div>
+        </section>`;
+}
+
+function renderDepartmentQRProfile(profile) {
+    const asset = profile.asset;
+    const canStartCall = Boolean(profile.actions?.can_start_maintenance_call);
+    return `
+        <section class="qr-profile-section">
+            <div class="qr-profile-heading"><div><span>Equipment information</span><h2>Scanned equipment details</h2><p>Use this record to identify the equipment${canStartCall ? " and request engineering support" : ""}.</p></div><i data-lucide="building-2"></i></div>
+            <div class="qr-profile-facts is-department">
+                ${qrProfileFact("Equipment name", asset.equipment_name, "monitor")}
+                ${qrProfileFact("Model", asset.model, "cpu")}
+                ${qrProfileFact("Serial number", asset.serial_number, "barcode")}
+                ${qrProfileFact("Department", asset.department, "building-2")}
+                ${qrProfileFact("Location", asset.location, "map-pin")}
+                ${qrProfileFact("Last preventive maintenance", qrProfileDate(profile.maintenance.last_pm_date), "calendar-check")}
+            </div>
+            ${canStartCall ? `
+                <div class="qr-profile-callout">
+                    <span><i data-lucide="wrench"></i></span>
+                    <div><h3>Does this equipment need attention?</h3><p>Start a maintenance call with the asset identity, serial number, model and location filled automatically. The failure description is optional.</p></div>
+                    <button type="button" onclick="startQRMaintenanceCall()"><i data-lucide="phone-call"></i> Start Maintenance Call</button>
+                </div>` : `
+                <div class="qr-profile-callout is-restricted" role="alert">
+                    <span><i data-lucide="shield-alert"></i></span>
+                    <div><h3>This is not an asset of your department</h3><p>You can view its identification details because you scanned the equipment QR code, but you cannot register a maintenance call for it. Contact the owning department if support is needed.</p></div>
+                </div>`}
+        </section>`;
+}
+
+function renderEngineerQRProfile(profile) {
+    const asset = profile.asset;
+    const maintenance = profile.maintenance;
+    return `
+        <section class="qr-profile-section">
+            <div class="qr-profile-heading"><div><span>Engineering overview</span><h2>Equipment and maintenance status</h2><p>Review identity, purchase and maintenance history before servicing this asset.</p></div><i data-lucide="wrench"></i></div>
+            <div class="qr-profile-facts">
+                ${qrProfileFact("Equipment ID", asset.equipment_no || asset.asset_code, "scan-barcode")}
+                ${qrProfileFact("Model", asset.model, "cpu")}
+                ${qrProfileFact("Serial number", asset.serial_number, "barcode")}
+                ${qrProfileFact("Manufacturer", asset.manufacturer, "factory")}
+                ${qrProfileFact("Location", asset.location, "map-pin")}
+                ${qrProfileFact("Purchase date", qrProfileDate(asset.purchase_date), "shopping-bag")}
+            </div>
+        </section>
+        ${renderQRMaintenanceOverview(maintenance)}
+        <section class="qr-profile-section qr-engineer-pm-action">
+            <div><span>Preventive maintenance</span><h2>Complete this PM visit</h2><p>Only confirm after the preventive-maintenance work has actually been completed on this equipment.</p></div>
+            <button type="button" onclick="openQRPMConfirmation(${Number(asset.id)})"><i data-lucide="calendar-check-2"></i> Update Preventive Maintenance</button>
+        </section>
+        ${renderQRHistoryTables(maintenance)}`;
+}
+
+function renderAdminQRProfile(profile) {
+    const asset = profile.asset;
+    const fields = [
+        ["Asset code", asset.asset_code], ["Equipment number", asset.equipment_no], ["Equipment name", asset.equipment_name],
+        ["Service team", asset.service_team], ["Classification", asset.classification], ["Equipment type", asset.equipment_type],
+        ["Manufacturer", asset.manufacturer], ["Manufacturer address", asset.manufacturer_address], ["Model", asset.model],
+        ["Serial number", asset.serial_number], ["Manufacturing year", asset.manufacturing_year], ["Maintained by", asset.maintained_by],
+        ["Department", asset.department], ["Location", asset.location], ["Status", asset.status], ["Supplier", asset.supplier],
+        ["Purchase value", asset.purchase_value], ["Tax amount", asset.tax_amount], ["Net value", asset.net_value],
+        ["Purchase date", qrProfileDate(asset.purchase_date)], ["Installation date", qrProfileDate(asset.installation_date)],
+        ["Warranty", asset.warranty], ["PM frequency", asset.pm_frequency ? `${asset.pm_frequency} days` : null],
+        ["Calibration required", asset.calibration_required], ["Remarks", asset.remarks],
+        ["QR generated", asset.qr_generated], ["Created", qrProfileDate(asset.created_at)], ["Last updated", qrProfileDate(asset.updated_at)],
+    ];
+    return `
+        <section class="qr-profile-section">
+            <div class="qr-profile-heading"><div><span>Complete asset record</span><h2>All equipment details</h2><p>Administrative view includes ownership, procurement, warranty and lifecycle information.</p></div><i data-lucide="layout-list"></i></div>
+            <div class="qr-admin-details">${fields.map(([label, value]) => `<div><span>${label}</span><strong>${qrProfileValue(value)}</strong></div>`).join("")}</div>
+        </section>
+        ${renderQRMaintenanceOverview(profile.maintenance)}
+        ${renderQRHistoryTables(profile.maintenance)}`;
+}
+
+function qrProfileFact(label, value, icon) {
+    return `<article><span><i data-lucide="${icon}"></i></span><div><small>${label}</small><strong>${qrProfileValue(value)}</strong></div></article>`;
+}
+
+function renderQRMaintenanceOverview(maintenance) {
+    return `
+        <section class="qr-profile-section">
+            <div class="qr-profile-heading"><div><span>Maintenance overview</span><h2>Service health at a glance</h2></div><i data-lucide="activity"></i></div>
+            <div class="qr-maintenance-metrics">
+                ${qrProfileMetric("Last PM", qrProfileDate(maintenance.last_pm_date), "calendar-check", "blue")}
+                ${qrProfileMetric("Next PM", qrProfileDate(maintenance.next_pm_date), "calendar-clock", "violet")}
+                ${qrProfileMetric("PM status", maintenance.pm_status || "Not scheduled", "shield-check", "green")}
+                ${qrProfileMetric("Open calls", maintenance.open_maintenance_calls || 0, "wrench", "orange")}
+                ${qrProfileMetric("Repairs completed", maintenance.completed_repairs || 0, "badge-check", "cyan")}
+            </div>
+        </section>`;
+}
+
+function qrProfileMetric(label, value, icon, tone) {
+    return `<article class="is-${tone}"><span><i data-lucide="${icon}"></i></span><div><small>${label}</small><strong>${qrProfileValue(value)}</strong></div></article>`;
+}
+
+function renderQRHistoryTables(maintenance) {
+    const repairs = maintenance.repairs || [];
+    const history = maintenance.pm_history || [];
+    return `
+        <div class="qr-history-grid">
+            <section class="qr-profile-section"><div class="qr-profile-heading"><div><span>Repair history</span><h2>Maintenance calls</h2></div><i data-lucide="history"></i></div>
+                ${repairs.length ? `<div class="qr-history-list">${repairs.map(item => `<article><div><strong>${qrProfileEscape(item.ticket || "Maintenance call")}</strong><span>${qrProfileEscape(item.status || "Unknown")} · ${qrProfileDate(item.completed || item.received)}</span></div><p>${qrProfileEscape(item.work_done || item.engineer_notes || "No repair notes recorded.")}</p></article>`).join("")}</div>` : '<p class="qr-empty-history">No maintenance calls are recorded for this equipment.</p>'}
+            </section>
+            <section class="qr-profile-section"><div class="qr-profile-heading"><div><span>PM history</span><h2>Completed PM visits</h2></div><i data-lucide="calendar-range"></i></div>
+                ${history.length ? `<div class="qr-history-list">${history.map(item => `<article><div><strong>${qrProfileDate(item.completed_date)}</strong><span>${qrProfileEscape(item.engineer_name)}</span></div><p>${qrProfileEscape(item.remarks || "Preventive maintenance completed.")}</p></article>`).join("")}</div>` : '<p class="qr-empty-history">No completed preventive-maintenance visits are recorded yet.</p>'}
+            </section>
+        </div>`;
+}
+
+function startQRMaintenanceCall() {
+    if (!currentQRProfile?.actions?.can_start_maintenance_call) return;
+    sessionStorage.setItem("qrMaintenancePrefill", JSON.stringify(currentQRProfile.ticket_defaults || {}));
+    navigate("newRequest");
+}
+
+function openQRPMConfirmation(assetId) {
+    if (!currentQRProfile?.actions?.can_complete_pm) return;
+    let dialog = document.getElementById("qrPmConfirmDialog");
+    if (!dialog) {
+        dialog = document.createElement("dialog");
+        dialog.id = "qrPmConfirmDialog";
+        dialog.className = "qr-pm-confirm-dialog";
+        document.body.appendChild(dialog);
+    }
+    dialog.innerHTML = `<form method="dialog"><span class="qr-pm-confirm-icon"><i data-lucide="calendar-check-2"></i></span><h2>Complete preventive maintenance?</h2><p>Are you sure the preventive-maintenance work has been completed on <strong>${qrProfileEscape(currentQRProfile.asset.equipment_name)}</strong>? This will record today as the last PM date and calculate the next visit.</p><div id="qrPmConfirmError" role="alert"></div><footer><button value="cancel" class="qr-pm-cancel">No, go back</button><button value="default" type="button" class="qr-pm-confirm" onclick="confirmQRPMCompletion(${Number(assetId)})">Yes, PM is complete</button></footer></form>`;
+    if (window.lucide) lucide.createIcons();
+    if (!dialog.open) dialog.showModal();
+}
+
+async function confirmQRPMCompletion(assetId) {
+    const dialog = document.getElementById("qrPmConfirmDialog");
+    const button = dialog?.querySelector(".qr-pm-confirm");
+    const errorElement = dialog?.querySelector("#qrPmConfirmError");
+    try {
+        button.disabled = true;
+        button.textContent = "Updating…";
+        errorElement.textContent = "";
+        const response = await fetch(`/api/qr/profile/${assetId}/complete-pm`, { method: "POST" });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || "Preventive maintenance could not be updated.");
+        dialog.close();
+        await loadQRAssetProfile();
+    } catch (error) {
+        console.error(error);
+        errorElement.textContent = error.message;
+    } finally {
+        button.disabled = false;
+        button.textContent = "Yes, PM is complete";
+    }
+}
+
+window.renderQRAssetProfile = renderQRAssetProfile;
+window.startQRMaintenanceCall = startQRMaintenanceCall;
+window.openQRPMConfirmation = openQRPMConfirmation;
+window.confirmQRPMCompletion = confirmQRPMCompletion;
+
+;
+/* source: dashboard_v2/js/requestDetails.js */
+// ==========================================
+// CURRENT REQUEST
+// ==========================================
+
+let currentRequestTicket = null;
+
+
+// ==========================================
+// INITIALIZE PAGE
+// ==========================================
+
+async function initializeRequestDetails() {
+
+    currentRequestTicket =
+        localStorage.getItem("selectedRequest");
+
+    if (!currentRequestTicket) {
+
+        navigate("myRequests");
+
+        return;
+
+    }
+
+    await loadRequestDetails();
+
+}
+
+
+// ==========================================
+// LOAD REQUEST DETAILS
+// ==========================================
+
+async function loadRequestDetails() {
+
+    try {
+
+        const response = await fetch(
+
+            `/api/user/request-details/${encodeURIComponent(currentRequestTicket)}`,
+
+            {
+
+                cache: "no-store"
+
+            }
+
+        );
+
+        if (!response.ok) {
+
+            const result = await response.json().catch(() => ({}));
+
+            throw new Error(
+
+                result.detail || "Unable to load request."
+
+            );
+
+        }
+
+        const request = await response.json();
+
+        populateRequestDetails(request);
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        const title =
+            document.getElementById("requestTicketNumber");
+
+        const badge =
+            document.getElementById("requestStatusBadge");
+
+        if (title) {
+
+            title.textContent = "Unable to load this request";
+
+        }
+
+        if (badge) {
+
+            badge.textContent = "Unavailable";
+
+            badge.className = "status-badge closed";
+
+        }
+
+        showSuccess({
+
+            title: "Unable to Load Request",
+
+            message: error.message
+
+        });
+
+    }
+
+}
+
+
+// ==========================================
+// POPULATE PAGE
+// ==========================================
+
+function populateRequestDetails(request) {
+
+    document.getElementById("requestTicketNumber").textContent =
+        `Ticket #${request.ticket}`;
+
+    const badge =
+        document.getElementById("requestStatusBadge");
+
+    badge.textContent =
+        request.status;
+
+    badge.className =
+        `status-badge ${request.status.toLowerCase().replaceAll(" ","-")}`;
+
+    document.getElementById("equipmentName").textContent =
+        request.equipment;
+
+    document.getElementById("equipmentId").textContent =
+        request.equipment_id;
+
+    document.getElementById("departmentName").textContent =
+        request.department;
+
+    document.getElementById("priorityLevel").textContent =
+        request.priority;
+
+    document.getElementById("reportedDate").textContent =
+        formatDateTime(request.received);
+
+    document.getElementById("engineerNotes").textContent =
+        request.notes || "No engineer notes available.";
+
+    document.getElementById("workPerformed").textContent =
+        request.work_done || "No work has been recorded.";
+
+    document.getElementById("resolutionText").textContent =
+
+        request.status === "Completed"
+
+        ? "Maintenance completed successfully."
+
+        : "Maintenance is still in progress.";
+
+    buildTimeline(request);
+
+    buildSpareParts(request);
+
+}
+
+
+// ==========================================
+// BUILD TIMELINE
+// ==========================================
+
+function buildTimeline(request) {
+
+    const timeline =
+        document.getElementById("timelineContainer");
+
+    let html = "";
+
+    html += `
+        <div class="timeline-item">
+
+            <div class="timeline-dot"></div>
+
+            <div>
+
+                <strong>Request Submitted</strong>
+
+                <p>${formatDateTime(request.received)}</p>
+
+            </div>
+
+        </div>
+    `;
+
+    if (request.started) {
+
+        html += `
+            <div class="timeline-item">
+
+                <div class="timeline-dot active"></div>
+
+                <div>
+
+                    <strong>Engineer Started Work</strong>
+
+                    <p>${formatDateTime(request.started)}</p>
+
+                </div>
+
+            </div>
+        `;
+
+    }
+
+    if (request.completed) {
+
+        html += `
+            <div class="timeline-item">
+
+                <div class="timeline-dot success"></div>
+
+                <div>
+
+                    <strong>Maintenance Completed</strong>
+
+                    <p>${formatDateTime(request.completed)}</p>
+
+                </div>
+
+            </div>
+        `;
+
+    }
+
+    timeline.innerHTML = html;
+
+}
+
+
+// ==========================================
+// BUILD SPARE PARTS
+// ==========================================
+
+function buildSpareParts(request) {
+
+    const tbody =
+        document.getElementById("sparePartsBody");
+
+    tbody.innerHTML = "";
+
+    if (!request.spare_parts) {
+
+        tbody.innerHTML = `
+
+            <tr>
+
+                <td colspan="2">
+
+                    No spare parts used.
+
+                </td>
+
+            </tr>
+
+        `;
+
+        return;
+
+    }
+
+    request.spare_parts
+        .split(",")
+
+        .forEach(part => {
+
+            tbody.innerHTML += `
+
+                <tr>
+
+                    <td>${escapeHTML(part.trim())}</td>
+
+                    <td>1</td>
+
+                </tr>
+
+            `;
+
+        });
+
+}
+
+
+// ==========================================
+// GLOBAL
+// ==========================================
+
+window.initializeRequestDetails =
+    initializeRequestDetails;
+
+;
+/* source: dashboard_v2/views/requestDetailsView.js */
+// ==========================================
+// REQUEST DETAILS PAGE
+// ==========================================
+
+async function renderRequestDetails() {
+
+    pageContent.innerHTML = `
+
+    <div class="request-details-page">
+
+        <!-- ==========================================
+             PAGE HEADER
+        =========================================== -->
+
+        <div class="request-details-header">
+
+            <button
+                class="request-back-btn"
+                onclick="navigate('myRequests')">
+
+                <i data-lucide="arrow-left"></i>
+                Back to My Requests
+
+            </button>
+
+            <div class="request-header-content">
+
+                <div>
+
+                    <h1 id="requestTicketNumber">
+                        Ticket #--------
+                    </h1>
+
+                    <p>
+                        View the complete progress of your maintenance request.
+                    </p>
+
+                </div>
+
+                <span
+                    id="requestStatusBadge"
+                    class="status-badge">
+
+                    Loading...
+
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <!-- ==========================================
+             INFORMATION GRID
+        =========================================== -->
+
+        <div class="request-info-grid">
+
+            <!-- Equipment Information -->
+
+            <div class="request-card">
+
+                <div class="card-title">
+
+                    <i data-lucide="monitor"></i>
+
+                    <h3>Equipment Information</h3>
+
+                </div>
+
+                <div class="info-list">
+
+                    <div class="info-row">
+                        <span>Equipment</span>
+                        <strong id="equipmentName">-</strong>
+                    </div>
+
+                    <div class="info-row">
+                        <span>Equipment ID</span>
+                        <strong id="equipmentId">-</strong>
+                    </div>
+
+                    <div class="info-row">
+                        <span>Department</span>
+                        <strong id="departmentName">-</strong>
+                    </div>
+
+                    <div class="info-row">
+                        <span>Priority</span>
+                        <strong id="priorityLevel">-</strong>
+                    </div>
+
+                    <div class="info-row">
+                        <span>Reported</span>
+                        <strong id="reportedDate">-</strong>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- Assigned Engineer -->
+
+            <div class="request-card">
+
+                <div class="card-title">
+
+                    <i data-lucide="user-round"></i>
+
+                    <h3>Assigned Engineer</h3>
+
+                </div>
+
+                <div class="engineer-profile">
+
+                    <div class="engineer-avatar">
+
+                        <i data-lucide="user"></i>
+
+                    </div>
+
+                    <div>
+
+                        <h4 id="engineerName">
+                            Not Assigned
+                        </h4>
+
+                        <p id="engineerRole">
+                            Biomedical Engineer
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ==========================================
+             TIMELINE
+        =========================================== -->
+
+        <div class="request-card">
+
+            <div class="card-title">
+
+                <i data-lucide="history"></i>
+
+                <h3>Maintenance Timeline</h3>
+
+            </div>
+
+            <div
+                id="timelineContainer"
+                class="timeline-container">
+
+                Loading timeline...
+
+            </div>
+
+        </div>
+
+
+        <!-- ==========================================
+             ENGINEER NOTES
+        =========================================== -->
+
+        <div class="request-card">
+
+            <div class="card-title">
+
+                <i data-lucide="clipboard-pen"></i>
+
+                <h3>Engineer Notes</h3>
+
+            </div>
+
+            <div
+                id="engineerNotes"
+                class="notes-box">
+
+                No notes available.
+
+            </div>
+
+        </div>
+
+
+        <!-- ==========================================
+             WORK PERFORMED
+        =========================================== -->
+
+        <div class="request-card">
+
+            <div class="card-title">
+
+                <i data-lucide="wrench"></i>
+
+                <h3>Work Performed</h3>
+
+            </div>
+
+            <div
+                id="workPerformed"
+                class="notes-box">
+
+                No work recorded.
+
+            </div>
+
+        </div>
+
+
+        <!-- ==========================================
+             SPARE PARTS
+        =========================================== -->
+
+        <div class="request-card">
+
+            <div class="card-title">
+
+                <i data-lucide="package"></i>
+
+                <h3>Spare Parts Used</h3>
+
+            </div>
+
+            <table class="spare-table">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Part Name</th>
+
+                        <th>Quantity</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="sparePartsBody">
+
+                    <tr>
+
+                        <td colspan="2">
+
+                            No spare parts used.
+
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <!-- ==========================================
+             RESOLUTION
+        =========================================== -->
+
+        <div class="request-card">
+
+            <div class="card-title">
+
+                <i data-lucide="badge-check"></i>
+
+                <h3>Resolution</h3>
+
+            </div>
+
+            <div
+                id="resolutionText"
+                class="notes-box">
+
+                Awaiting completion...
+
+            </div>
+
+        </div>
+
+    </div>
+
+    `;
+
+await initializeRequestDetails();
+
+if (window.lucide) {
+    lucide.createIcons();
+}
+}
+
+;
+/* source: dashboard_v2/js/successModal.js */
+/* ==========================================================
+   BIOTRACK GLOBAL SUCCESS MODAL
+========================================================== */
+
+(function () {
+
+    // ==========================================================
+    // MODAL ELEMENTS
+    // ==========================================================
+
+    let overlay = null;
+
+    let modal = null;
+
+    let titleElement = null;
+
+    let messageElement = null;
+
+    let buttonElement = null;
+    
+    let closeCallback = null;
+
+    // ==========================================================
+    // CREATE MODAL
+    // ==========================================================
+
+    function createModal() {
+
+        if (overlay) return;
+
+        overlay = document.createElement("div");
+
+        overlay.className = "success-modal-overlay";
+
+        overlay.innerHTML = `
+
+            <div class="success-modal">
+
+                <div class="success-icon">
+
+                    ✓
+
+                </div>
+
+                <h2></h2>
+
+                <p></p>
+
+                <button type="button">
+
+                    Continue
+
+                </button>
+
+            </div>
+
+        `;
+
+        document.body.appendChild(overlay);
+
+        modal = overlay.querySelector(".success-modal");
+
+        titleElement = modal.querySelector("h2");
+
+        messageElement = modal.querySelector("p");
+
+        buttonElement = modal.querySelector("button");
+
+        // Close button
+
+        buttonElement.addEventListener("click", hideSuccess);
+
+        // Click outside
+
+        overlay.addEventListener("click", (event) => {
+
+            if (event.target === overlay) {
+
+                hideSuccess();
+
+            }
+
+        });
+
+        // ESC key
+
+        document.addEventListener("keydown", (event) => {
+
+            if (
+                event.key === "Escape" &&
+                overlay.classList.contains("show")
+            ) {
+
+                hideSuccess();
+
+            }
+
+        });
+
+    }
+
+    // ==========================================================
+    // SHOW
+    // ==========================================================
+
+    function showSuccess(options = {}) {
+
+        createModal();
+
+        titleElement.textContent =
+            options.title || "Success";
+
+        messageElement.textContent =
+            options.message || "Operation completed successfully.";
+
+        buttonElement.textContent =
+            options.buttonText || "Continue";
+
+        closeCallback =
+            options.onClose || null;
+
+        overlay.classList.add("show");
+
+        buttonElement.focus();
+
+    }
+        
+
+    // ==========================================================
+    // HIDE
+    // ==========================================================
+
+    function hideSuccess() {
+
+        if (!overlay) return;
+
+        overlay.classList.remove("show");
+
+        if (typeof closeCallback === "function") {
+
+            const callback = closeCallback;
+
+            closeCallback = null;
+
+            callback();
+
+        }
+
+    }
+
+   // ==========================================================
+    // GLOBAL
+    // ==========================================================
+
+    window.showSuccess = showSuccess;
+
+    window.hideSuccess = hideSuccess;
+
+    })();
+
+;
+/* source: dashboard_v2/views/myRequestsView.js */
+// Department-user maintenance request centre.
+
+let myRequestsCache = [];
+let filteredMyRequests = [];
+let myRequestsStatusMode = "all";
+const myRequestsPagination = { page: 1, pageSize: 10 };
+
+const MY_REQUEST_STATUS_META = {
+    open: { label: "Open", icon: "circle-dot" },
+    assigned: { label: "Assigned", icon: "user-check" },
+    "in-progress": { label: "In progress", icon: "loader-circle" },
+    "awaiting-parts": { label: "Awaiting parts", icon: "package-search" },
+    completed: { label: "Completed", icon: "circle-check-big" },
+    closed: { label: "Closed", icon: "circle-check-big" }
+};
+
+function normalizeMyRequestStatus(value) {
+    return String(value || "open").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+function myRequestStatusMeta(value) {
+    const key = normalizeMyRequestStatus(value);
+    return { key, ...(MY_REQUEST_STATUS_META[key] || { label: value || "Open", icon: "circle-dot" }) };
+}
+
+function myRequestPriorityMeta(value) {
+    const key = String(value || "medium").trim().toLowerCase();
+    if (key === "critical") return { key, icon: "siren", label: "Critical" };
+    if (key === "high") return { key, icon: "triangle-alert", label: "High" };
+    if (key === "low") return { key, icon: "arrow-down", label: "Low" };
+    return { key: "medium", icon: "minus", label: "Medium" };
+}
+
+async function renderMyRequests() {
+    const pageContent = document.getElementById("page-content");
+    if (!pageContent) return;
+
+    if (window.__myRequestsRefreshTimer) {
+        window.clearInterval(window.__myRequestsRefreshTimer);
+        window.__myRequestsRefreshTimer = null;
+    }
+
+    pageContent.innerHTML = `
+        <section class="my-requests-page" aria-labelledby="myRequestsTitle">
+            <header class="my-requests-command-hero">
+                <div class="my-requests-hero-copy">
+                    <span class="my-requests-eyebrow"><i data-lucide="radio-tower"></i> Department service desk</span>
+                    <h1 id="myRequestsTitle">My maintenance requests</h1>
+                    <p>Report equipment problems and follow every service update from one clear workspace.</p>
+                    <div class="my-requests-hero-actions">
+                        <button class="my-requests-primary-action" type="button" onclick="navigate('newRequest')">
+                            <i data-lucide="circle-plus"></i><span>New maintenance request</span>
+                        </button>
+                        <button class="my-requests-secondary-action" id="myRequestsRefresh" type="button">
+                            <i data-lucide="refresh-cw"></i><span>Refresh</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="my-requests-live-panel" aria-label="Request centre status">
+                    <span class="my-requests-live-label"><i data-lucide="activity"></i> Live request tracking</span>
+                    <strong id="myRequestsActiveHero">— active</strong>
+                    <small id="myRequestsUpdated">Updating request status…</small>
+                    <div class="my-requests-live-visual" aria-hidden="true">
+                        <i data-lucide="clipboard-check"></i>
+                    </div>
+                </div>
+            </header>
+
+            <section class="myrequest-kpis" aria-label="Request summary">
+                <article class="myrequest-card is-blue">
+                    <span class="myrequest-icon"><i data-lucide="ticket-check"></i></span>
+                    <span class="myrequest-info"><small>Total requests</small><strong id="totalRequests">—</strong><em>All submitted tickets</em></span>
+                </article>
+                <article class="myrequest-card is-orange">
+                    <span class="myrequest-icon"><i data-lucide="radio"></i></span>
+                    <span class="myrequest-info"><small>Active queue</small><strong id="openRequests">—</strong><em>Waiting for completion</em></span>
+                </article>
+                <article class="myrequest-card is-cyan">
+                    <span class="myrequest-icon"><i data-lucide="loader-circle"></i></span>
+                    <span class="myrequest-info"><small>In progress</small><strong id="progressRequests">—</strong><em>Engineer is working</em></span>
+                </article>
+                <article class="myrequest-card is-green">
+                    <span class="myrequest-icon"><i data-lucide="badge-check"></i></span>
+                    <span class="myrequest-info"><small>Completed</small><strong id="completedRequests">—</strong><em>Resolved requests</em></span>
+                </article>
+            </section>
+
+            <section class="my-requests-workspace" aria-labelledby="myRequestsWorkspaceTitle">
+                <div class="my-requests-workspace-heading">
+                    <div>
+                        <span class="my-requests-section-label">Request history</span>
+                        <h2 id="myRequestsWorkspaceTitle">Track service progress</h2>
+                        <p>Search your tickets or focus on the requests that need attention.</p>
+                    </div>
+                    <span class="my-requests-result-count" id="myRequestsResultCount">0 requests</span>
+                </div>
+
+                <div class="my-requests-status-tabs" id="myRequestsStatusTabs" role="tablist" aria-label="Filter requests by status">
+                    <button class="is-active" type="button" data-status-mode="all"><i data-lucide="list-filter"></i>All <span id="myRequestsTabAll">0</span></button>
+                    <button type="button" data-status-mode="active"><i data-lucide="radio"></i>Active <span id="myRequestsTabActive">0</span></button>
+                    <button type="button" data-status-mode="open"><i data-lucide="circle-dot"></i>Open <span id="myRequestsTabOpen">0</span></button>
+                    <button type="button" data-status-mode="in-progress"><i data-lucide="loader-circle"></i>In progress <span id="myRequestsTabProgress">0</span></button>
+                    <button type="button" data-status-mode="completed"><i data-lucide="circle-check-big"></i>Completed <span id="myRequestsTabCompleted">0</span></button>
+                </div>
+
+                <div class="myrequest-toolbar">
+                    <label class="myrequest-search" for="myRequestsSearch">
+                        <i data-lucide="search"></i>
+                        <input id="myRequestsSearch" type="search" placeholder="Search ticket, equipment or department…" autocomplete="off">
+                    </label>
+                    <div class="myrequest-filters">
+                        <label><span>Priority</span><select id="myRequestsPriorityFilter"><option value="">All priorities</option></select></label>
+                        <button id="myRequestsClear" type="button"><i data-lucide="filter-x"></i><span>Clear</span></button>
+                    </div>
+                </div>
+
+                <div class="myrequest-table-card">
+                    <table class="myrequest-table">
+                        <thead><tr><th>Request</th><th>Equipment</th><th>Status</th><th>Reported</th><th>Downtime</th><th><span class="sr-only">Action</span></th></tr></thead>
+                        <tbody id="myRequestsBody"><tr><td colspan="6"><div class="my-requests-loading"><i data-lucide="loader-circle"></i>Loading your requests…</div></td></tr></tbody>
+                    </table>
+                </div>
+                <div id="myRequestsPagination" class="table-pagination"></div>
+            </section>
+        </section>`;
+
+    document.getElementById("myRequestsSearch")?.addEventListener("input", () => applyMyRequestsFilters());
+    document.getElementById("myRequestsPriorityFilter")?.addEventListener("change", () => applyMyRequestsFilters());
+    document.getElementById("myRequestsRefresh")?.addEventListener("click", () => loadMyRequests(true));
+    document.getElementById("myRequestsClear")?.addEventListener("click", clearMyRequestsFilters);
+    document.querySelectorAll("#myRequestsStatusTabs [data-status-mode]").forEach((button) => {
+        button.addEventListener("click", () => {
+            myRequestsStatusMode = button.dataset.statusMode || "all";
+            document.querySelectorAll("#myRequestsStatusTabs [data-status-mode]").forEach((item) => item.classList.toggle("is-active", item === button));
+            applyMyRequestsFilters();
+        });
+    });
+
+    window.lucide?.createIcons();
+    await loadMyRequests();
+
+    window.__myRequestsRefreshTimer = window.setInterval(() => {
+        if (!document.querySelector(".my-requests-page")) {
+            window.clearInterval(window.__myRequestsRefreshTimer);
+            window.__myRequestsRefreshTimer = null;
+            return;
+        }
+        loadMyRequests(false, true);
+    }, 60000);
+}
+
+async function loadMyRequests(showFeedback = false, silent = false) {
+    const refreshButton = document.getElementById("myRequestsRefresh");
+    refreshButton?.classList.add("is-loading");
+    refreshButton?.setAttribute("aria-busy", "true");
+
+    try {
+        const response = await fetch("/api/user/my-requests", { credentials: "same-origin" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || "Unable to load your maintenance requests.");
+
+        myRequestsCache = Array.isArray(data.requests) ? data.requests : [];
+        updateMyRequestSummary(data.summary || {}, myRequestsCache);
+        populateMyRequestsFilters(myRequestsCache);
+        applyMyRequestsFilters(false);
+
+        const updated = document.getElementById("myRequestsUpdated");
+        if (updated) updated.textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+        if (showFeedback) window.BioTrackToast?.success("Requests refreshed", "Your maintenance requests are up to date.");
+    } catch (error) {
+        if (!silent) window.BioTrackToast?.error("Requests unavailable", error.message || "Unable to load your maintenance requests.");
+        const tbody = document.getElementById("myRequestsBody");
+        if (tbody && !myRequestsCache.length) {
+            tbody.innerHTML = `<tr><td colspan="6"><div class="my-requests-empty is-error"><i data-lucide="cloud-alert"></i><strong>Requests could not be loaded</strong><span>Check your connection and try Refresh.</span></div></td></tr>`;
+        }
+    } finally {
+        refreshButton?.classList.remove("is-loading");
+        refreshButton?.removeAttribute("aria-busy");
+        window.lucide?.createIcons();
+    }
+}
+
+function updateMyRequestSummary(summary, requests) {
+    const completed = requests.filter((request) => ["completed", "closed"].includes(normalizeMyRequestStatus(request.status))).length;
+    const inProgress = requests.filter((request) => normalizeMyRequestStatus(request.status) === "in-progress").length;
+    const active = Math.max(0, requests.length - completed);
+    const totals = {
+        totalRequests: Number(summary.total ?? requests.length),
+        openRequests: active,
+        progressRequests: Number(summary.in_progress ?? inProgress),
+        completedRequests: Number(summary.completed ?? completed)
+    };
+
+    Object.entries(totals).forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = String(value);
+    });
+
+    const activeHero = document.getElementById("myRequestsActiveHero");
+    if (activeHero) activeHero.textContent = `${active} active ${active === 1 ? "request" : "requests"}`;
+
+    const counts = {
+        myRequestsTabAll: requests.length,
+        myRequestsTabActive: active,
+        myRequestsTabOpen: requests.filter((request) => normalizeMyRequestStatus(request.status) === "open").length,
+        myRequestsTabProgress: inProgress,
+        myRequestsTabCompleted: completed
+    };
+    Object.entries(counts).forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = String(value);
+    });
+}
+
+function populateMyRequestsFilters(requests) {
+    const select = document.getElementById("myRequestsPriorityFilter");
+    if (!select) return;
+    const previous = select.value;
+    const options = [...new Set(requests.map((request) => request.priority).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    select.innerHTML = `<option value="">All priorities</option>${options.map((value) => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`).join("")}`;
+    if (options.includes(previous)) select.value = previous;
+}
+
+function clearMyRequestsFilters() {
+    const search = document.getElementById("myRequestsSearch");
+    const priority = document.getElementById("myRequestsPriorityFilter");
+    if (search) search.value = "";
+    if (priority) priority.value = "";
+    myRequestsStatusMode = "all";
+    document.querySelectorAll("#myRequestsStatusTabs [data-status-mode]").forEach((item) => item.classList.toggle("is-active", item.dataset.statusMode === "all"));
+    applyMyRequestsFilters();
+}
+
+function applyMyRequestsFilters(resetPage = true) {
+    const search = (document.getElementById("myRequestsSearch")?.value || "").trim().toLowerCase();
+    const priority = document.getElementById("myRequestsPriorityFilter")?.value || "";
+
+    filteredMyRequests = myRequestsCache.filter((request) => {
+        const status = normalizeMyRequestStatus(request.status);
+        const statusMatches = myRequestsStatusMode === "all"
+            || (myRequestsStatusMode === "active" && !["completed", "closed"].includes(status))
+            || (myRequestsStatusMode === "completed" && ["completed", "closed"].includes(status))
+            || status === myRequestsStatusMode;
+        const searchable = [request.ticket, request.equipment, request.equipment_id, request.department, request.status]
+            .filter(Boolean).join(" ").toLowerCase();
+        return statusMatches && (!search || searchable.includes(search)) && (!priority || request.priority === priority);
+    });
+
+    if (resetPage) myRequestsPagination.page = 1;
+    const resultCount = document.getElementById("myRequestsResultCount");
+    if (resultCount) resultCount.textContent = `${filteredMyRequests.length} ${filteredMyRequests.length === 1 ? "request" : "requests"}`;
+    renderMyRequestsTable(filteredMyRequests);
+}
+
+function renderMyRequestsTable(requests) {
+    const tbody = document.getElementById("myRequestsBody");
+    if (!tbody) return;
+
+    if (!requests.length) {
+        tbody.innerHTML = `<tr><td colspan="6"><div class="my-requests-empty"><i data-lucide="inbox"></i><strong>No matching requests</strong><span>Try another filter or create a new maintenance request.</span><button type="button" onclick="navigate('newRequest')"><i data-lucide="circle-plus"></i>New request</button></div></td></tr>`;
+        TablePagination.render(document.getElementById("myRequestsPagination"), myRequestsPagination, 0, () => renderMyRequestsTable(filteredMyRequests), "requests");
+        window.lucide?.createIcons();
+        return;
+    }
+
+    const pageItems = TablePagination.pageItems(requests, myRequestsPagination);
+    tbody.innerHTML = pageItems.map((request) => {
+        const status = myRequestStatusMeta(request.status);
+        const priority = myRequestPriorityMeta(request.priority);
+        const downtime = Number(request.downtime || 0);
+        return `<tr>
+            <td data-label="Request"><div class="myrequest-ticket"><strong>${escapeHTML(request.ticket || "—")}</strong><span class="myrequest-priority is-${priority.key}"><i data-lucide="${priority.icon}"></i>${priority.label}</span></div></td>
+            <td data-label="Equipment"><div class="myrequest-equipment"><span><i data-lucide="monitor-cog"></i></span><div><strong>${escapeHTML(request.equipment || "Unnamed equipment")}</strong><small>${escapeHTML(request.equipment_id || "No equipment ID")} · ${escapeHTML(request.department || "Department not set")}</small></div></div></td>
+            <td data-label="Status"><span class="myrequest-status is-${status.key}"><i data-lucide="${status.icon}"></i>${escapeHTML(status.label)}</span></td>
+            <td data-label="Reported"><div class="myrequest-date"><i data-lucide="calendar-clock"></i><span>${formatDateTime(request.reported_time)}</span></div></td>
+            <td data-label="Downtime"><div class="myrequest-downtime"><i data-lucide="timer"></i><strong>${downtime > 0 ? `${downtime.toFixed(1)} h` : "—"}</strong></div></td>
+            <td data-label="Action"><button class="myrequest-open" type="button" data-ticket="${escapeHTML(request.ticket || "")}" aria-label="Open request ${escapeHTML(request.ticket || "")}"><span>Open</span><i data-lucide="arrow-up-right"></i></button></td>
+        </tr>`;
+    }).join("");
+
+    tbody.querySelectorAll(".myrequest-open[data-ticket]").forEach((button) => button.addEventListener("click", () => openRequest(button.dataset.ticket || "")));
+    TablePagination.render(document.getElementById("myRequestsPagination"), myRequestsPagination, requests.length, () => renderMyRequestsTable(filteredMyRequests), "requests");
+    window.lucide?.createIcons();
+}
+
+function openRequest(ticket) {
+    if (!ticket) return;
+    localStorage.setItem("selectedRequest", ticket);
+    navigate("requestDetails");
+}
+
+;
+/* source: dashboard_v2/views/settingsView.js */
+/* ==========================================
+   SETTINGS VIEW
+========================================== */
+
+function renderSettings() {
+
+    pageContent.innerHTML = `
+
+<section class="settings-page">
+
+
+
+    <!-- ==========================================
+         SETTINGS CONTENT
+    =========================================== -->
+
+    <section class="settings-content">
+
+        <!-- Header -->
+
+        <header class="page-header">
+
+            <div>
+
+                <h1>Settings</h1>
+
+                <p>
+
+                    Manage your profile,
+                    notifications,
+                    security and
+                    system preferences.
+
+                </p>
+
+            </div>
+
+            <div class="header-image">
+
+                <img
+                    src="/static/dashboard_v2/assets/settings/settings-banner.png"
+                    alt="Settings Banner">
+
+            </div>
+
+        </header>
+
+        <!-- Settings Grid -->
+
+        <div class="settings-grid">
+        <!-- ====================================
+     PROFILE SETTINGS
+==================================== -->
+
+<section
+    class="settings-card profile-card"
+    id="profile">
+
+    <div class="card-header">
+
+        <div>
+
+            <h2>Profile Settings</h2>
+
+            <p>
+
+                Update your personal information
+                and account profile.
+
+            </p>
+
+        </div>
+
+        <i data-lucide="user-round"
+            class="card-icon"></i>
+
+    </div>
+
+    <div class="profile-content">
+
+        <!-- Profile Image -->
+
+        <div class="settings-profile-avatar">
+
+        <img
+            id="profilePreview"
+            class="profile-image"
+            src="/static/dashboard_v2/assets/settings/profile.png"
+            alt="Profile Picture">
+
+        <button
+            class="camera-btn"
+            id="changePhoto"
+            type="button">
+
+            <i data-lucide="camera"></i>
+
+        </button>
+
+        <input
+            type="file"
+            id="profileUpload"
+            accept="image/*"
+            hidden>
+
+    </div>
+
+        <!-- Profile Details -->
+
+        <div class="profile-details">
+
+            <div class="detail-row">
+
+                <label>Full Name</label>
+
+                <span id="settingsFullName">
+                    Loading...
+                </span>
+
+            </div>
+
+            <div class="detail-row">
+
+                <label>Email Address</label>
+
+                <span id="settingsEmail">
+                    Loading...
+                </span>
+
+            </div>
+
+            <div class="detail-row">
+
+                <label>Department</label>
+
+                <span id="settingsEmployeeId">
+                    Loading...
+                </span>
+
+            </div>
+
+            <div class="detail-row">
+
+                <label>Role</label>
+
+                <span id="settingsRole">
+                    Loading...
+                </span>
+
+            </div>
+
+            <button
+                class="primary-btn edit-profile"
+                id="editProfileBtn">
+
+                <i data-lucide="square-pen"></i>
+
+                Edit Profile
+
+            </button>
+
+        </div>
+
+    </div>
+
+</section>
+<!-- ====================================
+     NOTIFICATIONS
+==================================== -->
+
+<section
+    class="settings-card notifications-card"
+    id="notifications">
+
+    <div class="card-header">
+
+        <div>
+
+            <h2>Notifications</h2>
+
+            <p>
+
+                Manage how you receive
+                updates and alerts.
+
+            </p>
+
+        </div>
+
+        <i
+            data-lucide="bell"
+            class="card-icon"></i>
+
+    </div>
+
+    <div class="notification-list">
+
+        <!-- In-app -->
+
+        <div class="notification-item">
+
+            <div class="notification-info">
+
+                <div class="notification-icon">
+
+                    <i data-lucide="bell-dot"></i>
+
+                </div>
+
+                <div>
+
+                    <h4>In-app Notifications</h4>
+
+                    <p>
+
+                        Show operational alerts
+                        in the BioTrack
+                        notification centre.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+            <label class="switch">
+
+                <input
+                    type="checkbox"
+                    id="inAppNotification"
+                    checked>
+
+                <span class="slider"></span>
+
+            </label>
+
+        </div>
+
+        <!-- Desktop -->
+
+        <div class="notification-item">
+
+            <div class="notification-info">
+
+                <div class="notification-icon">
+
+                    <i data-lucide="monitor"></i>
+
+                </div>
+
+                <div>
+
+                    <h4>Desktop Notifications</h4>
+
+                    <p>
+
+                        Show alerts directly
+                        on your desktop.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+            <label class="switch">
+
+                <input
+                    type="checkbox"
+                    id="desktopNotification"
+                    checked>
+
+                <span class="slider"></span>
+
+            </label>
+
+        </div>
+
+        <!-- Request Updates -->
+
+        <div class="notification-item">
+
+            <div class="notification-info">
+
+                <div class="notification-icon">
+
+                    <i data-lucide="send"></i>
+
+                </div>
+
+                <div>
+
+                    <h4>Request Updates</h4>
+
+                    <p>
+
+                        Notify whenever a
+                        service request changes
+                        its status.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+            <label class="switch">
+
+                <input
+                    type="checkbox"
+                    id="requestUpdates"
+                    checked>
+
+                <span class="slider"></span>
+
+            </label>
+
+        </div>
+
+
+        <!-- PM Reminder -->
+
+        <div class="notification-item">
+
+            <div class="notification-info">
+
+                <div class="notification-icon">
+
+                    <i data-lucide="calendar-check"></i>
+
+                </div>
+
+                <div>
+
+                    <h4>Preventive Maintenance Reminder</h4>
+
+                    <p>
+
+                        Receive reminders before
+                        scheduled preventive
+                        maintenance.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+            <label class="switch">
+
+                <input
+                    type="checkbox"
+                    id="pmReminder">
+
+                <span class="slider"></span>
+
+            </label>
+
+        </div>
+
+    </div>
+
+    <div class="card-footer">
+
+        <button
+            class="primary-btn"
+            id="saveNotificationSettings">
+
+            <i data-lucide="settings-2"></i>
+
+            Configure Notifications
+
+        </button>
+
+    </div>
+
+</section>
+<!-- ====================================
+     SECURITY
+==================================== -->
+
+<section
+    class="settings-card security-card"
+    id="security">
+
+    <div class="card-header">
+
+        <div>
+
+            <h2>Security</h2>
+
+            <p>
+
+                Manage your password,
+                account security and
+                active sessions.
+
+            </p>
+
+        </div>
+
+        <i
+            data-lucide="shield-check"
+            class="card-icon"></i>
+
+    </div>
+
+    <div class="security-list">
+
+        <!-- Password -->
+
+        <div class="security-item">
+
+            <div>
+
+                <h4>Password</h4>
+
+                <p>••••••••••••</p>
+
+            </div>
+
+            <button
+                class="secondary-btn"
+                id="changePassword">
+
+                Change
+
+                <i data-lucide="chevron-right"></i>
+
+            </button>
+
+        </div>
+
+        <!-- Account protection -->
+
+        <div class="security-item">
+
+            <div>
+
+                <h4>Account Protection</h4>
+
+                <p>
+
+                    Password hashing, secure cookies
+                    and automatic session expiry
+                    are active.
+
+                </p>
+
+            </div>
+
+            <span class="security-status-pill"><i data-lucide="shield-check"></i> Protected</span>
+
+        </div>
+
+        <!-- Active Sessions -->
+
+        <div class="security-item">
+
+            <div>
+
+                <h4>Current Session</h4>
+
+                <p>
+
+                    Review this browser session,
+                    network address and
+                    expiry time.
+
+                </p>
+
+            </div>
+
+            <button
+                class="secondary-btn"
+                id="viewSessions">
+
+                View
+
+                <i data-lucide="chevron-right"></i>
+
+            </button>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- ====================================
+     SYSTEM PREFERENCES
+==================================== -->
+
+<section
+    class="settings-card preferences-card"
+    id="preferences">
+
+    <div class="card-header">
+
+        <div>
+
+            <h2>System Preferences</h2>
+
+            <p>
+
+                Customize your
+                BioTrack experience.
+
+            </p>
+
+        </div>
+
+        <i
+            data-lucide="sliders-horizontal"
+            class="card-icon"></i>
+
+    </div>
+
+    <div class="preference-list">
+
+        <!-- Theme -->
+
+        <div class="preference-item">
+
+            <div class="preference-left">
+
+                <i data-lucide="sun-moon"></i>
+
+                <span>Theme</span>
+
+            </div>
+
+            <select id="themeSelect">
+
+                <option value="light" selected>
+                    Light
+                </option>
+
+                <option value="dark">
+                    Dark
+                </option>
+
+                <option value="system">
+                    System Default
+                </option>
+
+            </select>
+
+        </div>
+
+        <!-- Density -->
+
+        <div class="preference-item">
+
+            <div class="preference-left">
+
+                <i data-lucide="rows-3"></i>
+
+                <span>Interface Density</span>
+
+            </div>
+
+            <select id="densitySelect">
+
+                <option value="comfortable" selected>
+                    Comfortable
+                </option>
+
+                <option value="compact">
+                    Compact
+                </option>
+
+            </select>
+
+        </div>
+
+        <!-- Date Format -->
+
+        <div class="preference-item">
+
+            <div class="preference-left">
+
+                <i data-lucide="calendar-days"></i>
+
+                <span>Date Format</span>
+
+            </div>
+
+            <select id="dateFormat">
+
+                <option selected>
+                    DD/MM/YYYY
+                </option>
+
+                <option>
+                    MM/DD/YYYY
+                </option>
+
+                <option>
+                    YYYY-MM-DD
+                </option>
+
+            </select>
+
+        </div>
+
+        <!-- Time Format -->
+
+        <div class="preference-item">
+
+            <div class="preference-left">
+
+                <i data-lucide="clock-3"></i>
+
+                <span>Time Format</span>
+
+            </div>
+
+            <select id="timeFormat">
+
+                <option selected>
+                    24 Hour
+                </option>
+
+                <option>
+                    12 Hour
+                </option>
+
+            </select>
+
+        </div>
+
+    </div>
+
+</section>
+
+<div class="password-modal" id="passwordModal" hidden>
+    <div class="password-dialog" role="dialog" aria-modal="true" aria-labelledby="passwordDialogTitle">
+        <button class="password-close" type="button" id="closePasswordModal" aria-label="Close">×</button>
+        <h2 id="passwordDialogTitle">Change Password</h2>
+        <p>Use a new password with at least 12 characters.</p>
+        <label for="currentPassword">Current password</label>
+        <input id="currentPassword" type="password" autocomplete="current-password">
+        <label for="newPassword">New password</label>
+        <input id="newPassword" type="password" autocomplete="new-password" minlength="12">
+        <label for="confirmPassword">Confirm new password</label>
+        <input id="confirmPassword" type="password" autocomplete="new-password" minlength="12">
+        <div class="password-actions">
+            <button class="secondary-btn" type="button" id="cancelPasswordChange">Cancel</button>
+            <button class="primary-btn" type="button" id="savePasswordChange">Update Password</button>
+        </div>
+    </div>
+</div>
+<!-- ====================================
+     BACKUP & DATA
+==================================== -->
+
+<section
+    class="settings-card backup-card"
+    id="backup">
+
+    <div class="card-header">
+
+        <div>
+
+            <h2>Backup & Data</h2>
+
+            <p>
+
+                Secure your BioTrack information
+                by creating backups or exporting
+                maintenance data.
+
+            </p>
+
+        </div>
+
+        <i
+            data-lucide="database"
+            class="card-icon"></i>
+
+    </div>
+
+    <div class="backup-actions">
+
+        <!-- Backup -->
+
+        <div class="backup-box">
+
+            <div class="backup-icon">
+
+                <i data-lucide="cloud-upload"></i>
+
+            </div>
+
+            <h4>Create Backup</h4>
+
+            <p>
+
+                Generate a complete backup
+                of your BioTrack system.
+
+            </p>
+
+            <button
+                class="primary-btn"
+                id="backupNow">
+
+                <i data-lucide="cloud-upload"></i>
+
+                Backup Now
+
+            </button>
+
+        </div>
+
+        <!-- Export -->
+
+        <div class="backup-box">
+
+            <div class="backup-icon">
+
+                <i data-lucide="download"></i>
+
+            </div>
+
+            <h4>Export Data</h4>
+
+            <p>
+
+                Download reports,
+                requests and maintenance
+                records.
+
+            </p>
+
+            <button
+                class="secondary-btn"
+                id="exportData">
+
+                <i data-lucide="download"></i>
+
+                Export
+
+            </button>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- ====================================
+     ABOUT SYSTEM
+==================================== -->
+
+<section
+    class="settings-card about-card"
+    id="about">
+
+    <div class="card-header">
+
+        <div>
+
+            <h2>About System</h2>
+
+            <p>
+
+                Information about
+                the BioTrack platform.
+
+            </p>
+
+        </div>
+
+        <i
+            data-lucide="info"
+            class="card-icon"></i>
+
+    </div>
+
+    <div class="about-grid">
+
+        <div class="about-item">
+
+            <label>System Name</label>
+
+            <span>
+                BioTrack Biomedical Maintenance System
+            </span>
+
+        </div>
+
+        <div class="about-item">
+
+            <label>Version</label>
+
+            <span id="systemVersion">
+
+                Version 2.0.0
+
+            </span>
+
+        </div>
+
+        <div class="about-item">
+
+            <label>Developed By</label>
+
+            <span>
+
+                LFH Software Solutions
+
+            </span>
+
+        </div>
+
+        <div class="about-item">
+
+            <label>Support</label>
+
+            <span>
+
+                support@biotrack.com
+
+            </span>
+
+        </div>
+
+    </div>
+
+    <div class="about-footer">
+
+        <p>
+
+            © 2026 BioTrack Biomedical Maintenance System.
+            All Rights Reserved.
+
+        </p>
+
+    </div>
+
+</section>
+        </div>
+
+    </section>
+
+</section>
+
+`;
+
+    const settingsGrid = pageContent.querySelector(".settings-grid");
+    if (settingsGrid) {
+        const leftColumn = document.createElement("div");
+        const rightColumn = document.createElement("div");
+        leftColumn.className = "settings-column settings-column-left";
+        rightColumn.className = "settings-column settings-column-right";
+
+        ["profile", "security", "backup"].forEach(id => {
+            const card = settingsGrid.querySelector(`#${id}`);
+            if (card) leftColumn.appendChild(card);
+        });
+        ["notifications", "preferences", "about"].forEach(id => {
+            const card = settingsGrid.querySelector(`#${id}`);
+            if (card) rightColumn.appendChild(card);
+        });
+
+        const passwordModal = settingsGrid.querySelector("#passwordModal");
+        settingsGrid.replaceChildren(leftColumn, rightColumn);
+        if (passwordModal) pageContent.querySelector(".settings-content")?.appendChild(passwordModal);
+    }
+
+    // Re-create Lucide icons after injecting HTML
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+
+    // Initialize page logic
+    if (typeof initSettings === "function") {
+        initSettings();
+    }
+
+}
+
+;
+/* source: dashboard_v2/views/aiView.js */
+// ==========================================
+// AI VIEW
+// ==========================================
+
+function renderAI() {
+
+    pageContent.innerHTML = `
+
+        <div class="loading-page">
+
+            AI Module
+
+        </div>
+
+    `;
+
+}
+;
+/* source: dashboard_v2/js/asset_profile.js */
+// ==========================================
+// LOAD ASSET PROFILE
+// ==========================================
+
+async function loadAssetProfile() {
+
+    try {
+
+        const response = await fetch(
+
+            `/api/assets/${currentAssetId}`
+
+        );
+
+        if (!response.ok) {
+            throw new Error("Asset not found.");
+        }
+
+        const asset = await response.json();
+
+        const safeAsset = Object.fromEntries(
+            Object.entries(asset).map(([key, value]) => [
+                key,
+                typeof value === "string" ? escapeHTML(value) : value
+            ])
+        );
+
+        renderAssetHero(safeAsset);
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+    }
+
+}
+
+
+// ==========================================
+// HERO
+// ==========================================
+
+// ==========================================
+// ASSET HERO
+// ==========================================
+
+function renderAssetHero(asset) {
+
+    const canEdit = typeof canManageAssetQR === "function" && canManageAssetQR();
+    const serviceTeam = asset.service_team || "Biomedical";
+
+    document.getElementById("assetProfileHero").innerHTML = `
+
+    <section class="asset-hero">
+
+        <div class="asset-image-card">
+
+            <div class="asset-image-placeholder" aria-hidden="true">
+                <i data-lucide="monitor-cog"></i>
+                <span>${serviceTeam}</span>
+            </div>
+            ${asset.image_path ? `
+                <img
+                    src="${asset.image_path}"
+                    alt="${asset.equipment_name || "Hospital asset"}"
+                    class="asset-image"
+                    onerror="this.remove()">
+            ` : ""}
+
+        </div>
+
+        <div class="asset-hero-content">
+
+            <div class="asset-title-row">
+
+                <div>
+
+                    <span class="asset-category">
+
+                        ${serviceTeam} Asset
+
+                    </span>
+
+                    <h1>
+
+                        ${asset.equipment_name}
+
+                    </h1>
+
+                    <p class="asset-code">
+
+                        ${asset.asset_code}
+
+                    </p>
+
+                </div>
+
+                <div class="asset-actions">
+
+                    ${canEdit ? `
+                        <button type="button" class="asset-action-btn asset-edit-button" onclick="openAssetEditor(${Number(asset.id)})">
+                            <i data-lucide="square-pen"></i>
+                            Edit Asset
+                        </button>
+                        <button type="button" class="asset-action-btn asset-qr-button" onclick="openAssetQRGenerator(${Number(asset.id)})">
+                            <i data-lucide="qr-code"></i>
+                            ${asset.qr_generated ? "View QR" : "Generate QR"}
+                        </button>
+                    ` : ""}
+
+                </div>
+
+            </div>
+
+            <div class="asset-summary">
+
+                <div>
+
+                    <label>Status</label>
+
+                    <span class="asset-status-pill">
+
+                        ${asset.status}
+
+                    </span>
+
+                </div>
+
+                <div>
+
+                    <label>Manufacturer</label>
+
+                    <strong>
+
+                        ${asset.manufacturer || "-"}
+
+                    </strong>
+
+                </div>
+
+                <div>
+
+                    <label>Model</label>
+
+                    <strong>
+
+                        ${asset.model || "-"}
+
+                    </strong>
+
+                </div>
+
+                <div>
+
+                    <label>Department</label>
+
+                    <strong>
+
+                        ${asset.department || "-"}
+
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    `;
+
+    if (window.lucide) lucide.createIcons();
+
+}
+
+function assetEditorValue(value) {
+    return escapeHTML(value === null || value === undefined ? "" : String(value));
+}
+
+function assetEditorTeamOptions(selectedTeam) {
+    return ["Biomedical", "Electrical", "IT"]
+        .map(team => `<option value="${team}" ${team === selectedTeam ? "selected" : ""}>${team}</option>`)
+        .join("");
+}
+
+async function openAssetEditor(assetId) {
+    if (!(typeof canManageAssetQR === "function" && canManageAssetQR())) return;
+
+    try {
+        const response = await fetch(`/api/assets/${assetId}`);
+        const asset = await response.json();
+        if (!response.ok) throw new Error(asset.detail || "Asset could not be loaded.");
+
+        let dialog = document.getElementById("assetEditDialog");
+        if (!dialog) {
+            dialog = document.createElement("dialog");
+            dialog.id = "assetEditDialog";
+            dialog.className = "asset-edit-dialog";
+            dialog.addEventListener("click", event => {
+                if (event.target === dialog) dialog.close();
+            });
+            document.body.appendChild(dialog);
+        }
+
+        const adminView = typeof isAssetAdministrator === "function" && isAssetAdministrator();
+        dialog.innerHTML = `
+            <form id="assetEditForm" class="asset-edit-form">
+                <header class="asset-edit-header">
+                    <div class="asset-edit-heading">
+                        <span class="asset-edit-icon"><i data-lucide="square-pen"></i></span>
+                        <div>
+                            <small>Asset Management</small>
+                            <h2>Edit Asset</h2>
+                            <p>Update equipment identity, ownership and lifecycle information.</p>
+                        </div>
+                    </div>
+                    <button type="button" class="asset-edit-close" aria-label="Close asset editor" onclick="document.getElementById('assetEditDialog').close()">
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+
+                <div class="asset-edit-body">
+                    <section class="asset-edit-section">
+                        <div class="asset-edit-section-title">
+                            <i data-lucide="badge-info"></i>
+                            <div><h3>Identity</h3><p>Core identifiers and service ownership.</p></div>
+                        </div>
+                        <div class="asset-edit-grid">
+                            <label>Service Team
+                                <select name="service_team" ${adminView ? "" : "disabled"}>
+                                    ${assetEditorTeamOptions(asset.service_team || "Biomedical")}
+                                </select>
+                            </label>
+                            <label>Asset Code <span>*</span>
+                                <input name="asset_code" required value="${assetEditorValue(asset.asset_code)}">
+                            </label>
+                            <label>Equipment Number
+                                <input name="equipment_no" value="${assetEditorValue(asset.equipment_no)}">
+                            </label>
+                            <label class="is-wide">Equipment Name <span>*</span>
+                                <input name="equipment_name" required value="${assetEditorValue(asset.equipment_name)}">
+                            </label>
+                            <label>Classification
+                                <input name="classification" value="${assetEditorValue(asset.classification)}">
+                            </label>
+                            <label>Equipment Type
+                                <input name="equipment_type" value="${assetEditorValue(asset.equipment_type)}">
+                            </label>
+                            <label>Status
+                                <select name="status">
+                                    ${["Active", "Out of Service", "Under Maintenance", "Retired"].map(status => `<option value="${status}" ${status === asset.status ? "selected" : ""}>${status}</option>`).join("")}
+                                </select>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section class="asset-edit-section">
+                        <div class="asset-edit-section-title">
+                            <i data-lucide="map-pin"></i>
+                            <div><h3>Location & equipment</h3><p>Operational placement and manufacturer information.</p></div>
+                        </div>
+                        <div class="asset-edit-grid">
+                            <label>Department<select name="department">${renderHospitalDepartmentOptions(asset.department)}</select></label>
+                            <label>Location<input name="location" value="${assetEditorValue(asset.location)}"></label>
+                            <label>Manufacturer<input name="manufacturer" value="${assetEditorValue(asset.manufacturer)}"></label>
+                            <label>Model<input name="model" value="${assetEditorValue(asset.model)}"></label>
+                            <label>Serial Number<input name="serial_number" value="${assetEditorValue(asset.serial_number)}"></label>
+                            <label>Manufacturing Year<input name="manufacturing_year" type="number" min="1900" max="2200" value="${assetEditorValue(asset.manufacturing_year)}"></label>
+                            <label>Maintained By<input name="maintained_by" value="${assetEditorValue(asset.maintained_by)}"></label>
+                            <label class="is-wide">Manufacturer Address<textarea name="manufacturer_address" rows="2">${assetEditorValue(asset.manufacturer_address)}</textarea></label>
+                        </div>
+                    </section>
+
+                    <section class="asset-edit-section">
+                        <div class="asset-edit-section-title">
+                            <i data-lucide="receipt-indian-rupee"></i>
+                            <div><h3>Purchase & maintenance</h3><p>Commercial details and planned-maintenance settings.</p></div>
+                        </div>
+                        <div class="asset-edit-grid">
+                            <label>Supplier<input name="supplier" value="${assetEditorValue(asset.supplier)}"></label>
+                            <label>Warranty<input name="warranty" value="${assetEditorValue(asset.warranty)}"></label>
+                            <label>Purchase Date<input name="purchase_date" type="date" value="${assetEditorValue(asset.purchase_date)}"></label>
+                            <label>Installation Date<input name="installation_date" type="date" value="${assetEditorValue(asset.installation_date)}"></label>
+                            <label>Purchase Value<input name="purchase_value" type="number" min="0" step="0.01" value="${assetEditorValue(asset.purchase_value)}"></label>
+                            <label>Tax Amount<input name="tax_amount" type="number" min="0" step="0.01" value="${assetEditorValue(asset.tax_amount)}"></label>
+                            <label>PM Frequency (days)<input name="pm_frequency" type="number" min="0" value="${assetEditorValue(asset.pm_frequency)}"></label>
+                            <label class="asset-edit-check"><input name="calibration_required" type="checkbox" ${asset.calibration_required ? "checked" : ""}><span>Calibration required</span></label>
+                            <label class="is-wide">Remarks<textarea name="remarks" rows="3">${assetEditorValue(asset.remarks)}</textarea></label>
+                        </div>
+                    </section>
+                    <p id="assetEditError" class="asset-edit-error" role="alert"></p>
+                </div>
+
+                <footer class="asset-edit-footer">
+                    <button type="button" class="asset-edit-cancel" onclick="document.getElementById('assetEditDialog').close()">Cancel</button>
+                    <button type="submit" class="asset-edit-save"><i data-lucide="save"></i><span>Save Changes</span></button>
+                </footer>
+            </form>
+        `;
+
+        dialog.querySelector("#assetEditForm").addEventListener("submit", event => saveAssetEdits(event, assetId, asset.service_team));
+        if (window.lucide) lucide.createIcons();
+        if (!dialog.open) dialog.showModal();
+    } catch (error) {
+        console.error(error);
+        BioTrackToast.error("Asset editor unavailable", error.message || "Asset could not be opened for editing.");
+    }
+}
+
+async function saveAssetEdits(event, assetId, originalServiceTeam) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submitButton = form.querySelector(".asset-edit-save");
+    const errorElement = form.querySelector("#assetEditError");
+    const data = new FormData(form);
+    const payload = Object.fromEntries(data.entries());
+    payload.service_team = payload.service_team || originalServiceTeam;
+    payload.calibration_required = form.elements.calibration_required.checked;
+
+    try {
+        submitButton.disabled = true;
+        submitButton.querySelector("span").textContent = "Saving...";
+        errorElement.textContent = "";
+
+        const response = await fetch(`/api/assets/${assetId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || "Asset could not be updated.");
+
+        document.getElementById("assetEditDialog")?.close();
+        await loadAssetDetails(assetId);
+        BioTrackToast.success("Asset updated", "The equipment details were saved successfully.");
+    } catch (error) {
+        console.error(error);
+        errorElement.textContent = error.message || "Asset could not be updated.";
+        BioTrackToast.error("Asset update failed", errorElement.textContent);
+    } finally {
+        submitButton.disabled = false;
+        submitButton.querySelector("span").textContent = "Save Changes";
+    }
+}
+
+;
+/* source: js/biomedical_dashboard.js */
+/* ==========================================================
+   BIOTRACK ENGINEER DASHBOARD
+   engineerDashboard.js
+========================================================== */
+/* ==========================================================
+   RENDER ENGINEER DASHBOARD
+========================================================== */
+function renderEngineerDashboard() {
+
+    console.log("Engineer Dashboard Rendered");
+
+    if (engineerRefreshTimer) {
+
+        clearInterval(engineerRefreshTimer);
+
+    }
+
+    const pageContent = document.getElementById("page-content");
+
+    pageContent.innerHTML = engineerDashboardView();
+
+    if (window.lucide) {
+
+        lucide.createIcons();
+
+    }
+
+    startEngineerDashboard();
+
+}
+
+function renderElectricalDashboard() {
+
+    renderEngineerDashboard();
+
+}
+
+function renderITDashboard() {
+
+    renderEngineerDashboard();
+
+}
+/* ==========================================================
+   INITIALIZE
+========================================================== */
+
+async function initializeEngineerDashboard() {
+
+    initializeEngineerButtons();
+
+    await loadEngineerDashboard();
+
+    startEngineerAutoRefresh();
+
+}
+
+/* ==========================================================
+   DASHBOARD LOADER
+========================================================== */
+
+async function loadEngineerDashboard() {
+
+    try {
+
+        const response = await fetch("/api/engineer/dashboard");
+
+        if (!response.ok) {
+
+            throw new Error("Failed to load engineer dashboard.");
+
+        }
+
+        const data = await response.json();
+
+        updateEngineerKPIs(data);
+
+        renderAssignedCalls(data.assigned || []);
+
+        renderEquipmentStatus(data);
+
+        renderActivityFeed(Array.isArray(data.activity) ? data.activity : []);
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+    }
+
+}
+
+/* ==========================================================
+   KPI CARDS
+========================================================== */
+
+function updateEngineerKPIs(data) {
+
+    setEngineerValue(
+        "assignedCalls",
+        data.assigned_calls
+    );
+
+    setEngineerValue(
+        "progressCalls",
+        data.in_progress
+    );
+
+    setEngineerValue(
+        "criticalCalls",
+        data.critical_calls
+    );
+
+    setEngineerValue(
+        "completedCalls",
+        data.completed_today
+    );
+
+}
+
+function setEngineerValue(id, value) {
+
+    const element = document.getElementById(id);
+
+    if (element) {
+
+        element.textContent = value ?? 0;
+
+    }
+
+}
+
+/* ==========================================================
+   BUTTONS
+========================================================== */
+
+function initializeEngineerButtons() {
+
+    document
+
+        .querySelectorAll(".quick-actions button")
+
+        .forEach(button => {
+
+            button.addEventListener(
+
+                "click",
+
+                createEngineerRipple
+
+            );
+
+        });
+
+}
+
+/* ==========================================================
+   RIPPLE EFFECT
+========================================================== */
+
+function createEngineerRipple(event) {
+
+    const button = event.currentTarget;
+
+    const ripple = document.createElement("span");
+
+    const size = Math.max(
+
+        button.clientWidth,
+
+        button.clientHeight
+
+    );
+
+    const rect = button.getBoundingClientRect();
+
+    ripple.className = "reports-ripple";
+
+    ripple.style.width = size + "px";
+
+    ripple.style.height = size + "px";
+
+    ripple.style.left =
+
+        event.clientX -
+
+        rect.left -
+
+        size / 2 +
+
+        "px";
+
+    ripple.style.top =
+
+        event.clientY -
+
+        rect.top -
+
+        size / 2 +
+
+        "px";
+
+    button.appendChild(ripple);
+
+    setTimeout(() => {
+
+        ripple.remove();
+
+    }, 600);
+
+}
+
+/* ==========================================================
+   AUTO REFRESH
+========================================================== */
+
+let engineerRefreshTimer = null;
+
+function startEngineerAutoRefresh() {
+
+    if (engineerRefreshTimer) {
+
+        clearInterval(engineerRefreshTimer);
+
+    }
+
+    engineerRefreshTimer = setInterval(
+
+        loadEngineerDashboard,
+
+        10000
+
+    );
+
+}
+/* ==========================================================
+   ASSIGNED CALLS
+========================================================== */
+
+function renderAssignedCalls(calls) {
+
+    const container =
+        document.getElementById("assignedList");
+
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    if (calls.length === 0) {
+
+        container.innerHTML = `
+
+            <div class="loading-card">
+
+                No maintenance calls assigned.
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+    calls.forEach(call => {
+
+        container.innerHTML += `
+
+            <div class="call-card ${engineerClassToken(call.priority)}">
+
+                <div class="call-header">
+
+                    <div>
+
+                        <h3>${escapeHTML(call.ticket)}</h3>
+
+                        <small>${escapeHTML(call.department)}</small>
+
+                    </div>
+
+                    <span class="priority ${engineerClassToken(call.priority)}">
+
+                        ${escapeHTML(call.priority)}
+
+                    </span>
+
+                </div>
+
+                <div class="call-grid">
+
+                    <div>
+
+                        <label>Equipment</label>
+
+                        <strong>${escapeHTML(call.equipment)}</strong>
+
+                    </div>
+
+                    <div>
+
+                        <label>Equipment ID</label>
+
+                        <strong>${escapeHTML(call.equipment_id)}</strong>
+
+                    </div>
+
+                    <div>
+
+                        <label>Status</label>
+
+                        <strong>${escapeHTML(call.status)}</strong>
+
+                    </div>
+
+                    <div>
+
+                        <label>Reported</label>
+
+                        <strong>${escapeHTML(call.reported_time)}</strong>
+
+                    </div>
+
+                </div>
+
+                <p class="call-description">
+                    <strong>${escapeHTML(call.issue || "Maintenance issue")}:</strong>
+                    ${escapeHTML(call.description || "No description provided.")}
+                </p>
+
+                <div class="call-actions">
+
+                    <button
+                        class="primary-btn"
+                        onclick="openEngineerTicket(${Number(call.id)})">
+
+                        Open Ticket
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        `;
+
+    });
+
+    if (window.lucide) {
+
+        lucide.createIcons();
+
+    }
+
+}
+
+function engineerClassToken(value) {
+    return String(value || "normal").toLowerCase().replaceAll(/[^a-z0-9]+/g, "-");
+}
+
+/* ==========================================================
+   EQUIPMENT STATUS
+========================================================== */
+
+function renderEquipmentStatus(data) {
+
+    setEngineerValue(
+
+        "onlineEquipment",
+
+        data.online_equipment
+
+    );
+
+    setEngineerValue(
+
+        "offlineEquipment",
+
+        data.offline_equipment
+
+    );
+
+    setEngineerValue(
+
+        "pmDueToday",
+
+        data.pm_due_today
+
+    );
+
+}
+
+/* ==========================================================
+   ACTIVITY FEED
+========================================================== */
+
+function renderActivityFeed(activity) {
+
+    const feed =
+        document.getElementById("activityFeed");
+
+    if (!feed) return;
+
+    feed.innerHTML = "";
+
+    if (!activity || activity.length === 0) {
+
+        feed.innerHTML = `
+
+            <p>No activity available.</p>
+
+        `;
+
+        return;
+
+    }
+
+    activity.forEach(item => {
+
+        feed.innerHTML += `
+
+            <div class="activity-item">
+
+                <strong>${escapeHTML(item.title)}</strong>
+
+                <small>${escapeHTML(item.time)}</small>
+
+            </div>
+
+        `;
+
+    });
+
+}
+
+/* ==========================================================
+   OPEN TICKET
+========================================================== */
+
+function openEngineerTicket(id) {
+
+    localStorage.setItem(
+
+        "selectedTicket",
+
+        id
+
+    );
+
+    navigate("ticket");
+
+}
+
+function navigateToEngineerHome() {
+
+    navigate(
+        (localStorage.getItem("role") || "").toLowerCase() === "electrical"
+            ? "electricalDashboard"
+            : (localStorage.getItem("role") || "").toLowerCase() === "it"
+                ? "itDashboard"
+                : "engineerDashboard"
+    );
+
+}
+
+/* ==========================================================
+   MODULE STARTUP
+========================================================== */
+
+async function startEngineerDashboard() {
+
+    await initializeEngineerDashboard();
+
+}
+
+window.startEngineerDashboard =
+    startEngineerDashboard;
+window.renderElectricalDashboard = renderElectricalDashboard;
+window.renderITDashboard = renderITDashboard;
+window.navigateToEngineerHome = navigateToEngineerHome;
+
+;
+/* source: dashboard_v2/js/router.js */
+// ==========================================
+// PAGE CONTENT
+// ==========================================
+
+const pageContent = document.getElementById("page-content");
+
+function normalizeDashboardRole(value) {
+    const role = String(value || "").trim().toLowerCase();
+    if (role === "manager") return "admin";
+    if (role === "bme") return "engineer";
+    return role;
+}
+
+const ROLE_HOME_PAGES = {
+    admin: "dashboard",
+    engineer: "engineerDashboard",
+    electrical: "electricalDashboard",
+    it: "itDashboard",
+    user: "userDashboard",
+    wardboy: "wardBoyDashboard",
+};
+
+const ROLE_PAGE_ACCESS = {
+    admin: new Set(["dashboard", "ticket", "callManagement", "callAssignment", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "pm", "reports", "users", "qr", "qrAssetProfile", "settings"]),
+    engineer: new Set(["engineerDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "pm", "reports", "qr", "qrAssetProfile", "settings"]),
+    electrical: new Set(["electricalDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "qrAssetProfile", "settings"]),
+    it: new Set(["itDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "qrAssetProfile", "settings"]),
+    user: new Set(["userDashboard", "newRequest", "myRequests", "myAssets", "assetDetails", "departmentPMSchedule", "requestDetails", "qr", "qrAssetProfile", "settings"]),
+    wardboy: new Set(["wardBoyDashboard", "settings"]),
+};
+// ==========================================
+// CURRENT SELECTED ASSET
+// ==========================================
+
+let currentAssetId = null;
+let currentQRAssetId = null;
+
+// ==========================================
+// PAGE REGISTRY
+// ==========================================
+
+const Pages = {
+
+    // Administrator
+    dashboard: renderDashboard,
+    ticket: renderTicket,
+    
+    // Department User
+    // Department User
+    userDashboard: renderUserDashboard,
+    wardBoyDashboard: renderWardBoyDashboard,
+    newRequest: renderNewRequest,
+    myRequests: renderMyRequests,
+    myAssets: renderMyAssets,
+    departmentPMSchedule: renderDepartmentPMSchedule,
+    requestDetails: renderRequestDetails,
+    
+    // Biomedical Engineer
+    engineerDashboard: renderEngineerDashboard,
+    electricalDashboard: renderElectricalDashboard,
+    itDashboard: renderITDashboard,
+    callManagement: renderMaintenance,
+    // Admin
+    callAssignment: renderMaintenance,
+
+    maintenance: renderMaintenanceModule,
+    assets: renderAssets,
+    assetForm: renderAssetForm,
+    assetDetails: renderAssetDetails,
+    inventory: renderInventory,
+    pm: renderPM,
+    reports: renderReports,
+    ai: renderAI,
+    users: renderUsers,
+    qr: renderQRScannerModule,
+    qrAssetProfile: renderQRAssetProfile,
+    settings: renderSettings
+
+};
+
+// ==========================================
+// NAVIGATE
+// ==========================================
+
+function navigate(page) {
+    const role = normalizeDashboardRole(localStorage.getItem("role"));
+    const allowedPages = ROLE_PAGE_ACCESS[role];
+
+    if (page !== "wardBoyDashboard" && typeof cleanupWardBoyDashboard === "function") cleanupWardBoyDashboard();
+
+    if (!allowedPages || !allowedPages.has(page)) {
+        const homePage = ROLE_HOME_PAGES[role];
+        console.warn(`Blocked navigation to ${page} for role ${role || "unknown"}.`);
+        if (!homePage) {
+            window.location.href = "/";
+            return;
+        }
+        if (page !== homePage && Pages[homePage]) navigate(homePage);
+        return;
+    }
+
+    if (
+        page !== "qr"
+        && typeof isQRScannerActive === "function"
+        && isQRScannerActive()
+        && typeof closeQRScanner === "function"
+    ) {
+        void closeQRScanner();
+    }
+
+    if (page !== "inventory") {
+        if (typeof closeInventoryModal === "function") closeInventoryModal();
+        if (typeof closeInventoryDeleteDialog === "function") closeInventoryDeleteDialog();
+    }
+
+    if (page !== "assets" && typeof closeAssetManagementDialog === "function") {
+        closeAssetManagementDialog();
+    }
+
+    if (!["assets", "myAssets"].includes(page) && typeof closeAssetRelocationDialog === "function") {
+        closeAssetRelocationDialog();
+    }
+
+    if (page !== "reports" && typeof cleanupReportsSchedules === "function") {
+        cleanupReportsSchedules();
+    }
+
+    // Check page exists
+    if (!Pages[page]) {
+
+        console.error("Page not found:", page);
+        return;
+
+    }
+
+    // Sidebar Active State
+    document.querySelectorAll(".nav-item").forEach(item => {
+
+        item.classList.remove("active");
+
+    });
+
+    const activeItem = document.querySelector(`[data-page="${page}"]`);
+
+    if (activeItem) {
+
+        activeItem.classList.add("active");
+
+    }
+
+    // Render selected page
+    // Render selected page
+
+    console.log("Navigating to:", page);
+
+    Pages[page]();
+
+    if (page === "qr" && typeof openQRScanner === "function") {
+        window.setTimeout(openQRScanner, 0);
+    }
+
+    // Refresh Lucide icons for dynamically rendered pages
+    if (window.lucide) {
+
+        lucide.createIcons();
+
+    }
+
+}
+
+// ==========================================
+// SIDEBAR EVENTS
+// ==========================================
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+    if (typeof validateDashboardSession === "function") {
+        const sessionIsValid = await validateDashboardSession();
+        if (!sessionIsValid) return;
+    }
+
+    const role = normalizeDashboardRole(localStorage.getItem("role"));
+    const homePage = ROLE_HOME_PAGES[role];
+    if (!homePage) {
+        window.location.href = "/";
+        return;
+    }
+    const requestedPage = new URLSearchParams(window.location.search).get("page");
+    navigate(requestedPage && ROLE_PAGE_ACCESS[role].has(requestedPage) ? requestedPage : homePage);
+
+    // Sidebar navigation
+    document.querySelectorAll(".nav-item").forEach(item => {
+
+        item.addEventListener("click", function (e) {
+
+            e.preventDefault();
+
+            const page = this.dataset.page;
+
+            if (page) {
+
+                navigate(page);
+
+            }
+
+        });
+
+    });
+
+});
+// ==========================================
+// OPEN ASSET DETAILS
+// ==========================================
+
+function openAssetPage(assetId) {
+
+    currentAssetId = assetId;
+
+    navigate("assetDetails");
+
+}
+
+function openQRAssetProfile(assetId) {
+    currentQRAssetId = Number(assetId);
+    navigate("qrAssetProfile");
+}
+
+;
+/* source: dashboard_v2/js/new_request.js */
+// ==========================================
+// NEW REQUEST PAGE
+// Dashboard V2
+// ==========================================
+
+// ==========================================
+// INITIALIZE PAGE
+// ==========================================
+
+function initializeNewRequest() {
+
+    initializeResetButton();
+
+    initializeDepartmentDropdown();
+
+    initializeRequesterFields();
+
+    applyQRMaintenancePrefill();
+
+    initializeSubmitButton();
+
+    initializeModalButtons();
+
+    initializeNavigation();
+
+}
+
+function initializeRequesterFields() {
+    const department = document.getElementById("departmentSearch");
+    const reportedBy = document.getElementById("reportedBy");
+    const role = (localStorage.getItem("role") || "").toLowerCase();
+    const assignedDepartment = (localStorage.getItem("department") || "").trim();
+    const requesterName = (localStorage.getItem("name") || localStorage.getItem("username") || "").trim();
+
+    if (department && assignedDepartment && role === "user") {
+        department.value = assignedDepartment;
+        department.readOnly = true;
+    }
+    if (reportedBy && requesterName) {
+        reportedBy.value = requesterName;
+        reportedBy.readOnly = true;
+    }
+}
+
+function getQRMaintenancePrefill() {
+    try {
+        return JSON.parse(sessionStorage.getItem("qrMaintenancePrefill") || "null");
+    } catch (error) {
+        console.warn("Unable to read QR maintenance prefill", error);
+        sessionStorage.removeItem("qrMaintenancePrefill");
+        return null;
+    }
+}
+
+function applyQRMaintenancePrefill() {
+    const prefill = getQRMaintenancePrefill();
+    if (!prefill) return;
+
+    const values = {
+        departmentSearch: prefill.department,
+        locationRoom: prefill.location,
+        equipmentIdentifier: prefill.equipment_identifier,
+        equipmentName: prefill.equipment_name,
+        makeModel: prefill.make_model,
+        serviceTeam: prefill.service_team,
+    };
+
+    const lockableFields = new Set([
+        "departmentSearch",
+        "locationRoom",
+        "equipmentIdentifier",
+        "equipmentName",
+        "makeModel",
+    ]);
+
+    Object.entries(values).forEach(([id, value]) => {
+        const field = document.getElementById(id);
+        if (!field) return;
+
+        const suppliedValue = String(value ?? "").trim();
+        if (suppliedValue) field.value = suppliedValue;
+        field.classList.remove("input-error");
+
+        if (!lockableFields.has(id)) return;
+        const isDepartmentAccountField = id === "departmentSearch"
+            && (localStorage.getItem("role") || "").toLowerCase() === "user";
+        field.readOnly = Boolean(suppliedValue) || isDepartmentAccountField;
+        field.classList.toggle("qr-prefill-locked", field.readOnly);
+        field.classList.toggle("qr-prefill-missing", !field.readOnly);
+
+        const existingHint = field.parentElement?.querySelector(".qr-missing-field-hint");
+        if (existingHint) existingHint.remove();
+        if (!field.readOnly) {
+            const hint = document.createElement("small");
+            hint.className = "qr-missing-field-hint";
+            hint.textContent = "Not stored on this asset — please add it.";
+            field.insertAdjacentElement("afterend", hint);
+        }
+    });
+
+    const serviceTeam = document.getElementById("serviceTeam");
+    if (serviceTeam) {
+        const hasServiceTeam = ["Biomedical", "Electrical", "IT"].includes(prefill.service_team);
+        serviceTeam.disabled = hasServiceTeam;
+        serviceTeam.classList.toggle("qr-prefill-locked", hasServiceTeam);
+        serviceTeam.classList.toggle("qr-prefill-missing", !hasServiceTeam);
+        const existingHint = serviceTeam.parentElement?.querySelector(".qr-missing-field-hint");
+        if (existingHint) existingHint.remove();
+        if (!hasServiceTeam) {
+            const hint = document.createElement("small");
+            hint.className = "qr-missing-field-hint";
+            hint.textContent = "No service team is stored — please select one.";
+            serviceTeam.insertAdjacentElement("afterend", hint);
+        }
+    }
+
+    const problemCategory = document.getElementById("problemCategory");
+    if (problemCategory && !problemCategory.value) problemCategory.value = "Breakdown";
+
+    const page = document.querySelector(".page-container");
+    if (page && !document.getElementById("qrRequestPrefillBanner")) {
+        const banner = document.createElement("div");
+        banner.id = "qrRequestPrefillBanner";
+        banner.className = "qr-request-prefill-banner";
+        banner.innerHTML = '<span aria-hidden="true">✓</span><div><strong>Equipment added from QR scan</strong><p>Recorded equipment values are locked. Missing values are highlighted and can be added before you submit; the failure description is optional.</p></div>';
+        page.querySelector(".page-header")?.insertAdjacentElement("afterend", banner);
+    }
+}
+
+// ==========================================
+// RESET BUTTON
+// ==========================================
+
+function initializeResetButton() {
+
+    const resetButton =
+        document.querySelector(".clear-btn");
+
+    if (!resetButton) return;
+
+    resetButton.addEventListener("click", clearForm);
+
+}
+
+// ==========================================
+// CLEAR FORM
+// ==========================================
+
+function clearForm() {
+
+    document
+        .querySelectorAll("input:not([readonly]), textarea")
+        .forEach(field => {
+
+            if (field.type === "checkbox") field.checked = false;
+            else field.value = "";
+
+            field.classList.remove("input-error");
+
+        });
+
+    document
+        .querySelectorAll("select")
+        .forEach(select => {
+
+            select.selectedIndex = 0;
+
+        });
+
+    const departmentList =
+        document.getElementById("departmentList");
+
+    if (departmentList) {
+
+        departmentList.classList.remove("show");
+
+    }
+
+    showRequestToast(
+        "Form Cleared Successfully",
+        "success"
+    );
+
+    applyQRMaintenancePrefill();
+
+}
+
+// ==========================================
+// DEPARTMENT DROPDOWN
+// ==========================================
+
+function initializeDepartmentDropdown() {
+
+    const searchInput =
+        document.getElementById("departmentSearch");
+
+    const dropdown =
+        document.getElementById("departmentList");
+
+    if (!searchInput || !dropdown) return;
+
+    const items =
+        document.querySelectorAll(".department-item");
+
+    searchInput.addEventListener("focus", () => {
+
+        dropdown.classList.add("show");
+
+    });
+
+    searchInput.addEventListener("input", () => {
+
+        const value =
+            searchInput.value.toLowerCase();
+
+        items.forEach(item => {
+
+            item.style.display =
+                item.textContent
+                    .toLowerCase()
+                    .includes(value)
+                    ? "block"
+                    : "none";
+
+        });
+
+        dropdown.classList.add("show");
+
+    });
+
+    items.forEach(item => {
+
+        item.addEventListener("click", () => {
+
+            searchInput.value =
+                item.textContent;
+
+            dropdown.classList.remove("show");
+
+        });
+
+    });
+
+    document.addEventListener("click", e => {
+
+        if (!e.target.closest(".searchable-dropdown")) {
+
+            dropdown.classList.remove("show");
+
+        }
+
+    });
+
+}
+
+// ==========================================
+// FORM VALIDATION
+// ==========================================
+
+function validateForm() {
+
+    const fields = [
+
+        "departmentSearch",
+
+        "locationRoom",
+
+        "reportedBy",
+
+        "equipmentIdentifier",
+
+        "equipmentName",
+
+        "problemCategory",
+
+        "serviceTeam" // Biomedical Engineering, Electrical Engineering, or IT
+
+    ];
+
+    let valid = true;
+
+    fields.forEach(id => {
+
+        const field =
+            document.getElementById(id);
+
+        if (!field) return;
+
+        field.classList.remove("input-error");
+
+        if (!field.value.trim()) {
+
+            field.classList.add("input-error");
+
+            valid = false;
+
+        }
+
+    });
+
+    return valid;
+
+}
+
+// ==========================================
+// SUBMIT BUTTON
+// ==========================================
+
+function initializeSubmitButton() {
+
+    const submitButton =
+        document.getElementById("submitRequestBtn");
+
+    if (!submitButton) return;
+
+    // Prevent duplicate event listeners
+    submitButton.replaceWith(submitButton.cloneNode(true));
+
+    const newButton =
+        document.getElementById("submitRequestBtn");
+
+    newButton.addEventListener("click", submitRequest);
+
+}
+
+// ==========================================
+// SUBMIT REQUEST
+// ==========================================
+
+async function submitRequest() {
+
+    if (!validateForm()) {
+
+        showRequestToast(
+            "Please complete all required fields",
+            "error"
+        );
+
+        return;
+
+    }
+
+    try {
+
+        const response = await fetch("/api/requests", {
+
+            method: "POST",
+
+            headers: {
+
+                "Content-Type": "application/json"
+
+            },
+
+            body: JSON.stringify({
+
+                department:
+                    document.getElementById("departmentSearch").value,
+
+                location:
+                    document.getElementById("locationRoom").value,
+
+                reported_by:
+                    document.getElementById("reportedBy").value,
+
+                // ==========================================
+                // REQUEST OWNER
+                // ==========================================
+
+                created_by:
+                    localStorage.getItem("username"),
+
+                created_by_role:
+                    localStorage.getItem("role"),
+
+                equipment_identifier:
+                    document.getElementById("equipmentIdentifier").value,
+
+                equipment_name:
+                    document.getElementById("equipmentName").value,
+
+                make_model:
+                    document.getElementById("makeModel").value,
+
+                priority:
+                    document.getElementById("priority").value,
+
+                problem_category:
+                    document.getElementById("problemCategory").value,
+
+                service_team:
+                    document.getElementById("serviceTeam").value,
+
+                failure_description:
+                    document.getElementById("failureDescription").value,
+
+                request_ward_boy_pickup:
+                    Boolean(document.getElementById("wardBoyAssistance")?.checked)
+
+            })
+
+        });
+
+        const data = await response.json();
+
+        if (response.status === 401 && typeof expireDashboardSession === "function") {
+
+            await expireDashboardSession(data.detail);
+
+            return;
+
+        }
+
+        if (!response.ok) {
+
+            throw new Error(data.detail || "Unable to save request");
+
+        }
+
+        // ==========================================
+        // SUCCESS MODAL
+        // ==========================================
+        console.log("showSuccess =", typeof showSuccess);
+        console.log("Submitting completed");
+        showSuccess({
+
+            title: "Request Submitted",
+
+            message: data.ward_boy_pickup_requested
+                ? `Your maintenance request (${data.ticket_number}) was submitted and a Ward Boy pickup job is now available.`
+                : `Your maintenance request (${data.ticket_number}) has been submitted successfully.`,
+
+            buttonText: "Create Another Request",
+
+            onClose() {
+
+                sessionStorage.removeItem("qrMaintenancePrefill");
+
+                document.getElementById("qrRequestPrefillBanner")?.remove();
+
+                ["locationRoom", "equipmentIdentifier", "equipmentName", "makeModel"]
+                    .forEach(id => {
+                        const field = document.getElementById(id);
+                        if (field) field.readOnly = false;
+                    });
+
+                const serviceTeam = document.getElementById("serviceTeam");
+                if (serviceTeam) serviceTeam.disabled = false;
+
+                clearForm();
+
+                const firstField =
+                    document.getElementById("departmentSearch");
+
+                if (firstField) {
+
+                    firstField.focus();
+
+                }
+
+            }
+
+        });
+
+        
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        showRequestToast(
+
+            error.message,
+
+            "error"
+
+        );
+
+    }
+
+}
+
+
+
+function initializeModalButtons() {
+
+    // Global success modal handles its own closing.
+    // No page-specific modal logic is required.
+
+}
+
+// ==========================================
+// NAVIGATION
+// ==========================================
+
+function initializeNavigation() {
+
+    // Navigation is now handled through callbacks passed to
+    // showSuccess() when required.
+
+}
+// ==========================================
+// TOAST
+// ==========================================
+
+function showRequestToast(message, type = "success") {
+    const title = type === "success" ? "Request updated" : "Request needs attention";
+    BioTrackToast.show({ title, message, type });
+}
+
+;
+/* source: dashboard_v2/js/clock.js */
+// ==========================================
+// BIOTRACK V2 CLOCK
+// ==========================================
+
+function updateClock() {
+
+    const now = new Date();
+
+    const date = `${now.toLocaleDateString("en-IN", { weekday: "long" })}, ${formatPreferredDate(now)}`;
+    const time = now.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: (localStorage.getItem("timeFormat") || "24 Hour") === "12 Hour",
+    });
+
+    const currentDate = document.getElementById("currentDate");
+    const currentTime = document.getElementById("currentTime");
+
+    // Prevent errors on pages that don't have a clock
+    if (currentDate) {
+        currentDate.textContent = date;
+    }
+
+    if (currentTime) {
+        currentTime.textContent = time;
+    }
+
+}
+
+function formatPreferredDate(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    const format = localStorage.getItem("dateFormat") || "DD/MM/YYYY";
+    if (format === "MM/DD/YYYY") return `${month}/${day}/${year}`;
+    if (format === "YYYY-MM-DD") return `${year}-${month}-${day}`;
+    return `${day}/${month}/${year}`;
+}
+
+updateClock();
+
+setInterval(updateClock, 1000);
+
+
+/* ==========================================
+   DATE & TIME FORMATTERS
+========================================== */
+
+/**
+ * Example:
+ * 14 Jul 2026, 07:56 PM
+ */
+function formatDateTime(dateString) {
+
+    if (!dateString) return "-";
+
+    const date = new Date(dateString);
+
+    return `${formatPreferredDate(date)}, ${date.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: (localStorage.getItem("timeFormat") || "24 Hour") === "12 Hour",
+    })}`;
+
+}
+
+
+/**
+ * Example:
+ * 14 Jul 2026
+ */
+function formatDate(dateString) {
+
+    if (!dateString) return "-";
+
+    const date = new Date(dateString);
+
+    return formatPreferredDate(date);
+
+}
+
+
+/**
+ * Example:
+ * 07:56 PM
+ */
+function formatTime(dateString) {
+
+    if (!dateString) return "-";
+
+    const date = new Date(dateString);
+
+    return date.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: (localStorage.getItem("timeFormat") || "24 Hour") === "12 Hour",
+    });
+
+}
+
+document.addEventListener("biotrack:preferences-changed", updateClock);
+
+;
+/* source: dashboard_v2/js/assets_details.js */
+// ==========================================
+// OPEN ASSET DRAWER
+// ==========================================
+
+function openAssetDrawer(asset) {
+
+    closeAssetDrawer();
+
+    document.body.insertAdjacentHTML(
+
+        "beforeend",
+
+        `
+        <div id="assetDrawerOverlay" class="asset-overlay">
+
+            <div id="assetDrawer" class="asset-drawer">
+
+                <!-- ===================================== -->
+                <!-- HEADER -->
+                <!-- ===================================== -->
+
+                <div class="drawer-header">
+
+                    <div>
+
+                        <h2>${asset.equipment_name || "-"}</h2>
+
+                        <p class="drawer-subtitle">
+
+                            Asset Code :
+                            <strong>${asset.asset_code || "-"}</strong>
+
+                        </p>
+
+                    </div>
+
+                    <button
+                        id="closeDrawerBtn"
+                        class="drawer-close">
+
+                        ✕
+
+                    </button>
+
+                </div>
+
+
+                <!-- ===================================== -->
+                <!-- BODY -->
+                <!-- ===================================== -->
+
+                <div class="drawer-body">
+
+                    <!-- Equipment Image -->
+
+                    <div class="asset-image">
+
+                        🏥
+
+                    </div>
+
+
+                    <!-- ===================================== -->
+                    <!-- GENERAL INFORMATION -->
+                    <!-- ===================================== -->
+
+                    <!-- ===================================== -->
+                    <!-- GENERAL INFORMATION -->
+                    <!-- ===================================== -->
+
+                    <div class="drawer-section">
+
+                        <div class="section-header">
+
+                            <h3>General Information</h3>
+
+                        </div>
+
+                        <div class="asset-info">
+
+                            <div class="info-card">
+
+                                <label>Equipment No</label>
+
+                                <h4>${asset.equipment_no || "-"}</h4>
+
+                            </div>
+
+                            <div class="info-card">
+
+                                <label>Equipment Name</label>
+
+                                <h4>${asset.equipment_name || "-"}</h4>
+
+                            </div>
+
+                            <div class="info-card">
+
+                                <label>Manufacturer</label>
+
+                                <h4>${asset.manufacturer || "-"}</h4>
+
+                            </div>
+
+                            <div class="info-card">
+
+                                <label>Model</label>
+
+                                <h4>${asset.model || "-"}</h4>
+
+                            </div>
+
+                            <div class="info-card">
+
+                                <label>Department</label>
+
+                                <h4>${asset.department || "-"}</h4>
+
+                            </div>
+
+                            <div class="info-card">
+
+                                <label>Status</label>
+
+                                <span class="status-badge">
+
+                                    ${asset.status || "-"}
+
+                                </span>
+
+                            </div>
+
+                            <div class="info-card">
+
+                                <label>Serial Number</label>
+
+                                <h4>${asset.serial_number || "-"}</h4>
+
+                            </div>
+
+                            <div class="info-card">
+
+                                <label>Asset Code</label>
+
+                                <h4>${asset.asset_code || "-"}</h4>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+        <!-- ===================================== -->
+        <!-- PURCHASE & WARRANTY -->
+        <!-- ===================================== -->
+
+        <div class="drawer-section">
+
+            <div class="section-header">
+
+                <h3>Purchase & Warranty</h3>
+
+            </div>
+
+            <div class="asset-info">
+
+                <div class="info-card">
+
+                    <label>Purchase Date</label>
+
+                    <h4>${asset.purchase_date || "-"}</h4>
+
+                </div>
+
+                <div class="info-card">
+
+                    <label>Installation Date</label>
+
+                    <h4>${asset.installation_date || "-"}</h4>
+
+                </div>
+
+                <div class="info-card">
+
+                    <label>Purchase Value</label>
+
+                    <h4>₹ ${asset.purchase_value ?? "-"}</h4>
+
+                </div>
+
+                <div class="info-card">
+
+                    <label>Tax Amount</label>
+
+                    <h4>₹ ${asset.tax_amount ?? "-"}</h4>
+
+                </div>
+
+                <div class="info-card">
+
+                    <label>Net Value</label>
+
+                    <h4>₹ ${asset.net_value ?? "-"}</h4>
+
+                </div>
+
+                <div class="info-card">
+
+                    <label>Warranty</label>
+
+                    <h4>${asset.warranty || "-"}</h4>
+
+                </div>
+
+                <div class="info-card">
+
+                    <label>Supplier</label>
+
+                    <h4>${asset.supplier || "-"}</h4>
+
+                </div>
+
+                <div class="info-card">
+
+                    <label>Maintained By</label>
+
+                    <h4>${asset.maintained_by || "-"}</h4>
+
+                </div>
+
+            </div>
+
+        </div>
+        `
+
+    );
+    
+
+    const overlay = document.getElementById("assetDrawerOverlay");
+    const drawer = document.getElementById("assetDrawer");
+
+    requestAnimationFrame(() => {
+
+        overlay.classList.add("show");
+        drawer.classList.add("show");
+
+    });
+
+    document
+        .getElementById("closeDrawerBtn")
+        .addEventListener("click", closeAssetDrawer);
+
+}
+
+// ==========================================
+// CLOSE DRAWER
+// ==========================================
+
+function closeAssetDrawer() {
+
+    const overlay = document.getElementById("assetDrawerOverlay");
+    const drawer = document.getElementById("assetDrawer");
+
+    if (!overlay || !drawer) return;
+
+    overlay.classList.remove("show");
+    drawer.classList.remove("show");
+
+    setTimeout(() => {
+
+        overlay.remove();
+
+    }, 350);
+
+}
+
+
+// ==========================================
+// GLOBAL
+// ==========================================
+
+window.openAssetDrawer = openAssetDrawer;
+window.closeAssetDrawer = closeAssetDrawer;
+;
+/* source: dashboard_v2/js/qr_scanner.js */
+// ==========================================
+// QR SCANNER
+// ==========================================
+
+let html5QrScanner = null;
+let qrScannerStarting = false;
+let qrResultHandled = false;
+let qrScannerSessionId = 0;
+let qrScannerCloseRequested = false;
+
+function setQRScannerStatus(message, isError = false) {
+    const status = document.getElementById("qrScannerStatus");
+    if (!status) return;
+    status.textContent = message;
+    status.classList.toggle("is-error", isError);
+}
+
+// Open the device camera immediately. The browser will show its native
+// permission prompt the first time a user scans on a device.
+async function openQRScanner() {
+    if (document.querySelector(".qr-scanner-overlay") || qrScannerStarting) return;
+
+    const sessionId = ++qrScannerSessionId;
+    qrScannerCloseRequested = false;
+
+    const modal = document.createElement("div");
+    modal.className = "qr-scanner-overlay";
+    modal.innerHTML = `
+        <div class="qr-scanner-modal" role="dialog" aria-modal="true" aria-labelledby="qrScannerTitle">
+            <div class="qr-scanner-header">
+                <h2 id="qrScannerTitle">Scan Equipment QR</h2>
+                <button id="closeScannerBtn" type="button" aria-label="Close scanner">✕</button>
+            </div>
+            <div class="qr-scanner-body">
+                <div id="reader"></div>
+                <p class="scanner-note" id="qrScannerStatus" role="status">Starting your camera…</p>
+            </div>
+            <div class="qr-scanner-footer">
+                <button id="stopScannerBtn" type="button" class="scanner-stop-btn">Close Scanner</button>
+            </div>
+        </div>`;
+
+    document.body.appendChild(modal);
+    document.getElementById("closeScannerBtn").onclick = closeQRScanner;
+    document.getElementById("stopScannerBtn").onclick = closeQRScanner;
+    modal.addEventListener("click", event => {
+        if (event.target === modal) closeQRScanner();
+    });
+
+    if (typeof Html5Qrcode === "undefined") {
+        setQRScannerStatus("The camera scanner could not be loaded. Refresh the page and try again.", true);
+        return;
+    }
+
+    qrScannerStarting = true;
+    qrResultHandled = false;
+    const scanner = new Html5Qrcode("reader");
+    html5QrScanner = scanner;
+
+    try {
+        await scanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 260, height: 260 } },
+            onQRCodeDetected,
+            () => {}
+        );
+
+        if (qrScannerCloseRequested || sessionId !== qrScannerSessionId || !modal.isConnected) {
+            await stopQRScannerInstance(scanner, modal);
+            return;
+        }
+        setQRScannerStatus("Position the QR code inside the scanning frame.");
+    } catch (error) {
+        if (qrScannerCloseRequested || sessionId !== qrScannerSessionId) return;
+        console.error("Unable to start QR camera", error);
+        setQRScannerStatus(
+            "Camera access is unavailable. Allow camera permission in your browser, then open the scanner again.",
+            true
+        );
+    } finally {
+        if (sessionId === qrScannerSessionId) qrScannerStarting = false;
+    }
+}
+
+async function onQRCodeDetected(decodedText) {
+    if (qrResultHandled) return;
+    qrResultHandled = true;
+    setQRScannerStatus("QR code found. Opening the asset…");
+
+    try {
+        await closeQRScanner();
+        const response = await fetch(`/api/qr/lookup/${encodeURIComponent(decodedText)}`);
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || !result.success || !result.asset?.id) {
+            BioTrackToast.warning("Asset not found", result.detail || result.message || "No matching equipment record was found.");
+            return;
+        }
+
+        openQRAssetProfile(result.asset.id);
+    } catch (error) {
+        console.error(error);
+        BioTrackToast.error("Scan lookup failed", "Unable to locate this asset. Please try again.");
+    }
+}
+
+async function closeQRScanner() {
+    qrScannerCloseRequested = true;
+    qrScannerSessionId += 1;
+    const scanner = html5QrScanner;
+    html5QrScanner = null;
+    qrScannerStarting = false;
+    qrResultHandled = false;
+    const overlay = document.querySelector(".qr-scanner-overlay");
+
+    stopQRMediaTracks(overlay);
+    overlay?.remove();
+    await stopQRScannerInstance(scanner, overlay);
+}
+
+function stopQRMediaTracks(root = document) {
+    if (!root?.querySelectorAll) return;
+    root.querySelectorAll("video").forEach(video => {
+        const stream = video.srcObject;
+        if (stream?.getTracks) {
+            stream.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+        }
+    });
+}
+
+async function stopQRScannerInstance(scanner, root) {
+    stopQRMediaTracks(root);
+    if (!scanner) return;
+
+    try {
+        await scanner.stop();
+    } catch (_) {
+        // A pending permission request may not be stoppable until start resolves.
+    }
+    try {
+        scanner.clear();
+    } catch (_) {}
+    stopQRMediaTracks(root);
+}
+
+function isQRScannerActive() {
+    return Boolean(
+        html5QrScanner
+        || qrScannerStarting
+        || document.querySelector(".qr-scanner-overlay")
+    );
+}
+
+document.addEventListener("visibilitychange", () => {
+    if (document.hidden && isQRScannerActive()) void closeQRScanner();
+});
+window.addEventListener("pagehide", () => {
+    if (isQRScannerActive()) void closeQRScanner();
+});
+
+window.openQRScanner = openQRScanner;
+window.closeQRScanner = closeQRScanner;
+window.isQRScannerActive = isQRScannerActive;
+

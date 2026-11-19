@@ -7,11 +7,12 @@ const root = path.resolve(__dirname, "..");
 const read = relative => fs.readFileSync(path.join(root, relative), "utf8");
 
 test("dashboard loads the global toast service before module scripts", () => {
-    const dashboard = read("frontend/dashboard_v2/dashboard.html");
-    assert.match(dashboard, /css\/toast\.css/);
-    assert.match(dashboard, /js\/toast\.js/);
+    const styles = read("frontend/dashboard_v2/dist/dashboard.bundle.css");
+    const scripts = read("frontend/dashboard_v2/dist/dashboard.bundle.js");
+    assert.match(styles, /source: css\/toast\.css/);
+    assert.match(scripts, /source: js\/toast\.js/);
     assert.ok(
-        dashboard.indexOf("/static/js/toast.js") < dashboard.indexOf("/static/dashboard_v2/js/security.js"),
+        scripts.indexOf("source: js/toast.js") < scripts.indexOf("source: dashboard_v2/js/security.js"),
         "toast service must be available before feature modules execute",
     );
 });

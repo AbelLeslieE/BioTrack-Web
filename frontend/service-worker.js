@@ -1,4 +1,4 @@
-const CACHE_VERSION = "biotrack-shell-v27";
+const CACHE_VERSION = "biotrack-shell-v28";
 const OFFLINE_URL = "/offline";
 const PRECACHE_URLS = [
     OFFLINE_URL,
@@ -68,7 +68,8 @@ self.addEventListener("fetch", function (event) {
 
     if (url.pathname.startsWith("/static/") || url.pathname === "/manifest.webmanifest") {
         event.respondWith(
-            fetch(request, { cache: "no-cache" })
+            caches.match(request).then(function (cachedResponse) {
+                const networkResponse = fetch(request, { cache: "no-cache" })
                     .then(function (response) {
                         if (response.ok) {
                             const responseCopy = response.clone();
@@ -79,10 +80,10 @@ self.addEventListener("fetch", function (event) {
                         return response;
                     })
                     .catch(function () {
-                        return caches.match(request).then(function (cachedResponse) {
-                            return cachedResponse || Response.error();
-                        });
-                    })
+                        return cachedResponse || Response.error();
+                    });
+                return cachedResponse || networkResponse;
+            })
         );
     }
 });

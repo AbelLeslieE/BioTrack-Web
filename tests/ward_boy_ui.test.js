@@ -23,11 +23,11 @@ test("engineering tickets support pickup and post-repair return transport", () =
 test("Ward Boy portal is mobile responsive and exposes accept and delivery actions", () => {
     const source = read("frontend/dashboard_v2/views/wardBoyDashboardView.js");
     const styles = read("frontend/dashboard_v2/css/ward_boy.css");
-    const dashboard = read("frontend/dashboard_v2/dashboard.html");
+    const dashboardBundle = read("frontend/dashboard_v2/dist/dashboard.bundle.js");
     assert.match(source, /Accept job/);
     assert.match(source, /Mark delivered/);
     assert.match(styles, /@media \(max-width: (?:620|700)px\)/);
-    assert.match(dashboard, /wardBoyDashboardView\.js/);
+    assert.match(dashboardBundle, /source: dashboard_v2\/views\/wardBoyDashboardView\.js/);
 });
 
 test("administrators can create the Ward Boy login role", () => {
