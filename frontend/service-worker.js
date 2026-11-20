@@ -1,4 +1,4 @@
-const CACHE_VERSION = "biotrack-shell-v33";
+const CACHE_VERSION = "biotrack-shell-v34";
 const OFFLINE_URL = "/offline";
 const PRECACHE_URLS = [
     OFFLINE_URL,
@@ -97,12 +97,12 @@ self.addEventListener("notificationclick", function (event) {
     event.notification.close();
     const page = event.notification.data && event.notification.data.page;
     const targetUrl = page
-        ? `/dashboard_v2?page=${encodeURIComponent(page)}`
-        : "/dashboard_v2";
+        ? `/dashboard?page=${encodeURIComponent(page)}`
+        : "/dashboard";
     event.waitUntil(
         clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (windowClients) {
             const dashboardClient = windowClients.find(function (client) {
-                return new URL(client.url).pathname.startsWith("/dashboard_v2");
+                return ["/dashboard", "/dashboard_v2", "/dashboard-v2"].includes(new URL(client.url).pathname);
             });
             if (dashboardClient) {
                 dashboardClient.postMessage({ type: "BIOTRACK_NAVIGATE", page: page });

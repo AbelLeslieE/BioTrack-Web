@@ -38,6 +38,10 @@ REQUIRED_ROUTES = {
     "/api/central-store/requests",
     "/api/ward-boy/dashboard",
     "/api/security/audit",
+    "/api/auth/mfa/setup",
+    "/api/auth/mfa/enable",
+    "/api/auth/mfa/disable",
+    "/dashboard",
 }
 
 
@@ -102,6 +106,11 @@ def main() -> int:
     check("views/centralStoreView.js" in bundle, "Central Store portal is present in the dashboard bundle", failures)
     check("views/vendorsView.js" in bundle, "vendor contracts are present in the dashboard bundle", failures)
     check("uploadAssetDocument" in bundle, "asset document upload is present in the dashboard bundle", failures)
+    check(
+        all(path in bundle for path in ("/api/auth/mfa/setup", "/api/auth/mfa/enable", "/api/auth/mfa/disable")),
+        "optional MFA can be managed from account settings",
+        failures,
+    )
     check("X-CSRF-Token" in bundle, "dashboard unsafe requests carry CSRF protection", failures)
     security_middleware = (ROOT / "backend" / "security_middleware.py").read_text(encoding="utf-8")
     check(

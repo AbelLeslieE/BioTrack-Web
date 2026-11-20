@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, RedirectResponse
 
 from backend.auth import (
     cookie_secure,
@@ -53,6 +53,14 @@ def _csrf_error(detail: str) -> JSONResponse:
 class SecurityMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request.state.request_id = request.headers.get("x-request-id", "")[:64] or uuid4().hex
+
+        direct_dashboard_files = {
+            "/static/dashboard_v2/dashboard.html": "/dashboard",
+            "/static/dashboard_v2/maintenance.html": "/maintenance",
+            "/static/devices.html": "/devices",
+        }
+        if request.url.path in direct_dashboard_files:
+            return RedirectResponse(direct_dashboard_files[request.url.path], status_code=307)
 
         if (
             request.url.path.startswith("/api/")

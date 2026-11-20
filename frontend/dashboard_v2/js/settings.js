@@ -2,6 +2,8 @@
    BIOTRACK SETTINGS
    PART 3A
 ========================================================== */
+let settingsMfaEnabled = false;
+
 function initSettings() {
     initializeProfilePhoto();
 
@@ -79,6 +81,14 @@ async function loadProfileData() {
     if(roleText) roleText.textContent = profile.role || role;
 
     if(employee) employee.textContent = profile.department || department;
+
+    settingsMfaEnabled = Boolean(profile.mfa_enabled);
+    const mfaStatus = document.getElementById("mfaStatusText");
+    const mfaButton = document.getElementById("configureMfa");
+    if (mfaStatus) mfaStatus.textContent = settingsMfaEnabled
+        ? "Enabled · a code is required when you sign in."
+        : "Optional · currently disabled.";
+    if (mfaButton) mfaButton.firstChild.textContent = settingsMfaEnabled ? "Disable " : "Enable ";
 
 }
 
@@ -415,6 +425,9 @@ function initializeSecurity() {
     const sessions =
         document.getElementById("viewSessions");
 
+    const configureMfa =
+        document.getElementById("configureMfa");
+
     if (changePassword) {
 
         changePassword.addEventListener("click", openPasswordModal);
@@ -427,6 +440,104 @@ function initializeSecurity() {
 
     }
 
+    if (configureMfa) {
+        configureMfa.addEventListener("click", openMfaDialog);
+    }
+
+}
+
+async function openMfaDialog() {
+    try {
+        const profileResponse = await fetch("/api/auth/me", { cache: "no-store" });
+        const profile = await profileResponse.json().catch(() => ({}));
+        if (!profileResponse.ok) throw new Error(profile.detail || "Unable to load MFA status.");
+        settingsMfaEnabled = Boolean(profile.mfa_enabled);
+    } catch (error) {
+        showToast("Authenticator", error.message, "fa-circle-exclamation");
+        return;
+    }
+
+    const overlay = document.createElement("div");
+    overlay.className = "profile-edit-overlay";
+    overlay.innerHTML = `
+        <form class="profile-edit-dialog mfa-settings-dialog" id="mfaSettingsForm">
+            <div class="profile-edit-header"><div><h2>${settingsMfaEnabled ? "Disable" : "Enable"} authenticator verification</h2><p>MFA is optional for every BioTrack account.</p></div><button type="button" class="profile-edit-close" aria-label="Close">×</button></div>
+            <div id="mfaSetupDetails"></div>
+            <label>Current password<input id="mfaCurrentPassword" type="password" autocomplete="current-password" required maxlength="72"></label>
+            ${settingsMfaEnabled ? '<label>Authenticator code<input id="mfaSettingsCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required></label>' : ""}
+            <div class="profile-edit-actions"><button type="button" class="secondary-btn mfa-cancel">Cancel</button><button type="submit" class="primary-btn" id="mfaSubmitButton">${settingsMfaEnabled ? "Disable MFA" : "Start setup"}</button></div>
+        </form>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.querySelector(".profile-edit-close").onclick = close;
+    overlay.querySelector(".mfa-cancel").onclick = close;
+    overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
+
+    const form = overlay.querySelector("#mfaSettingsForm");
+    form.onsubmit = async event => {
+        event.preventDefault();
+        const password = overlay.querySelector("#mfaCurrentPassword").value;
+        const button = overlay.querySelector("#mfaSubmitButton");
+        button.disabled = true;
+        try {
+            if (settingsMfaEnabled) {
+                const code = overlay.querySelector("#mfaSettingsCode").value.trim();
+                const response = await fetch("/api/auth/mfa/disable", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ current_password: password, code }),
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.detail || "Unable to disable authenticator verification.");
+                close();
+                showToast("Authenticator", result.message, "fa-circle-check");
+                if (result.reauthenticate) {
+                    sessionStorage.setItem("biotrackLoginNotice", "Authenticator verification was disabled. Sign in again.");
+                    if (typeof clearDashboardIdentity === "function") clearDashboardIdentity();
+                    setTimeout(() => window.location.replace("/"), 900);
+                }
+                return;
+            }
+
+            const setupResponse = await fetch("/api/auth/mfa/setup", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ current_password: password }),
+            });
+            const setup = await setupResponse.json().catch(() => ({}));
+            if (!setupResponse.ok) throw new Error(setup.detail || "Unable to start authenticator setup.");
+            const details = overlay.querySelector("#mfaSetupDetails");
+            details.innerHTML = '<p>Scan the QR code in your authenticator app, or enter the setup key manually.</p><img class="mfa-qr" alt="Authenticator setup QR code"><p class="mfa-secret-row">Setup key: <code></code></p><label>Verification code<input id="mfaSettingsCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required></label>';
+            const qr = details.querySelector("img");
+            if (String(setup.qr_data_url || "").startsWith("data:image/png;base64,")) qr.src = setup.qr_data_url;
+            else qr.hidden = true;
+            details.querySelector("code").textContent = setup.secret || "";
+            button.textContent = "Enable MFA";
+            form.onsubmit = async enableEvent => {
+                enableEvent.preventDefault();
+                button.disabled = true;
+                try {
+                    const response = await fetch("/api/auth/mfa/enable", {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ current_password: password, code: details.querySelector("#mfaSettingsCode").value.trim() }),
+                    });
+                    const result = await response.json().catch(() => ({}));
+                    if (!response.ok) throw new Error(result.detail || "Unable to enable authenticator verification.");
+                    close();
+                    settingsMfaEnabled = true;
+                    await loadProfileData();
+                    showToast("Authenticator", result.message, "fa-circle-check");
+                } catch (error) {
+                    showToast("Authenticator", error.message, "fa-circle-exclamation");
+                    button.disabled = false;
+                }
+            };
+            details.querySelector("#mfaSettingsCode").focus();
+        } catch (error) {
+            showToast("Authenticator", error.message, "fa-circle-exclamation");
+        } finally {
+            button.disabled = false;
+        }
+    };
+    overlay.querySelector("#mfaCurrentPassword").focus();
 }
 
 async function openSessionDialog() {

@@ -23,11 +23,6 @@ from sqlalchemy.orm import Session
 from backend.models.security_audit import SecurityAudit
 
 
-PRIVILEGED_MFA_ROLES = {
-    role.strip().casefold()
-    for role in os.getenv("MFA_REQUIRED_ROLES", "Manager,CentralStore").split(",")
-    if role.strip()
-}
 LOGIN_WINDOW_SECONDS = int(os.getenv("LOGIN_RATE_WINDOW_SECONDS", "900"))
 LOGIN_MAX_ATTEMPTS_PER_IP = int(os.getenv("LOGIN_RATE_MAX_ATTEMPTS", "20"))
 
@@ -66,10 +61,6 @@ def register_login_failure(ip_address: str) -> None:
 def clear_login_failures(ip_address: str) -> None:
     with _attempt_lock:
         _attempts.pop(ip_address, None)
-
-
-def role_requires_mfa(role: str | None) -> bool:
-    return (role or "").casefold() in PRIVILEGED_MFA_ROLES
 
 
 def _fernet() -> Fernet:

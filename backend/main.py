@@ -4,16 +4,17 @@
 
 import os
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from sqlalchemy.orm import Session
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from backend.models import Base
 from backend.routes.dashboard_routes import router as dashboard_router
 from backend.routes.log_routes import router as log_router
-from backend.database import schema_engine
+from backend.database import get_db, schema_engine
 from backend.routes.request_routes import router as request_router
 from backend.routes.auth_routes import router as auth_router
 from backend.routes.report_routes import router as report_router
@@ -31,7 +32,7 @@ from backend.routes.attachment_routes import router as attachment_router
 from backend.routes.vendor_routes import router as vendor_router
 from backend.routes.central_store_routes import router as central_store_router
 from backend.routes.security_routes import router as security_router
-from backend.auth import validate_auth_config
+from backend.auth import get_current_user, validate_auth_config
 from backend.security_middleware import SecurityMiddleware
 from backend.storage import QR_DIRECTORY
 # ==========================================
@@ -146,17 +147,30 @@ def root():
     return FileResponse("frontend/login.html")
 
 
+def protected_page(request: Request, db: Session, path: str):
+    try:
+        get_current_user(request, None, db)
+    except HTTPException:
+        return RedirectResponse(url="/", status_code=303)
+    return FileResponse(path, headers={"Cache-Control": "private, no-store"})
+
+
+@app.get("/dashboard")
 @app.get("/dashboard_v2")
-def dashboard_v2():
-    return FileResponse("frontend/dashboard_v2/dashboard.html")
+def dashboard_v2(request: Request, db: Session = Depends(get_db)):
+    return protected_page(request, db, "frontend/dashboard_v2/dashboard.html")
+
+
 @app.get("/maintenance")
-def maintenance():
-    return FileResponse(
-        "frontend/dashboard_v2/maintenance.html"
-    )
+def maintenance(request: Request, db: Session = Depends(get_db)):
+    return protected_page(request, db, "frontend/dashboard_v2/maintenance.html")
+
+
 @app.get("/devices")
-def devices_page():
-    return FileResponse("frontend/devices.html")
+def devices_page(request: Request, db: Session = Depends(get_db)):
+    return protected_page(request, db, "frontend/devices.html")
+
+
 @app.get("/dashboard-v2")
-def dashboard_v2_alias():
-    return FileResponse("frontend/dashboard_v2/dashboard.html")
+def dashboard_v2_alias(request: Request, db: Session = Depends(get_db)):
+    return protected_page(request, db, "frontend/dashboard_v2/dashboard.html")

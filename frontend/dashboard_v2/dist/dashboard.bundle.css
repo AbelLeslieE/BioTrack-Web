@@ -11720,6 +11720,29 @@ select:focus-visible{
 .password-dialog input{ width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:9px; }
 .password-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
 .password-close{ position:absolute; top:12px; right:14px; border:0; background:transparent; font-size:28px; cursor:pointer; }
+.mfa-settings-dialog .mfa-qr {
+    display: block;
+    width: 180px;
+    height: 180px;
+    margin: 14px auto;
+    padding: 8px;
+    border: 1px solid #dbe4ef;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.mfa-settings-dialog .mfa-secret-row {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f1f5f9;
+    color: #475569;
+    overflow-wrap: anywhere;
+}
+
+.mfa-settings-dialog .mfa-secret-row code {
+    color: #0f766e;
+    font-weight: 800;
+}
 
 /* source: dashboard_v2/css/reports.css */
 /* ==========================================================

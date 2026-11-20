@@ -30,7 +30,6 @@ from backend.services.security_service import (
     provisioning_details,
     record_security_event,
     register_login_failure,
-    role_requires_mfa,
     verify_totp,
 )
 
@@ -67,6 +66,14 @@ class ProfileUpdateRequest(BaseModel):
     @classmethod
     def trim_profile_fields(cls, value: str) -> str:
         return value.strip()
+
+
+class MfaSetupRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=72)
+
+
+class MfaVerificationRequest(MfaSetupRequest):
+    code: str = Field(min_length=6, max_length=20)
 
 
 def _set_cookie(response: Response, key: str, value: str, *, httponly: bool) -> None:
@@ -136,34 +143,19 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
         )
         raise _generic_login_failure()
 
-    mfa_was_enrolled = False
-    if role_requires_mfa(user.role):
-        encrypted_secret = user.mfa_secret if user.mfa_enabled else user.mfa_pending_secret
-        if not encrypted_secret:
-            secret = generate_mfa_secret()
-            user.mfa_pending_secret = encrypt_mfa_secret(secret)
-            db.commit()
-        else:
-            try:
-                secret = decrypt_mfa_secret(encrypted_secret)
-            except ValueError:
-                record_security_event(
-                    db, "authentication.mfa", "failure", request=request,
-                    actor_user_id=user.id, actor_username=user.username,
-                    details={"reason": "configuration_unreadable"},
-                )
-                raise HTTPException(status_code=503, detail="MFA configuration requires administrator recovery.")
-
+    if user.mfa_enabled:
+        try:
+            secret = decrypt_mfa_secret(user.mfa_secret)
+        except ValueError:
+            record_security_event(
+                db, "authentication.mfa", "failure", request=request,
+                actor_user_id=user.id, actor_username=user.username,
+                details={"reason": "configuration_unreadable"},
+            )
+            raise HTTPException(status_code=503, detail="MFA configuration requires administrator recovery.")
         if not payload.mfa_code:
             response.status_code = status.HTTP_202_ACCEPTED
-            if user.mfa_enabled:
-                return {"success": False, "mfa_required": True, "message": "Enter your authenticator code."}
-            return {
-                "success": False,
-                "mfa_enrollment_required": True,
-                "message": "Set up your authenticator to continue.",
-                **provisioning_details(user.username, secret),
-            }
+            return {"success": False, "mfa_required": True, "message": "Enter your authenticator code."}
 
         if not verify_totp(secret, payload.mfa_code):
             register_login_failure(ip_address)
@@ -175,11 +167,9 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
             )
             raise _generic_login_failure()
 
-        if not user.mfa_enabled:
-            user.mfa_secret = user.mfa_pending_secret
-            user.mfa_pending_secret = None
-            user.mfa_enabled = True
-            mfa_was_enrolled = True
+    elif user.mfa_pending_secret:
+        # Clear stale pending enrollment from the former compulsory flow.
+        user.mfa_pending_secret = None
 
     user.failed_login_attempts = 0
     user.locked_until = None
@@ -193,7 +183,7 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
     record_security_event(
         db, "authentication.login", "success", request=request,
         actor_user_id=user.id, actor_username=user.username,
-        details={"mfa": bool(user.mfa_enabled), "mfa_enrolled": mfa_was_enrolled},
+        details={"mfa": bool(user.mfa_enabled)},
         commit=False,
     )
     db.commit()
@@ -207,7 +197,7 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
     return {
         "success": True, "username": user.username, "name": user.name,
         "role": user.role.lower(), "department": user.department,
-        "mfa_enabled": bool(user.mfa_enabled), "redirect": "/dashboard_v2",
+        "mfa_enabled": bool(user.mfa_enabled), "redirect": "/dashboard",
     }
 
 
@@ -251,6 +241,92 @@ def current_profile(current_user: User = Depends(get_current_user)):
         "email": current_user.email or "", "phone": current_user.phone or "",
         "department": current_user.department or "", "role": current_user.role,
         "mfa_enabled": bool(current_user.mfa_enabled),
+    }
+
+
+@router.post("/api/auth/mfa/setup")
+def setup_optional_mfa(
+    payload: MfaSetupRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.mfa_enabled:
+        raise HTTPException(status_code=409, detail="Authenticator verification is already enabled.")
+    if not _password_matches(current_user, payload.current_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+    secret = generate_mfa_secret()
+    current_user.mfa_pending_secret = encrypt_mfa_secret(secret)
+    record_security_event(
+        db, "account.mfa_setup_started", "success", request=request,
+        actor_user_id=current_user.id, actor_username=current_user.username, commit=False,
+    )
+    db.commit()
+    return {"success": True, **provisioning_details(current_user.username, secret)}
+
+
+@router.post("/api/auth/mfa/enable")
+def enable_optional_mfa(
+    payload: MfaVerificationRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.mfa_enabled:
+        raise HTTPException(status_code=409, detail="Authenticator verification is already enabled.")
+    if not _password_matches(current_user, payload.current_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+    try:
+        secret = decrypt_mfa_secret(current_user.mfa_pending_secret)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail="Start authenticator setup again.") from exc
+    if not verify_totp(secret, payload.code):
+        raise HTTPException(status_code=400, detail="The verification code is incorrect.")
+    current_user.mfa_secret = current_user.mfa_pending_secret
+    current_user.mfa_pending_secret = None
+    current_user.mfa_enabled = True
+    record_security_event(
+        db, "account.mfa_enabled", "success", request=request,
+        actor_user_id=current_user.id, actor_username=current_user.username, commit=False,
+    )
+    db.commit()
+    return {"success": True, "message": "Authenticator verification enabled."}
+
+
+@router.post("/api/auth/mfa/disable")
+def disable_optional_mfa(
+    payload: MfaVerificationRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.mfa_enabled:
+        return {"success": True, "message": "Authenticator verification is already disabled."}
+    if not _password_matches(current_user, payload.current_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+    try:
+        secret = decrypt_mfa_secret(current_user.mfa_secret)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail="MFA configuration requires administrator recovery.") from exc
+    if not verify_totp(secret, payload.code):
+        raise HTTPException(status_code=400, detail="The verification code is incorrect.")
+    current_user.mfa_enabled = False
+    current_user.mfa_secret = None
+    current_user.mfa_pending_secret = None
+    db.query(AuthSession).filter(
+        AuthSession.user_id == current_user.id, AuthSession.revoked_at.is_(None),
+    ).update({AuthSession.revoked_at: datetime.utcnow()}, synchronize_session=False)
+    record_security_event(
+        db, "account.mfa_disabled", "success", request=request,
+        actor_user_id=current_user.id, actor_username=current_user.username, commit=False,
+    )
+    db.commit()
+    _clear_auth_cookies(response)
+    return {
+        "success": True,
+        "message": "Authenticator verification disabled. Sign in again.",
+        "reauthenticate": True,
     }
 
 

@@ -453,6 +453,28 @@ function renderSettings() {
 
         </div>
 
+        <!-- Optional authenticator verification -->
+
+        <div class="security-item">
+
+            <div>
+
+                <h4>Authenticator verification</h4>
+
+                <p id="mfaStatusText">Optional · checking status…</p>
+
+            </div>
+
+            <button class="secondary-btn" id="configureMfa">
+
+                Configure
+
+                <i data-lucide="chevron-right"></i>
+
+            </button>
+
+        </div>
+
         <!-- Active Sessions -->
 
         <div class="security-item">

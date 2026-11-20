@@ -3,11 +3,11 @@
 # ==========================================
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.auth import require_roles
 from backend.database import get_db
+from backend.models.log import Log
 
 
 # ==========================================
@@ -23,11 +23,8 @@ router = APIRouter(dependencies=[Depends(require_roles("Manager", "BME"))])
 
 @router.get("/api/logs")
 def get_logs(db: Session = Depends(get_db)):
-    rows = db.execute(
-        text("""
-        SELECT *
-        FROM logs
-        ORDER BY id DESC
-        """)
-    ).mappings().all()
-    return [dict(row) for row in rows]
+    rows = db.query(Log).order_by(Log.id.desc()).all()
+    return [
+        {column.name: getattr(row, column.name) for column in Log.__table__.columns}
+        for row in rows
+    ]
