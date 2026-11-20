@@ -335,30 +335,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 
-// The sidebar is persistent on desktop and becomes a focused drawer on phones.
+// The sidebar is an on-demand drawer on desktop and mobile.
 document.addEventListener("DOMContentLoaded", () => {
     const menuButton = document.querySelector(".menu-toggle");
     const appSidebar = document.querySelector(".sidebar");
     if (!menuButton || !appSidebar) return;
-    const mobileQuery = window.matchMedia("(max-width: 768px)");
-
     const backdrop = document.createElement("button");
     backdrop.type = "button";
     backdrop.className = "sidebar-mobile-backdrop";
     backdrop.setAttribute("aria-label", "Close navigation menu");
     document.body.appendChild(backdrop);
 
-    const closeMenu = () => {
+    const closeMenu = (restoreFocus = false) => {
         appSidebar.classList.remove("active");
         backdrop.classList.remove("show");
         document.body.classList.remove("mobile-nav-open");
-        appSidebar.setAttribute("aria-hidden", String(mobileQuery.matches));
-        appSidebar.inert = mobileQuery.matches;
+        appSidebar.setAttribute("aria-hidden", "true");
+        appSidebar.inert = true;
         menuButton.setAttribute("aria-expanded", "false");
         menuButton.setAttribute("aria-label", "Open navigation menu");
+        if (restoreFocus) menuButton.focus();
     };
     const toggleMenu = () => {
-        if (!mobileQuery.matches) return;
         const willOpen = !appSidebar.classList.contains("active");
         appSidebar.classList.toggle("active", willOpen);
         backdrop.classList.toggle("show", willOpen);
@@ -369,22 +367,13 @@ document.addEventListener("DOMContentLoaded", () => {
         menuButton.setAttribute("aria-label", willOpen ? "Close navigation menu" : "Open navigation menu");
     };
 
-    const syncNavigationMode = () => {
-        closeMenu();
-        if (!mobileQuery.matches) {
-            appSidebar.removeAttribute("aria-hidden");
-            appSidebar.inert = false;
-        }
-    };
-
-    syncNavigationMode();
+    closeMenu();
     menuButton.addEventListener("click", toggleMenu);
-    backdrop.addEventListener("click", closeMenu);
+    backdrop.addEventListener("click", () => closeMenu(true));
     appSidebar.addEventListener("click", event => {
         if (event.target.closest(".nav-item")) closeMenu();
     });
     document.addEventListener("keydown", event => {
-        if (event.key === "Escape") closeMenu();
+        if (event.key === "Escape" && appSidebar.classList.contains("active")) closeMenu(true);
     });
-    mobileQuery.addEventListener?.("change", syncNavigationMode);
 });
