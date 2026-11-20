@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from io import BytesIO
+import os
 from pathlib import Path
+import socket
+import struct
 
 from fastapi import HTTPException
 from PIL import Image, ImageOps
@@ -24,6 +27,30 @@ ALLOWED_CONTENT_TYPES = {
     "image/jpg": ".jpg",
     "image/png": ".jpg",
 }
+
+
+def _scan_for_malware(data: bytes) -> None:
+    """Stream an upload to ClamAV when available, failing closed when required."""
+    host = os.getenv("CLAMAV_HOST", "127.0.0.1")
+    port = int(os.getenv("CLAMAV_PORT", "3310"))
+    required = os.getenv("CLAMAV_SCAN_REQUIRED", "false").casefold() == "true"
+    try:
+        with socket.create_connection((host, port), timeout=3) as connection:
+            connection.sendall(b"zINSTREAM\0")
+            for offset in range(0, len(data), 64 * 1024):
+                chunk = data[offset:offset + 64 * 1024]
+                connection.sendall(struct.pack(">I", len(chunk)))
+                connection.sendall(chunk)
+            connection.sendall(struct.pack(">I", 0))
+            result = connection.recv(4096).decode("utf-8", "replace")
+    except OSError as exc:
+        if required:
+            raise HTTPException(status_code=503, detail="Attachment malware scanning is temporarily unavailable.") from exc
+        return
+    if "FOUND" in result:
+        raise HTTPException(status_code=422, detail="The attachment was rejected by malware scanning.")
+    if "OK" not in result and required:
+        raise HTTPException(status_code=503, detail="Attachment malware scanning did not complete successfully.")
 
 
 def _compress_image(data: bytes, target_bytes: int) -> bytes:
@@ -65,14 +92,9 @@ def _compress_pdf(data: bytes, target_bytes: int) -> bytes:
         source.close()
         raise HTTPException(status_code=422, detail="PDF attachments are limited to 100 pages.")
 
-    optimized = source.tobytes(garbage=4, deflate=True, clean=True)
-    if len(optimized) <= target_bytes:
-        source.close()
-        return optimized
-
-    best = optimized
-    # Large scanned PDFs are rebuilt from compressed page images. This keeps
-    # all evidence visible while bringing camera scans into the KB target.
+    best = b""
+    # Rebuild every PDF from page images. This content-disarm step strips
+    # scripts, embedded files, forms, launch actions, and other active content.
     for scale, quality in ((1.35, 72), (1.15, 62), (.95, 52), (.8, 42)):
         output = fitz.open()
         matrix = fitz.Matrix(scale, scale)
@@ -100,6 +122,8 @@ def optimize_attachment(filename: str, content_type: str, data: bytes) -> tuple[
         raise HTTPException(status_code=422, detail="The selected attachment is empty.")
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Attachments must be 20 MB or smaller before compression.")
+
+    _scan_for_malware(data)
 
     normalized_type = (content_type or "").split(";", 1)[0].strip().lower()
     extension = ALLOWED_CONTENT_TYPES.get(normalized_type)

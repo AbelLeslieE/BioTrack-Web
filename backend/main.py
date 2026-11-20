@@ -2,10 +2,14 @@
 # IMPORTS
 # ==========================================
 
+import os
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from starlette.middleware.gzip import GZipMiddleware
+from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from backend.models import Base
 from backend.routes.dashboard_routes import router as dashboard_router
 from backend.routes.log_routes import router as log_router
@@ -26,7 +30,9 @@ from backend.routes.ward_boy_routes import router as ward_boy_router
 from backend.routes.attachment_routes import router as attachment_router
 from backend.routes.vendor_routes import router as vendor_router
 from backend.routes.central_store_routes import router as central_store_router
+from backend.routes.security_routes import router as security_router
 from backend.auth import validate_auth_config
+from backend.security_middleware import SecurityMiddleware
 from backend.storage import QR_DIRECTORY
 # ==========================================
 # APPLICATION
@@ -39,6 +45,13 @@ app = FastAPI(
     title="BioTrack Web",
     version="1.0.0"
 )
+
+allowed_hosts = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "").split(",") if host.strip()]
+if allowed_hosts:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+if os.getenv("FORCE_HTTPS", "false").casefold() == "true":
+    app.add_middleware(HTTPSRedirectMiddleware)
+app.add_middleware(SecurityMiddleware)
 
 # Compress the dashboard bundles on their first download. Short-lived browser
 # caching keeps repeat visits fast while still allowing deployments to appear
@@ -123,6 +136,7 @@ app.include_router(ward_boy_router)
 app.include_router(attachment_router)
 app.include_router(vendor_router)
 app.include_router(central_store_router)
+app.include_router(security_router)
 # ==========================================
 # ROUTES
 # ==========================================

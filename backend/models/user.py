@@ -2,7 +2,7 @@
 # IMPORTS
 # ==========================================
 
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 
 from backend.models.base import Base
 
@@ -32,3 +32,19 @@ class User(Base):
     role = Column(String, nullable=False)
 
     created_at = Column(DateTime)
+
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    failed_login_attempts = Column(Integer, nullable=False, default=0)
+
+    locked_until = Column(DateTime)
+
+    last_login_at = Column(DateTime)
+
+    password_changed_at = Column(DateTime)
+
+    mfa_enabled = Column(Boolean, nullable=False, default=False)
+
+    mfa_secret = Column(Text)
+
+    mfa_pending_secret = Column(Text)

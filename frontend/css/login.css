@@ -1526,3 +1526,41 @@ body.low-bandwidth-login::before{
         box-shadow:0 24px 58px rgba(6,18,38,.30);
     }
 }
+.mfa-section {
+    margin: 16px 0;
+    padding: 14px;
+    border: 1px solid rgba(8, 127, 140, .24);
+    border-radius: 14px;
+    background: rgba(236, 254, 255, .72);
+}
+
+.mfa-section h3 {
+    margin: 0 0 6px;
+    font-size: 15px;
+    color: #0f172a;
+}
+
+.mfa-section p {
+    margin: 0 0 12px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: #475569;
+}
+
+.mfa-qr {
+    display: block;
+    width: 168px;
+    height: 168px;
+    margin: 10px auto;
+    padding: 8px;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.mfa-secret-row code {
+    display: inline-block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-weight: 700;
+    color: #0f766e;
+}

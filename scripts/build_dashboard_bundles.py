@@ -55,6 +55,7 @@ CSS_FILES = [
 
 JS_FILES = [
     "js/toast.js",
+    "js/csrf.js",
     "dashboard_v2/js/security.js",
     "dashboard_v2/js/hospital_departments.js",
     "dashboard_v2/js/assetRelocation.js",

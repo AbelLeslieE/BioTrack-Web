@@ -17043,3 +17043,20 @@ body.dark-theme .app-toast__close:focus-visible {
 @media(max-width:760px){.users-page{gap:16px;padding:15px}.users-hero{align-items:flex-start;flex-direction:column;padding:22px}.users-hero h1{font-size:27px}.users-primary-button{width:100%}.users-stats{gap:9px}.users-stats article{padding:13px}.users-directory-header{align-items:flex-start;padding:18px}.users-controls{grid-template-columns:1fr;padding:0 18px 17px}.users-search-field{grid-column:auto}.users-clear-button{width:100%}.users-table-scroll{padding:0 14px;overflow:visible}.users-table{min-width:0!important}.users-table tbody td[data-label="User"]{display:block!important;text-align:left!important}.users-table tbody td[data-label="User"]::before{display:none}.users-identity{min-width:0}.users-table tbody td[data-label="Contact"]{align-items:start}.users-contact{align-items:flex-end}.users-actions{display:flex!important;justify-content:flex-end!important;gap:7px}.users-icon-button{margin:0}.users-pagination{padding:14px 18px}.user-modal-backdrop{padding:10px}.user-editor-modal{max-height:calc(100vh - 20px);border-radius:16px}.user-editor-modal>header{padding:17px}.user-editor-form{padding:17px}.user-form-grid{grid-template-columns:1fr}.user-password-field{grid-column:auto}}
 @media(max-width:480px){.users-stats{grid-template-columns:1fr 1fr}.users-stats article{align-items:flex-start;flex-direction:column;gap:9px}.users-directory-header{align-items:stretch;flex-direction:column}.users-refresh-button{justify-content:center}.user-editor-form footer{flex-direction:column-reverse}.user-editor-form footer button{width:100%}}
 .users-avatar.is-ward-boy{background:#e0f2fe;color:#0369a1}.users-role-badge.is-ward-boy{background:#e0f2fe;color:#0369a1}
+.user-security-check {
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    border: 1px solid #d8e1ef;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #334155;
+    font-weight: 600;
+}
+
+.user-security-check input {
+    width: 18px;
+    height: 18px;
+}

@@ -1,6 +1,8 @@
 from backend.models.base import Base
 
 from backend.models.user import User
+from backend.models.auth_session import AuthSession
+from backend.models.security_audit import SecurityAudit
 from backend.models.request import Request
 from backend.models.request_attachment import RequestAttachment
 from backend.models.device import Device

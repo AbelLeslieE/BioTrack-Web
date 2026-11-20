@@ -1,10 +1,11 @@
-const CACHE_VERSION = "biotrack-shell-v32";
+const CACHE_VERSION = "biotrack-shell-v33";
 const OFFLINE_URL = "/offline";
 const PRECACHE_URLS = [
     OFFLINE_URL,
     "/manifest.webmanifest",
     "/static/css/login.css",
     "/static/js/login.js",
+    "/static/js/csrf.js",
     "/static/js/pwa.js",
     "/static/vendor/lucide.min.js?v=1.76.0",
     "/static/vendor/fontawesome/css/all.min.css?v=7.3.1",

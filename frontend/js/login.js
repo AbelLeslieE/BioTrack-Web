@@ -11,6 +11,14 @@ const togglePassword = document.getElementById("togglePassword");
 const rememberMe = document.getElementById("rememberMe");
 const submitButton = form.querySelector("button[type='submit']");
 const loginProgress = document.getElementById("loginProgress");
+const mfaSection = document.getElementById("mfaSection");
+const mfaTitle = document.getElementById("mfaTitle");
+const mfaInstructions = document.getElementById("mfaInstructions");
+const mfaCode = document.getElementById("mfaCode");
+const mfaQr = document.getElementById("mfaQr");
+const mfaSecretRow = document.getElementById("mfaSecretRow");
+const mfaSecret = document.getElementById("mfaSecret");
+let mfaChallengeActive = false;
 const rememberedUsername = localStorage.getItem("biotrackRememberedUsername") || "";
 
 if (rememberedUsername) {
@@ -133,7 +141,8 @@ form.addEventListener("submit", async (e) => {
     const body = {
 
         username: usernameInput.value.trim().toLowerCase(),
-        password: passwordInput.value
+        password: passwordInput.value,
+        mfa_code: mfaChallengeActive ? mfaCode.value.trim() : ""
 
     };
 
@@ -159,6 +168,34 @@ form.addEventListener("submit", async (e) => {
         });
 
         const data = await res.json().catch(() => ({}));
+
+        if (res.status === 202 && (data.mfa_required || data.mfa_enrollment_required)) {
+            mfaChallengeActive = true;
+            mfaSection.hidden = false;
+            mfaCode.required = true;
+            mfaCode.value = "";
+            if (data.mfa_enrollment_required) {
+                mfaTitle.textContent = "Secure your administrator account";
+                mfaInstructions.textContent = "Scan this QR code in your authenticator app, then enter the six-digit code.";
+                mfaSecret.textContent = data.secret || "";
+                mfaSecretRow.hidden = !data.secret;
+                if (data.qr_data_url) {
+                    mfaQr.src = data.qr_data_url;
+                    mfaQr.hidden = false;
+                }
+            } else {
+                mfaTitle.textContent = "Authenticator verification";
+                mfaInstructions.textContent = data.message || "Enter the six-digit code from your authenticator app.";
+                mfaQr.hidden = true;
+                mfaSecretRow.hidden = true;
+            }
+            submitButton.querySelector("i")?.classList.replace("fa-arrow-right-to-bracket", "fa-shield-halved");
+            submitButton.lastChild.textContent = " VERIFY & LOGIN";
+            msg.style.color = "#475569";
+            msg.textContent = data.message || "Verification is required.";
+            mfaCode.focus();
+            return;
+        }
 
         if (res.ok) {
 

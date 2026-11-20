@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request as WebRequest, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
@@ -12,6 +12,7 @@ from backend.models.request import Request
 from backend.models.request_attachment import RequestAttachment
 from backend.models.user import User
 from backend.services.attachment_service import ATTACHMENT_DIRECTORY, optimize_attachment
+from backend.services.security_service import record_security_event
 
 
 DOCUMENT_TYPES = {
@@ -22,6 +23,8 @@ DOCUMENT_TYPES = {
     "Photo",
     "Calibration Document",
 }
+MAX_ATTACHMENTS_PER_TICKET = 25
+MAX_STORED_BYTES_PER_TICKET = 25 * 1024 * 1024
 
 router = APIRouter(
     prefix="/api/engineer/ticket",
@@ -78,6 +81,7 @@ def list_ticket_attachments(
 @router.post("/{ticket_id}/attachments")
 async def upload_ticket_attachment(
     ticket_id: int,
+    request: WebRequest,
     document_type: str = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -86,6 +90,13 @@ async def upload_ticket_attachment(
     ticket = _ticket_for_user(db, ticket_id, current_user)
     if document_type not in DOCUMENT_TYPES:
         raise HTTPException(status_code=422, detail="Select a supported document type.")
+
+    existing = db.query(RequestAttachment).filter(RequestAttachment.request_id == ticket.id).all()
+    if len(existing) >= MAX_ATTACHMENTS_PER_TICKET:
+        raise HTTPException(status_code=409, detail="This maintenance call has reached its 25-file attachment limit.")
+    stored_total = sum(int(item.stored_size_bytes or 0) for item in existing)
+    if stored_total >= MAX_STORED_BYTES_PER_TICKET:
+        raise HTTPException(status_code=409, detail="This maintenance call has reached its attachment storage limit.")
 
     original_name = Path(file.filename or "attachment").name[:240]
     raw = await file.read()
@@ -96,6 +107,8 @@ async def upload_ticket_attachment(
         raw,
     )
     stored_name = f"{uuid4().hex}{extension}"
+    if stored_total + len(optimized) > MAX_STORED_BYTES_PER_TICKET:
+        raise HTTPException(status_code=409, detail="This attachment would exceed the maintenance call storage limit.")
     target = ATTACHMENT_DIRECTORY / stored_name
     await run_in_threadpool(target.write_bytes, optimized)
 
@@ -110,6 +123,12 @@ async def upload_ticket_attachment(
         uploaded_by=current_user.name or current_user.username,
     )
     db.add(attachment)
+    record_security_event(
+        db, "attachment.uploaded", "success", request=request,
+        actor_user_id=current_user.id, actor_username=current_user.username,
+        target_type="maintenance_request", target_id=ticket.id,
+        details={"document_type": document_type, "stored_bytes": len(optimized)}, commit=False,
+    )
     db.commit()
     db.refresh(attachment)
     return {"success": True, "attachment": _serialize(attachment)}
@@ -118,6 +137,7 @@ async def upload_ticket_attachment(
 @router.get("/attachments/{attachment_id}/download")
 def download_ticket_attachment(
     attachment_id: int,
+    request: WebRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -128,12 +148,24 @@ def download_ticket_attachment(
     path = ATTACHMENT_DIRECTORY / attachment.stored_name
     if not path.is_file():
         raise HTTPException(status_code=404, detail="The stored attachment file is missing.")
-    return FileResponse(path, media_type=attachment.content_type, filename=attachment.original_name)
+    record_security_event(
+        db, "attachment.downloaded", "success", request=request,
+        actor_user_id=current_user.id, actor_username=current_user.username,
+        target_type="request_attachment", target_id=attachment.id,
+    )
+    return FileResponse(
+        path,
+        media_type=attachment.content_type,
+        filename=attachment.original_name,
+        content_disposition_type="attachment",
+        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"},
+    )
 
 
 @router.delete("/attachments/{attachment_id}")
 def delete_ticket_attachment(
     attachment_id: int,
+    request: WebRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -142,6 +174,11 @@ def delete_ticket_attachment(
         raise HTTPException(status_code=404, detail="Attachment not found.")
     _ticket_for_user(db, attachment.request_id, current_user)
     path = ATTACHMENT_DIRECTORY / attachment.stored_name
+    record_security_event(
+        db, "attachment.deleted", "success", request=request,
+        actor_user_id=current_user.id, actor_username=current_user.username,
+        target_type="request_attachment", target_id=attachment.id, commit=False,
+    )
     db.delete(attachment)
     db.commit()
     if path.is_file():

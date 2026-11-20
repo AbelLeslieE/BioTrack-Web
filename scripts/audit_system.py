@@ -26,6 +26,8 @@ REQUIRED_TABLES = {
     "spare_part_requests",
     "store_delivery_tasks",
     "ward_boy_tasks",
+    "auth_sessions",
+    "security_audit",
 }
 REQUIRED_ROUTES = {
     "/api/assets/{asset_id}/documents",
@@ -35,6 +37,7 @@ REQUIRED_ROUTES = {
     "/api/central-store/dashboard",
     "/api/central-store/requests",
     "/api/ward-boy/dashboard",
+    "/api/security/audit",
 }
 
 
@@ -82,7 +85,8 @@ def main() -> int:
         os.environ["DATABASE_URL"] = "sqlite:///:memory:"
         os.environ["DATABASE_URL_UNPOOLED"] = "sqlite:///:memory:"
         os.environ["BIOTRACK_DATA_DIR"] = directory
-        os.environ.setdefault("JWT_SECRET", "x" * 40)
+        os.environ["JWT_SECRET_KEY"] = "x" * 40
+        os.environ["COOKIE_SECURE"] = "false"
         from backend.main import app
 
         route_paths = {route.path for route in app.routes}
@@ -98,6 +102,13 @@ def main() -> int:
     check("views/centralStoreView.js" in bundle, "Central Store portal is present in the dashboard bundle", failures)
     check("views/vendorsView.js" in bundle, "vendor contracts are present in the dashboard bundle", failures)
     check("uploadAssetDocument" in bundle, "asset document upload is present in the dashboard bundle", failures)
+    check("X-CSRF-Token" in bundle, "dashboard unsafe requests carry CSRF protection", failures)
+    security_middleware = (ROOT / "backend" / "security_middleware.py").read_text(encoding="utf-8")
+    check(
+        all(header in security_middleware for header in ("Content-Security-Policy", "Strict-Transport-Security", "X-Content-Type-Options")),
+        "browser security headers are installed",
+        failures,
+    )
 
     if failures:
         print(f"\nBioTrack audit failed with {len(failures)} issue(s).")

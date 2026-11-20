@@ -198,6 +198,8 @@ function showRegisterUser() {
                         <label><span>Email address</span><input id="newEmail" type="email" autocomplete="email" placeholder="name@hospital.org" required></label>
                         <label><span>Phone number</span><input id="newPhone" type="tel" autocomplete="tel" placeholder="10-digit mobile number" required></label>
                         <label class="user-password-field"><span>${currentUser ? "New password" : "Password"}</span><div><input id="newPassword" type="password" minlength="12" maxlength="72" autocomplete="new-password" placeholder="${currentUser ? "Leave blank to keep current" : "At least 12 characters"}" ${currentUser ? "" : "required"}><button type="button" onclick="toggleUserPassword()" aria-label="Show password"><i data-lucide="eye"></i></button></div><small>${currentUser ? "Only enter a password if it needs to change." : "Use 12–72 characters."}</small></label>
+                        ${currentUser ? `<label><span>Account status</span><select id="newAccountStatus"><option value="active">Active</option><option value="disabled">Disabled</option></select><small>Disabling immediately revokes all sessions.</small></label>` : ""}
+                        ${currentUser?.mfa_enabled ? `<label><span>MFA recovery</span><span class="user-security-check"><input id="resetUserMfa" type="checkbox"> Reset authenticator setup</span><small>The user must enroll again at next login.</small></label>` : ""}
                     </div>
                     <footer><button class="user-modal-cancel" type="button" onclick="closeUserModal()">Cancel</button><button class="user-modal-save" type="submit"><i data-lucide="save"></i><span>${currentUser ? "Save changes" : "Create user"}</span></button></footer>
                 </form>
@@ -209,6 +211,7 @@ function showRegisterUser() {
         document.getElementById("newEmail").value = currentUser.email || "";
         document.getElementById("newPhone").value = currentUser.phone || "";
         document.getElementById("newUsername").value = currentUser.username || "";
+        document.getElementById("newAccountStatus").value = currentUser.is_active === false ? "disabled" : "active";
     }
     const roleSelect = document.getElementById("newRole");
     const departmentSelect = document.getElementById("newDept");
@@ -271,7 +274,7 @@ async function registerUser() {
     if (saveButton) saveButton.disabled = true;
     const wasEditing = Boolean(editingUserId);
     try {
-        const payload = { name: newName.value.trim(), department: newDept.value.trim(), role: newRole.value, email: newEmail.value.trim(), phone: newPhone.value.trim(), username: newUsername.value.trim(), password: newPassword.value };
+        const payload = { name: newName.value.trim(), department: newDept.value.trim(), role: newRole.value, email: newEmail.value.trim(), phone: newPhone.value.trim(), username: newUsername.value.trim(), password: newPassword.value, is_active: document.getElementById("newAccountStatus")?.value !== "disabled", reset_mfa: Boolean(document.getElementById("resetUserMfa")?.checked) };
         const response = await fetch(editingUserId ? `/api/users/${editingUserId}` : "/api/users/register", { method: editingUserId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {

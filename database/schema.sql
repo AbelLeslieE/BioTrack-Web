@@ -12,7 +12,43 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT,
     phone TEXT,
     role TEXT NOT NULL CHECK (role IN ('Manager', 'BME', 'Electrical', 'IT', 'User', 'WardBoy', 'CentralStore')),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN NOT NULL DEFAULT 1,
+    failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until TIMESTAMP,
+    last_login_at TIMESTAMP,
+    password_changed_at TIMESTAMP,
+    mfa_enabled BOOLEAN NOT NULL DEFAULT 0,
+    mfa_secret TEXT,
+    mfa_pending_secret TEXT
+);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_id TEXT NOT NULL UNIQUE,
+    user_id INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    last_seen_at TIMESTAMP NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    revoked_at TIMESTAMP,
+    ip_address TEXT,
+    user_agent TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS security_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    actor_user_id INTEGER,
+    actor_username TEXT,
+    target_type TEXT,
+    target_id TEXT,
+    ip_address TEXT,
+    user_agent TEXT,
+    request_id TEXT,
+    details TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS departments (

@@ -534,7 +534,12 @@ async function submitPasswordChange() {
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.detail || "Unable to change password.");
         closePasswordModal();
-        showToast("Password", "Password changed successfully.", "fa-circle-check");
+        showToast("Password", data.message || "Password changed successfully.", "fa-circle-check");
+        if (data.reauthenticate) {
+            sessionStorage.setItem("biotrackLoginNotice", "Your password was changed. Sign in again with the new password.");
+            if (typeof clearDashboardIdentity === "function") clearDashboardIdentity();
+            setTimeout(() => window.location.replace("/"), 900);
+        }
     } catch (error) {
         showToast("Password", error.message, "fa-circle-exclamation");
     } finally {

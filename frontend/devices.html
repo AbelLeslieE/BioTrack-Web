@@ -26,7 +26,7 @@ img{width:100px}
 <table><thead><tr><th>Name</th><th>Type</th><th>Serial</th><th>QR</th><th>Action</th></tr></thead>
 <tbody id="rows"></tbody></table>
 </div>
-<script>
+<script src="/static/js/csrf.js"></script><script>
 let data=[];
 async function load(){data=await (await fetch('/api/devices')).json();draw()}
 function draw(){

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request as WebRequest
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
 from backend.database import get_db
@@ -8,6 +8,9 @@ import bcrypt
 from fastapi import HTTPException
 from backend.models import Request
 from backend.auth import require_roles
+from backend.auth import get_current_user
+from backend.models.auth_session import AuthSession
+from backend.services.security_service import record_security_event
 router=APIRouter(
     prefix="/api/users",
     tags=["users"],
@@ -23,6 +26,7 @@ class UserFields(BaseModel):
     email: EmailStr
     phone: str = Field(min_length=1, max_length=30)
     username: str = Field(min_length=3, max_length=80)
+    is_active: bool = True
 
     @field_validator("name", "department", "role", "phone", "username")
     @classmethod
@@ -60,11 +64,19 @@ def get_users(db:Session=Depends(get_db)):
         "role":u.role,
         "email":u.email,
         "phone":u.phone,
-        "username":u.username
+        "username":u.username,
+        "is_active": bool(u.is_active),
+        "mfa_enabled": bool(u.mfa_enabled),
+        "locked_until": u.locked_until,
     } for u in users]
 
 @router.post("/register")
-def register(data:UserCreate, db:Session=Depends(get_db)):
+def register(
+    data:UserCreate,
+    request: WebRequest,
+    db:Session=Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     if data.role not in ALLOWED_ROLES:
         raise HTTPException(status_code=422, detail="Invalid user role")
     existing=db.query(User).filter(User.username==data.username).first()
@@ -84,10 +96,17 @@ def register(data:UserCreate, db:Session=Depends(get_db)):
         phone=data.phone,
         username=data.username,
         password_hash=hashed,
-        created_at=datetime.now()
+        created_at=datetime.now(),
+        is_active=data.is_active,
     )
 
     db.add(user)
+    record_security_event(
+        db, "account.created", "success", request=request,
+        actor_user_id=current_user.id, actor_username=current_user.username,
+        target_type="user", target_id=user.username,
+        details={"role": user.role, "department": user.department}, commit=False,
+    )
     db.commit()
     db.refresh(user)
 
@@ -97,6 +116,7 @@ def register(data:UserCreate, db:Session=Depends(get_db)):
 
 class UserUpdate(UserFields):
     password: str = Field(default="", max_length=72)
+    reset_mfa: bool = False
 
     @field_validator("password")
     @classmethod
@@ -108,7 +128,13 @@ class UserUpdate(UserFields):
         return value
 
 @router.put("/{user_id}")
-def update_user(user_id:int, data:UserUpdate, db:Session=Depends(get_db)):
+def update_user(
+    user_id:int,
+    data:UserUpdate,
+    request: WebRequest,
+    db:Session=Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     if data.role not in ALLOWED_ROLES:
         raise HTTPException(status_code=422, detail="Invalid user role")
     user=db.query(User).filter(User.id==user_id).first()
@@ -126,28 +152,74 @@ def update_user(user_id:int, data:UserUpdate, db:Session=Depends(get_db)):
     if existing:
         raise HTTPException(status_code=409, detail="Username already exists")
 
+    if user.role == "Manager" and user.is_active and (data.role != "Manager" or not data.is_active):
+        manager_count = db.query(User).filter(User.role == "Manager", User.is_active.is_(True)).count()
+        if manager_count <= 1:
+            raise HTTPException(status_code=409, detail="The last active administrator cannot be demoted.")
+
+    security_changed = user.role != data.role or bool(user.is_active) != bool(data.is_active) or bool(data.password)
+
     user.name=data.name
     user.department=data.department
     user.role=data.role
     user.email=data.email
     user.phone=data.phone
     user.username=data.username
+    user.is_active=data.is_active
 
     if data.password:
         user.password_hash=bcrypt.hashpw(
             data.password.encode(),
             bcrypt.gensalt()
         ).decode()
+        user.password_changed_at = datetime.utcnow()
 
+    if data.reset_mfa:
+        user.mfa_enabled = False
+        user.mfa_secret = None
+        user.mfa_pending_secret = None
+        security_changed = True
+
+    if security_changed:
+        db.query(AuthSession).filter(
+            AuthSession.user_id == user.id,
+            AuthSession.revoked_at.is_(None),
+        ).update({AuthSession.revoked_at: datetime.utcnow()}, synchronize_session=False)
+
+    record_security_event(
+        db, "account.updated", "success", request=request,
+        actor_user_id=current_user.id, actor_username=current_user.username,
+        target_type="user", target_id=user.id,
+        details={"role": user.role, "active": bool(user.is_active), "mfa_reset": data.reset_mfa},
+        commit=False,
+    )
     db.commit()
 
     return {"success":True,"message":"User updated successfully"}
 
 @router.delete("/{user_id}")
-def delete_user(user_id:int, db:Session=Depends(get_db)):
+def delete_user(
+    user_id:int,
+    request: WebRequest,
+    db:Session=Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     user=db.query(User).filter(User.id==user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if user.id == current_user.id:
+        raise HTTPException(status_code=409, detail="You cannot delete your own signed-in account.")
+    if user.role == "Manager" and user.is_active:
+        manager_count = db.query(User).filter(User.role == "Manager", User.is_active.is_(True)).count()
+        if manager_count <= 1:
+            raise HTTPException(status_code=409, detail="The last active administrator cannot be deleted.")
+    db.query(AuthSession).filter(AuthSession.user_id == user.id).delete(synchronize_session=False)
+    record_security_event(
+        db, "account.deleted", "success", request=request,
+        actor_user_id=current_user.id, actor_username=current_user.username,
+        target_type="user", target_id=user.id,
+        details={"username": user.username, "role": user.role}, commit=False,
+    )
     db.delete(user)
     db.commit()
     return {"success":True,"message":"User deleted"}

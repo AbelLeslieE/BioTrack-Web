@@ -562,6 +562,13 @@ async def upload_asset_document(
     if document_type not in ASSET_DOCUMENT_TYPES:
         raise HTTPException(status_code=422, detail="Select a supported document type.")
 
+    existing_documents = db.query(AssetDocument).filter(AssetDocument.asset_id == asset.id).all()
+    if len(existing_documents) >= 50:
+        raise HTTPException(status_code=409, detail="This asset has reached its 50-document limit.")
+    stored_total = sum(int(document.stored_size_bytes or 0) for document in existing_documents)
+    if stored_total >= 50 * 1024 * 1024:
+        raise HTTPException(status_code=409, detail="This asset has reached its document storage limit.")
+
     original_name = Path(file.filename or "asset-document").name[:240]
     raw = await file.read()
     optimized, content_type, extension = await run_in_threadpool(
@@ -571,6 +578,8 @@ async def upload_asset_document(
         raw,
     )
     stored_name = f"{uuid4().hex}{extension}"
+    if stored_total + len(optimized) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=409, detail="This document would exceed the asset storage limit.")
     target = ASSET_DOCUMENT_DIRECTORY / stored_name
     await run_in_threadpool(target.write_bytes, optimized)
 
@@ -625,6 +634,8 @@ def download_asset_document(
         path,
         media_type=document.content_type or "application/octet-stream",
         filename=document.document_name,
+        content_disposition_type="attachment",
+        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"},
     )
 
 
