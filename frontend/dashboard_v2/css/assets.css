@@ -1074,13 +1074,21 @@ VIEW BUTTON
     background:rgba(5,18,35,.38);
     box-shadow:0 16px 34px rgba(2,12,27,.18);
     backdrop-filter:blur(12px);
+    container-type:inline-size;
 }
 .asset-action-label{color:#9fb1c7;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
-.asset-page .asset-actions{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;justify-content:stretch}
+.asset-page .asset-actions{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:stretch;
+    gap:8px;
+    justify-content:stretch;
+}
 .asset-page .hero-btn{
     display:inline-flex;
     align-items:center;
     justify-content:center;
+    flex:1 0 max-content;
     gap:7px;
     min-width:0;
     min-height:44px;
@@ -1091,10 +1099,17 @@ VIEW BUTTON
     box-shadow:none;
 }
 .asset-page .hero-btn svg{width:16px;height:16px;flex:0 0 auto}
+.asset-page .hero-btn>span{line-height:1.2;white-space:nowrap}
 .asset-page .btn-primary{border:1px solid #2dd4bf;background:#2dd4bf;color:#06201f}
 .asset-page .btn-primary:hover{border-color:#5eead4;background:#5eead4;transform:translateY(-1px)}
 .asset-page .btn-secondary{border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07);color:#f3f8ff}
 .asset-page .btn-secondary:hover{border-color:rgba(255,255,255,.34);background:rgba(255,255,255,.13);transform:translateY(-1px)}
+
+@container (max-width:600px){
+    .asset-page .asset-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+    .asset-page .asset-actions .btn-primary{grid-column:1/-1}
+    .asset-page .hero-btn{width:100%;min-width:0}
+}
 .asset-page .asset-import-team-label{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:12px;color:#9fb1c7;font-size:11px;font-weight:700}
 .asset-page .asset-import-team-label select{
     width:100%;min-height:38px;padding:7px 34px 7px 11px;color:#e8f1fb;border:1px solid rgba(255,255,255,.13);border-radius:8px;
@@ -1223,7 +1238,7 @@ VIEW BUTTON
     .asset-page .asset-hero h1{font-size:32px}
     .asset-page .asset-hero p{font-size:13px}
     .asset-page .quick-actions-card{padding:13px}
-    .asset-page .asset-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .asset-page .asset-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
     .asset-page .asset-actions .btn-primary{grid-column:1/-1}
     .asset-page .asset-import-team-label{grid-template-columns:1fr;gap:6px}
     .asset-page .asset-mode-options{grid-template-columns:repeat(2,minmax(0,1fr))}

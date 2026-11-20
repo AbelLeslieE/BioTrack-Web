@@ -9,6 +9,7 @@ const ticket = fs.readFileSync(path.join(root, "frontend/dashboard_v2/views/tick
 const vendors = fs.readFileSync(path.join(root, "frontend/dashboard_v2/views/vendorsView.js"), "utf8");
 const sidebar = fs.readFileSync(path.join(root, "frontend/dashboard_v2/js/sidebar.js"), "utf8");
 const assetDetails = fs.readFileSync(path.join(root, "frontend/dashboard_v2/views/assetDetailsView.js"), "utf8");
+const assetStyles = fs.readFileSync(path.join(root, "frontend/dashboard_v2/css/assets.css"), "utf8");
 
 test("maintenance calls provide a five-stage technician assignment board", () => {
     for (const status of ["Open", "Assigned", "In Progress", "Awaiting Parts", "Completed"]) {
@@ -38,6 +39,13 @@ test("asset manuals and documents use the same compressed evidence pipeline", ()
     assert.match(assetDetails, /Auto-compressed below 900 KB/);
     assert.match(assetDetails, /uploadAssetDocument/);
     assert.match(assetDetails, /application\/pdf,image\/jpeg,image\/png/);
+});
+
+test("asset quick actions preserve icon and label spacing at narrow desktop widths", () => {
+    assert.match(assetStyles, /\.asset-page \.asset-actions\{[\s\S]*?display:flex;[\s\S]*?flex-wrap:wrap;/);
+    assert.match(assetStyles, /\.asset-page \.hero-btn\{[\s\S]*?flex:1 0 max-content;/);
+    assert.match(assetStyles, /\.asset-page \.hero-btn>span\{line-height:1\.2;white-space:nowrap\}/);
+    assert.match(assetStyles, /@container \(max-width:600px\)[\s\S]*?grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
 });
 
 test("vendor contracts expose renewals, SLA, contacts and service history", () => {
