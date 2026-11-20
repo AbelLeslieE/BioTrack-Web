@@ -9,6 +9,7 @@ from backend.models.inventory import Inventory
 from backend.routes.inventory_routes import (
     create_inventory_item,
     delete_inventory_item,
+    get_inventory,
     update_inventory_item,
 )
 
@@ -90,6 +91,61 @@ class InventoryActionTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.status_code, 409)
         self.assertIn("already exists", raised.exception.detail)
+
+    def test_same_bpk_is_allowed_in_separate_department_inventories(self):
+        biomedical = create_inventory_item(
+            {
+                "bpk_number": "SHARED-VENDOR-CODE",
+                "item_name": "Biomedical adapter",
+                "service_team": "Biomedical",
+            },
+            self.session,
+            self.manager,
+        )
+        it_item = create_inventory_item(
+            {
+                "bpk_number": "SHARED-VENDOR-CODE",
+                "item_name": "IT adapter",
+                "service_team": "IT",
+            },
+            self.session,
+            self.manager,
+        )
+
+        self.assertNotEqual(biomedical["id"], it_item["id"])
+        teams = {
+            item.service_team
+            for item in self.session.query(Inventory)
+            .filter(Inventory.bpk_number == "SHARED-VENDOR-CODE")
+            .all()
+        }
+        self.assertEqual(teams, {"Biomedical", "IT"})
+
+    def test_engineer_only_receives_and_creates_stock_for_own_team(self):
+        create_inventory_item(
+            {
+                "bpk_number": "BIO-ONLY",
+                "item_name": "Biomedical part",
+                "service_team": "Biomedical",
+            },
+            self.session,
+            self.manager,
+        )
+        it_user = SimpleNamespace(role="IT")
+        created = create_inventory_item(
+            {
+                "bpk_number": "IT-ONLY",
+                "item_name": "IT part",
+                "service_team": "Electrical",
+            },
+            self.session,
+            it_user,
+        )
+
+        saved = self.session.get(Inventory, created["id"])
+        self.assertEqual(saved.service_team, "IT")
+        visible = get_inventory(self.session, it_user, None)
+        self.assertEqual([item["bpk_number"] for item in visible], ["IT-ONLY"])
 
 
 if __name__ == "__main__":

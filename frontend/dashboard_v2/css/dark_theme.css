@@ -529,6 +529,27 @@ body.dark-theme .asset-action-btn{color:#dce8f6;background:#16263d;border-color:
 body.dark-theme .asset-qr-button{color:#fff;background:#2563eb;border-color:#2563eb}
 body.dark-theme .downtime-cancel-btn{color:#d3dfed;background:#17273e;border-color:#3b5271}
 
+/* Asset operations redesign */
+body.dark-theme #currentDate,
+body.dark-theme .profile-info strong{color:var(--dark-text)}
+body.dark-theme .asset-page{--asset-ink:var(--dark-text);--asset-muted:var(--dark-muted);--asset-line:var(--dark-border)}
+body.dark-theme .asset-page .asset-hero{background:radial-gradient(circle at 91% 12%,rgba(45,212,191,.18),transparent 30%),linear-gradient(128deg,#071321,#0b233b 58%,#0d3540)!important}
+body.dark-theme .asset-page .quick-actions-card{background:rgba(2,12,27,.42)!important;border-color:rgba(255,255,255,.14)!important;box-shadow:0 16px 34px rgba(0,0,0,.22)!important}
+body.dark-theme .asset-registry-header,
+body.dark-theme .asset-registry-panel>.table-pagination{background:var(--dark-surface);border-color:var(--dark-border)}
+body.dark-theme .asset-result-count{background:#0d2b2c;border-color:#245353}
+body.dark-theme .asset-result-count strong{color:#d1faf4}
+body.dark-theme .asset-result-count small{color:#8db4b1}
+body.dark-theme .asset-page .asset-mode-options{background:#0d192b;border-color:var(--dark-border)}
+body.dark-theme .asset-page .asset-card-icon,
+body.dark-theme .asset-name-icon{background:#163345}
+body.dark-theme .asset-page .asset-kpi-mode,
+body.dark-theme .asset-status-badge.is-neutral{color:#a9b8cb;background:#1a2b44}
+body.dark-theme .asset-code{color:#cbd9e9;background:#15243a;border-color:var(--dark-border)}
+body.dark-theme .asset-page .asset-bulk-toolbar{background:#111f33;border-color:var(--dark-border)}
+body.dark-theme .asset-page .btn-open-asset,
+body.dark-theme .asset-page .asset-qr-table-button{color:#dce8f6;background:#15243a;border-color:#3a4d68}
+
 /* Maintenance ticket details. */
 body.dark-theme .back-btn{
     color:#dbeafe!important;

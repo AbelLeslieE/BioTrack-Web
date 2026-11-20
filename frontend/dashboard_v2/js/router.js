@@ -18,15 +18,17 @@ const ROLE_HOME_PAGES = {
     it: "itDashboard",
     user: "userDashboard",
     wardboy: "wardBoyDashboard",
+    centralstore: "centralStore",
 };
 
 const ROLE_PAGE_ACCESS = {
-    admin: new Set(["dashboard", "ticket", "callManagement", "callAssignment", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "pm", "reports", "users", "qr", "qrAssetProfile", "settings"]),
-    engineer: new Set(["engineerDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "pm", "reports", "qr", "qrAssetProfile", "settings"]),
-    electrical: new Set(["electricalDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "qrAssetProfile", "settings"]),
-    it: new Set(["itDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "qrAssetProfile", "settings"]),
+    admin: new Set(["dashboard", "ticket", "callManagement", "callAssignment", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "centralStore", "storeRequests", "vendors", "pm", "reports", "users", "qr", "qrAssetProfile", "settings"]),
+    engineer: new Set(["engineerDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "storeRequests", "vendors", "pm", "reports", "qr", "qrAssetProfile", "settings"]),
+    electrical: new Set(["electricalDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "storeRequests", "vendors", "qr", "qrAssetProfile", "settings"]),
+    it: new Set(["itDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "storeRequests", "vendors", "qr", "qrAssetProfile", "settings"]),
     user: new Set(["userDashboard", "newRequest", "myRequests", "myAssets", "assetDetails", "departmentPMSchedule", "requestDetails", "qr", "qrAssetProfile", "settings"]),
     wardboy: new Set(["wardBoyDashboard", "settings"]),
+    centralstore: new Set(["centralStore", "settings"]),
 };
 // ==========================================
 // CURRENT SELECTED ASSET
@@ -68,6 +70,9 @@ const Pages = {
     assetForm: renderAssetForm,
     assetDetails: renderAssetDetails,
     inventory: renderInventory,
+    centralStore: renderCentralStore,
+    storeRequests: renderStoreRequests,
+    vendors: typeof renderVendors === "function" ? renderVendors : () => {},
     pm: renderPM,
     reports: renderReports,
     ai: renderAI,

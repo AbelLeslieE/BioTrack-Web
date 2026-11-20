@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT,
     email TEXT,
     phone TEXT,
-    role TEXT NOT NULL CHECK (role IN ('Manager', 'BME', 'Electrical', 'IT', 'User', 'WardBoy')),
+    role TEXT NOT NULL CHECK (role IN ('Manager', 'BME', 'Electrical', 'IT', 'User', 'WardBoy', 'CentralStore')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -90,6 +90,9 @@ CREATE TABLE IF NOT EXISTS asset_documents (
     document_name TEXT NOT NULL,
     document_type TEXT,
     file_path TEXT NOT NULL,
+    content_type TEXT NOT NULL DEFAULT 'application/pdf',
+    original_size_bytes INTEGER NOT NULL DEFAULT 0,
+    stored_size_bytes INTEGER NOT NULL DEFAULT 0,
     uploaded_by TEXT,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
@@ -129,13 +132,14 @@ CREATE TABLE IF NOT EXISTS devices (
 
 CREATE TABLE IF NOT EXISTS inventory (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    bpk_number TEXT NOT NULL UNIQUE,
+    bpk_number TEXT NOT NULL,
     item_name TEXT NOT NULL,
     category TEXT,
     manufacturer TEXT,
     supplier TEXT,
     unit TEXT,
     current_stock INTEGER DEFAULT 0,
+    reserved_stock INTEGER NOT NULL DEFAULT 0,
     minimum_stock INTEGER DEFAULT 5,
     maximum_stock INTEGER DEFAULT 100,
     location TEXT,
@@ -145,6 +149,26 @@ CREATE TABLE IF NOT EXISTS inventory (
     remarks TEXT,
     service_team TEXT NOT NULL DEFAULT 'Biomedical'
         CHECK (service_team IN ('Biomedical', 'Electrical', 'IT')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_inventory_service_team_bpk UNIQUE (service_team, bpk_number)
+);
+
+CREATE TABLE IF NOT EXISTS central_store_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_code TEXT NOT NULL UNIQUE,
+    item_name TEXT NOT NULL,
+    category TEXT,
+    manufacturer TEXT,
+    supplier TEXT,
+    unit TEXT NOT NULL DEFAULT 'pieces',
+    current_stock INTEGER NOT NULL DEFAULT 0,
+    minimum_stock INTEGER NOT NULL DEFAULT 5,
+    maximum_stock INTEGER NOT NULL DEFAULT 100,
+    location TEXT NOT NULL DEFAULT 'Central Store',
+    rack TEXT,
+    purchase_price REAL NOT NULL DEFAULT 0,
+    active BOOLEAN NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -166,6 +190,8 @@ CREATE TABLE IF NOT EXISTS requests (
     problem_category TEXT,
     failure_description TEXT,
     status TEXT DEFAULT 'Open',
+    assigned_to_username TEXT,
+    assigned_to_name TEXT,
     call_received_datetime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     engineer_start_datetime TIMESTAMP,
     fixed_datetime TIMESTAMP,
@@ -175,7 +201,54 @@ CREATE TABLE IF NOT EXISTS requests (
     engineer_notes TEXT DEFAULT '',
     work_done TEXT DEFAULT '',
     spare_parts TEXT DEFAULT '',
-    stock_deducted BOOLEAN NOT NULL DEFAULT 0
+    stock_deducted BOOLEAN NOT NULL DEFAULT 0,
+    parts_reserved BOOLEAN NOT NULL DEFAULT 0,
+    parts_cost REAL NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS request_attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id INTEGER NOT NULL,
+    document_type TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    stored_name TEXT NOT NULL UNIQUE,
+    content_type TEXT NOT NULL,
+    original_size_bytes INTEGER NOT NULL DEFAULT 0,
+    stored_size_bytes INTEGER NOT NULL DEFAULT 0,
+    uploaded_by TEXT NOT NULL,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS vendor_contracts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_team TEXT NOT NULL DEFAULT 'Biomedical'
+        CHECK (service_team IN ('Biomedical', 'Electrical', 'IT')),
+    vendor_name TEXT NOT NULL,
+    contact_person TEXT,
+    phone TEXT,
+    email TEXT,
+    contract_type TEXT NOT NULL DEFAULT 'AMC',
+    contract_number TEXT,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    response_sla_hours INTEGER NOT NULL DEFAULT 24,
+    coverage TEXT,
+    status TEXT NOT NULL DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS vendor_service_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contract_id INTEGER NOT NULL,
+    service_date DATE NOT NULL,
+    reference_number TEXT,
+    technician_name TEXT,
+    summary TEXT NOT NULL,
+    cost REAL NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (contract_id) REFERENCES vendor_contracts(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS ward_boy_tasks (
@@ -196,6 +269,63 @@ CREATE TABLE IF NOT EXISTS ward_boy_tasks (
     completed_at TIMESTAMP,
     UNIQUE (request_id, movement_type),
     FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS spare_part_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_number TEXT NOT NULL UNIQUE,
+    requested_by_username TEXT NOT NULL,
+    requested_by_name TEXT NOT NULL,
+    requested_by_role TEXT NOT NULL,
+    service_team TEXT NOT NULL CHECK (service_team IN ('Biomedical', 'Electrical', 'IT')),
+    request_type TEXT NOT NULL CHECK (request_type IN ('Internal', 'External')),
+    central_store_item_id INTEGER,
+    requested_item_name TEXT NOT NULL,
+    requested_item_code TEXT,
+    category TEXT,
+    manufacturer TEXT,
+    specification TEXT,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    unit TEXT NOT NULL DEFAULT 'pieces',
+    request_reason TEXT NOT NULL DEFAULT 'General',
+    priority TEXT NOT NULL DEFAULT 'Medium',
+    linked_request_id INTEGER,
+    delivery_location TEXT NOT NULL,
+    notes TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'Submitted',
+    central_store_notes TEXT NOT NULL DEFAULT '',
+    approved_by_username TEXT,
+    approved_by_name TEXT,
+    stock_issued BOOLEAN NOT NULL DEFAULT 0,
+    fulfilled_quantity INTEGER NOT NULL DEFAULT 0,
+    delivery_mode TEXT,
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    approved_at TIMESTAMP,
+    ready_at TIMESTAMP,
+    dispatched_at TIMESTAMP,
+    ward_boy_completed_at TIMESTAMP,
+    engineer_confirmed_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    rejected_at TIMESTAMP,
+    FOREIGN KEY (central_store_item_id) REFERENCES central_store_items(id) ON DELETE SET NULL,
+    FOREIGN KEY (linked_request_id) REFERENCES requests(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS store_delivery_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    spare_request_id INTEGER NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'Pending',
+    source_location TEXT NOT NULL DEFAULT 'Central Store',
+    destination_location TEXT NOT NULL,
+    notes TEXT NOT NULL DEFAULT '',
+    requested_by_username TEXT NOT NULL,
+    requested_by_name TEXT NOT NULL,
+    assigned_to_username TEXT,
+    assigned_to_name TEXT,
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    accepted_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    FOREIGN KEY (spare_request_id) REFERENCES spare_part_requests(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS pm_schedules (
@@ -269,6 +399,11 @@ CREATE INDEX IF NOT EXISTS ix_assets_service_team ON assets(service_team);
 CREATE INDEX IF NOT EXISTS ix_inventory_service_team ON inventory(service_team);
 CREATE INDEX IF NOT EXISTS ix_requests_created_by ON requests(created_by);
 CREATE INDEX IF NOT EXISTS ix_requests_service_team ON requests(service_team);
+CREATE INDEX IF NOT EXISTS ix_requests_assigned_to_username ON requests(assigned_to_username);
+CREATE INDEX IF NOT EXISTS ix_request_attachments_request_id ON request_attachments(request_id);
+CREATE INDEX IF NOT EXISTS ix_vendor_contracts_service_team ON vendor_contracts(service_team);
+CREATE INDEX IF NOT EXISTS ix_vendor_contracts_end_date ON vendor_contracts(end_date);
+CREATE INDEX IF NOT EXISTS ix_vendor_service_history_contract_id ON vendor_service_history(contract_id);
 CREATE INDEX IF NOT EXISTS ix_ward_boy_tasks_request_id ON ward_boy_tasks(request_id);
 CREATE INDEX IF NOT EXISTS ix_ward_boy_tasks_status ON ward_boy_tasks(status);
 CREATE INDEX IF NOT EXISTS ix_pm_schedules_asset_id ON pm_schedules(asset_id);

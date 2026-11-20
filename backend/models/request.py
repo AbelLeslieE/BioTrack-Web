@@ -51,6 +51,10 @@ class Request(Base):
 
     status = Column(String, default="Open")
 
+    assigned_to_username = Column(String, index=True)
+
+    assigned_to_name = Column(String)
+
     call_received_datetime = Column(
         DateTime,
         default=datetime.now
@@ -74,4 +78,10 @@ class Request(Base):
 
     # Prevent the same maintenance ticket from deducting stock more than once.
     stock_deducted = Column(Boolean, nullable=False, default=False)
+
+    # Active selections reserve stock for this call until completion, when the
+    # reservation is converted into physical consumption.
+    parts_reserved = Column(Boolean, nullable=False, default=False)
+
+    parts_cost = Column(Float, nullable=False, default=0)
   

@@ -743,6 +743,99 @@ function renderPMHistory(asset){
 
 function renderAssetTabs(asset){
 
-    document.getElementById("assetTabs").innerHTML = "";
+    document.getElementById("assetTabs").innerHTML = `
+        <section class="asset-section asset-documents-section">
+            <div class="asset-section-header">
+                <div>
+                    <h2>Manuals & documents</h2>
+                    <p>Equipment manuals, certificates, invoices, service reports, photos and calibration evidence.</p>
+                </div>
+                <span class="asset-document-compression"><i data-lucide="minimize-2"></i> Auto-compressed below 900 KB</span>
+            </div>
+            <form id="assetDocumentForm" class="asset-document-form">
+                <select id="assetDocumentType" aria-label="Document type">
+                    <option>Manual</option><option>Invoice</option><option>Certificate</option>
+                    <option>Service Report</option><option>Photo</option><option>Calibration Document</option>
+                </select>
+                <label><i data-lucide="paperclip"></i><span id="assetDocumentFileName">Choose PDF or image</span><input id="assetDocumentFile" type="file" accept="application/pdf,image/jpeg,image/png" required></label>
+                <button type="submit"><i data-lucide="cloud-upload"></i> Compress & upload</button>
+            </form>
+            <p id="assetDocumentProgress" class="asset-document-progress" role="status"></p>
+            <div id="assetDocumentList" class="asset-document-list"><p>Loading asset documents…</p></div>
+        </section>`;
+    document.getElementById("assetDocumentForm")?.addEventListener("submit", uploadAssetDocument);
+    document.getElementById("assetDocumentFile")?.addEventListener("change", event => {
+        document.getElementById("assetDocumentFileName").textContent = event.target.files?.[0]?.name || "Choose PDF or image";
+    });
+    if (window.lucide) window.lucide.createIcons();
+    loadAssetDocuments(asset.id);
 
+}
+
+function assetDocumentSize(bytes) {
+    const value = Number(bytes || 0);
+    if (value < 1024) return `${value} B`;
+    return `${(value / 1024).toFixed(value < 10240 ? 1 : 0)} KB`;
+}
+
+async function loadAssetDocuments(assetId = currentAssetId) {
+    const container = document.getElementById("assetDocumentList");
+    if (!container) return;
+    try {
+        const response = await fetch(`/api/assets/${Number(assetId)}/documents`, { cache: "no-store" });
+        const documents = await response.json().catch(() => []);
+        if (!response.ok) throw new Error(documents.detail || "Unable to load asset documents.");
+        container.innerHTML = documents.length ? documents.map(document => `
+            <article class="asset-document-item">
+                <span class="asset-document-icon"><i data-lucide="${document.content_type === "application/pdf" ? "file-text" : "image"}"></i></span>
+                <div><strong>${escapeHTML(document.document_name)}</strong><small>${escapeHTML(document.document_type)} · ${assetDocumentSize(document.stored_size_bytes)}${document.original_size_bytes > document.stored_size_bytes ? ` · compressed from ${assetDocumentSize(document.original_size_bytes)}` : ""}</small></div>
+                <a href="${document.download_url}" download><i data-lucide="download"></i><span>Download</span></a>
+                <button type="button" onclick="deleteAssetDocument(${Number(document.id)})" aria-label="Delete ${escapeHTML(document.document_name)}"><i data-lucide="trash-2"></i></button>
+            </article>`).join("") : '<div class="asset-document-empty"><i data-lucide="folder-open"></i><strong>No documents uploaded</strong><p>Add the first manual, certificate or service document for this equipment.</p></div>';
+    } catch (error) {
+        container.innerHTML = `<div class="asset-document-empty is-error"><i data-lucide="circle-alert"></i><strong>Documents unavailable</strong><p>${escapeHTML(error.message)}</p></div>`;
+    }
+    if (window.lucide) window.lucide.createIcons();
+}
+
+async function uploadAssetDocument(event) {
+    event.preventDefault();
+    const input = document.getElementById("assetDocumentFile");
+    const progress = document.getElementById("assetDocumentProgress");
+    const button = event.currentTarget.querySelector('button[type="submit"]');
+    const file = input?.files?.[0];
+    if (!file) return;
+    button.disabled = true;
+    progress.textContent = "Compressing and storing the document…";
+    try {
+        const formData = new FormData();
+        formData.append("document_type", document.getElementById("assetDocumentType").value);
+        formData.append("file", file);
+        const response = await fetch(`/api/assets/${Number(currentAssetId)}/documents`, { method: "POST", body: formData });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to upload this asset document.");
+        progress.textContent = `Stored at ${assetDocumentSize(result.document.stored_size_bytes)}${result.document.original_size_bytes > result.document.stored_size_bytes ? ` (from ${assetDocumentSize(result.document.original_size_bytes)})` : ""}.`;
+        event.currentTarget.reset();
+        document.getElementById("assetDocumentFileName").textContent = "Choose PDF or image";
+        BioTrackToast.success("Document uploaded", "The optimized file is attached to this asset.");
+        await loadAssetDocuments();
+    } catch (error) {
+        progress.textContent = error.message || "Upload failed.";
+        BioTrackToast.error("Document not uploaded", progress.textContent);
+    } finally {
+        button.disabled = false;
+    }
+}
+
+async function deleteAssetDocument(documentId) {
+    if (!window.confirm("Delete this asset document?")) return;
+    try {
+        const response = await fetch(`/api/assets/documents/${Number(documentId)}`, { method: "DELETE" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to delete this asset document.");
+        BioTrackToast.success("Document deleted", "The asset document was removed.");
+        await loadAssetDocuments();
+    } catch (error) {
+        BioTrackToast.error("Document not deleted", error.message);
+    }
 }

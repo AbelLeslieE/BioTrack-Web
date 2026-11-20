@@ -2,6 +2,7 @@ from backend.models.base import Base
 
 from backend.models.user import User
 from backend.models.request import Request
+from backend.models.request_attachment import RequestAttachment
 from backend.models.device import Device
 
 from backend.models.asset import Asset
@@ -24,3 +25,5 @@ from backend.models.pm_history import PMHistory
 
 from backend.models.inventory import Inventory
 from backend.models.report_schedule import ReportSchedule
+from backend.models.vendor_contract import VendorContract, VendorServiceHistory
+from backend.models.central_store import CentralStoreItem, SparePartRequest, StoreDeliveryTask

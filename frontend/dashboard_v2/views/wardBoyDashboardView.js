@@ -21,7 +21,7 @@ function renderWardBoyDashboard() {
                 <div class="ward-boy-hero-copy">
                     <span class="ward-boy-eyebrow"><i data-lucide="radio-tower"></i> Hospital transport support</span>
                     <h1>Ward Boy Dispatch</h1>
-                    <p>Accept equipment pickup and return jobs, follow the route, and confirm delivery.</p>
+                    <p>Accept equipment transport and Central Store spare-part deliveries, follow the route, and confirm handover.</p>
                     <span class="ward-boy-live"><i></i> Live job queue</span>
                 </div>
                 <div class="ward-boy-hero-art" aria-hidden="true"><i data-lucide="truck"></i></div>
@@ -36,7 +36,7 @@ function renderWardBoyDashboard() {
 
             <section class="ward-boy-board">
                 <header>
-                    <div><span>Transport queue</span><h2>Equipment movement jobs</h2></div>
+                    <div><span>Transport queue</span><h2>Equipment and spare-part jobs</h2></div>
                     <nav class="ward-boy-filters" aria-label="Filter jobs">
                         <button class="is-active" type="button" data-filter="available" onclick="setWardBoyFilter('available', this)">Available</button>
                         <button type="button" data-filter="active" onclick="setWardBoyFilter('active', this)">My active</button>
@@ -106,13 +106,13 @@ function renderWardBoyTasks() {
     }
 
     list.innerHTML = tasks.map(task => `
-        <article class="ward-boy-task is-${String(task.status || "pending").toLowerCase()}">
+        <article class="ward-boy-task is-${String(task.status || "pending").toLowerCase()}" data-task-kind="${wardBoyEscape(task.task_kind || "equipment")}">
             <header>
-                <span class="ward-boy-task-type is-${String(task.movement_type || "pickup").toLowerCase()}"><i data-lucide="${task.movement_type === "Return" ? "undo-2" : "package-open"}"></i>${wardBoyEscape(task.movement_type)}</span>
+                <span class="ward-boy-task-type is-${String(task.movement_type || "pickup").toLowerCase().replaceAll(" ", "-")}"><i data-lucide="${task.task_kind === "store" ? "warehouse" : task.movement_type === "Return" ? "undo-2" : "package-open"}"></i>${wardBoyEscape(task.movement_type)}</span>
                 <span class="ward-boy-priority is-${String(task.priority || "medium").toLowerCase()}">${wardBoyEscape(task.priority || "Medium")}</span>
             </header>
             <div class="ward-boy-equipment">
-                <span><i data-lucide="monitor-cog"></i></span>
+                <span><i data-lucide="${task.task_kind === "store" ? "package-check" : "monitor-cog"}"></i></span>
                 <div><small>${wardBoyEscape(task.ticket)}</small><h3>${wardBoyEscape(task.equipment || "Equipment")}</h3><p>${wardBoyEscape(task.equipment_identifier || "No equipment ID")}</p></div>
             </div>
             <div class="ward-boy-route">
@@ -122,22 +122,23 @@ function renderWardBoyTasks() {
             </div>
             <footer>
                 <div class="ward-boy-meta"><span><i data-lucide="building-2"></i>${wardBoyEscape(task.department || "Hospital")}</span><span><i data-lucide="clock-3"></i>${wardBoyEscape(wardBoyTime(task.requested_at))}</span></div>
-                ${task.status === "Pending" ? `<button type="button" onclick="acceptWardBoyTask(${Number(task.id)})"><i data-lucide="hand"></i> Accept job</button>` : ""}
-                ${task.status === "Accepted" ? `<button type="button" class="is-complete" onclick="completeWardBoyTask(${Number(task.id)})"><i data-lucide="badge-check"></i> Mark delivered</button>` : ""}
+                ${task.status === "Pending" ? `<button type="button" data-ward-task="${Number(task.id)}" onclick="acceptWardBoyTask(${Number(task.id)},'${task.task_kind || "equipment"}')"><i data-lucide="hand"></i> Accept job</button>` : ""}
+                ${task.status === "Accepted" ? `<button type="button" data-ward-task="${Number(task.id)}" class="is-complete" onclick="completeWardBoyTask(${Number(task.id)},'${task.task_kind || "equipment"}')"><i data-lucide="badge-check"></i> Mark delivered</button>` : ""}
                 ${task.status === "Completed" ? '<span class="ward-boy-delivered"><i data-lucide="circle-check-big"></i> Delivered</span>' : ""}
             </footer>
         </article>`).join("");
     if (window.lucide) lucide.createIcons();
 }
 
-async function mutateWardBoyTask(taskId, action) {
-    const buttons = document.querySelectorAll(`button[onclick*="WardBoyTask(${taskId})"]`);
+async function mutateWardBoyTask(taskId, action, taskKind = "equipment") {
+    const buttons = document.querySelectorAll(`button[data-ward-task="${taskId}"]`);
     buttons.forEach(button => { button.disabled = true; });
     try {
-        const response = await fetch(`/api/ward-boy/tasks/${taskId}/${action}`, { method: "PATCH" });
+        const taskPath = taskKind === "store" ? "store-tasks" : "tasks";
+        const response = await fetch(`/api/ward-boy/${taskPath}/${taskId}/${action}`, { method: "PATCH" });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.detail || "Unable to update this job.");
-        BioTrackToast.success(action === "accept" ? "Job accepted" : "Delivery completed", action === "accept" ? "Follow the route shown on the job card." : "The requester and engineering team can now see the delivery status.");
+        BioTrackToast.success(action === "accept" ? "Job accepted" : "Delivery recorded", action === "accept" ? "Follow the route shown on the job card." : taskKind === "store" ? "The engineer must now confirm receipt to complete the request." : "The requester and engineering team can now see the delivery status.");
         wardBoyTaskFilter = action === "accept" ? "active" : "completed";
         document.querySelectorAll(".ward-boy-filters button").forEach(item => item.classList.toggle("is-active", item.dataset.filter === wardBoyTaskFilter));
         await loadWardBoyDashboard();
@@ -149,5 +150,5 @@ async function mutateWardBoyTask(taskId, action) {
     }
 }
 
-function acceptWardBoyTask(taskId) { return mutateWardBoyTask(taskId, "accept"); }
-function completeWardBoyTask(taskId) { return mutateWardBoyTask(taskId, "complete"); }
+function acceptWardBoyTask(taskId, taskKind = "equipment") { return mutateWardBoyTask(taskId, "accept", taskKind); }
+function completeWardBoyTask(taskId, taskKind = "equipment") { return mutateWardBoyTask(taskId, "complete", taskKind); }

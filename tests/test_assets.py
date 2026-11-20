@@ -1,13 +1,18 @@
 import unittest
 import asyncio
 import inspect
+import tempfile
 from datetime import date
 from io import BytesIO
+from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pandas as pd
+import fitz
 from fastapi import HTTPException, UploadFile
 from fastapi.params import Query
+from starlette.datastructures import Headers
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -22,12 +27,15 @@ from backend.routes.asset_routes import (
     bulk_delete_assets,
     create_asset,
     create_asset_relocation_request,
+    delete_asset_document,
     get_asset,
     get_asset_relocation_requests,
     get_assets,
+    list_asset_documents,
     get_my_asset_relocation_requests,
     review_asset_relocation_request,
     update_asset,
+    upload_asset_document,
     upload_asset_excel,
 )
 from backend.services.excel_import_service import import_assets_from_excel
@@ -35,6 +43,69 @@ from backend.services.service_team import team_for_user
 
 
 class AssetRouteTests(unittest.TestCase):
+    def test_asset_document_upload_compresses_stores_and_deletes_file(self):
+        engine = create_engine("sqlite:///:memory:")
+        Asset.__table__.create(engine)
+        AssetDocument.__table__.create(engine)
+        session = sessionmaker(bind=engine)()
+        document = fitz.open()
+        page = document.new_page()
+        page.insert_text((72, 72), "Synthetic BioTrack asset manual")
+        pdf_bytes = document.tobytes()
+        document.close()
+        try:
+            asset = Asset(asset_code="DOC-UPLOAD-1", equipment_name="Monitor", service_team="Biomedical")
+            session.add(asset)
+            session.commit()
+            user = SimpleNamespace(role="Manager", username="admin", name="Admin")
+            upload = UploadFile(
+                filename="manual.pdf",
+                file=BytesIO(pdf_bytes),
+                headers=Headers({"content-type": "application/pdf"}),
+            )
+            with tempfile.TemporaryDirectory(prefix="biotrack-asset-doc-") as directory:
+                target_directory = Path(directory)
+                with patch("backend.routes.asset_routes.ASSET_DOCUMENT_DIRECTORY", target_directory):
+                    result = asyncio.run(upload_asset_document(asset.id, "Manual", upload, session, user))
+                    stored = session.get(AssetDocument, result["document"]["id"])
+                    stored_path = target_directory / stored.file_path
+                    self.assertTrue(stored_path.is_file())
+                    self.assertLessEqual(stored.stored_size_bytes, 900 * 1024)
+                    self.assertEqual(stored.original_size_bytes, len(pdf_bytes))
+                    delete_asset_document(stored.id, session, user)
+                    self.assertFalse(stored_path.exists())
+        finally:
+            session.close()
+            engine.dispose()
+
+    def test_asset_documents_include_compression_metadata(self):
+        engine = create_engine("sqlite:///:memory:")
+        Asset.__table__.create(engine)
+        AssetDocument.__table__.create(engine)
+        session = sessionmaker(bind=engine)()
+        try:
+            asset = Asset(asset_code="DOC-1", equipment_name="Ventilator", service_team="Biomedical")
+            session.add(asset)
+            session.flush()
+            session.add(AssetDocument(
+                asset_id=asset.id,
+                document_name="manual.pdf",
+                document_type="Manual",
+                file_path="stored.pdf",
+                content_type="application/pdf",
+                original_size_bytes=1_400_000,
+                stored_size_bytes=800_000,
+                uploaded_by="Engineer",
+            ))
+            session.commit()
+            result = list_asset_documents(asset.id, session, SimpleNamespace(role="Manager"))
+            self.assertEqual(result[0]["stored_size_bytes"], 800_000)
+            self.assertEqual(result[0]["original_size_bytes"], 1_400_000)
+            self.assertEqual(result[0]["download_url"], "/api/assets/documents/1/download")
+        finally:
+            session.close()
+            engine.dispose()
+
     def test_department_asset_details_hide_finances_and_include_latest_pm(self):
         engine = create_engine("sqlite:///:memory:")
         for table in (Asset.__table__, PMSchedule.__table__, PMHistory.__table__):

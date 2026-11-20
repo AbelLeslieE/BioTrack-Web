@@ -94,7 +94,7 @@ def import_inventory_excel(file, db, service_team="Biomedical"):
 
                     maximum_stock=100,
 
-                    category="Biomedical Spare",
+                    category=f"{service_team} Spare",
 
                     manufacturer="",
 

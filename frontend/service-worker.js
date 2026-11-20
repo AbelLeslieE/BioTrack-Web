@@ -1,4 +1,4 @@
-const CACHE_VERSION = "biotrack-shell-v28";
+const CACHE_VERSION = "biotrack-shell-v29";
 const OFFLINE_URL = "/offline";
 const PRECACHE_URLS = [
     OFFLINE_URL,
@@ -6,6 +6,10 @@ const PRECACHE_URLS = [
     "/static/css/login.css",
     "/static/js/login.js",
     "/static/js/pwa.js",
+    "/static/vendor/lucide.min.js?v=1.76.0",
+    "/static/vendor/fontawesome/css/all.min.css?v=7.3.1",
+    "/static/vendor/fontawesome/webfonts/fa-regular-400.woff2",
+    "/static/vendor/fontawesome/webfonts/fa-solid-900.woff2",
     "/static/assets/icons/biotrack-192.png",
     "/static/assets/icons/biotrack-512.png",
     "/static/assets/icons/biotrack-maskable-512.png"

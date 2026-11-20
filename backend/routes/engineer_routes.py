@@ -73,34 +73,83 @@ def _normalise_spare_parts(parts: list["SparePartUse"]) -> list[dict]:
     ]
 
 
-def _deduct_spare_parts(db: Session, service_team: str, parts: list[dict]) -> None:
-    if not parts:
-        return
-
-    item_ids = [part["inventory_id"] for part in parts]
+def _inventory_items_for_parts(db: Session, service_team: str, *part_lists: list[dict]) -> dict[int, Inventory]:
+    item_ids = sorted({part["inventory_id"] for parts in part_lists for part in parts})
+    if not item_ids:
+        return {}
     items = (
         db.query(Inventory)
         .filter(Inventory.id.in_(item_ids), Inventory.service_team == service_team)
         .all()
     )
     items_by_id = {item.id: item for item in items}
-    missing = [part["inventory_id"] for part in parts if part["inventory_id"] not in items_by_id]
+    missing = [item_id for item_id in item_ids if item_id not in items_by_id]
     if missing:
         raise HTTPException(status_code=422, detail="One or more selected spare parts are not in this department's inventory.")
+    return items_by_id
 
-    insufficient = [
-        items_by_id[part["inventory_id"]].item_name
-        for part in parts
-        if (items_by_id[part["inventory_id"]].current_stock or 0) < part["quantity"]
-    ]
+
+def _part_quantity_map(parts: list[dict]) -> dict[int, int]:
+    return {part["inventory_id"]: part["quantity"] for part in parts}
+
+
+def _sync_spare_part_reservations(
+    db: Session,
+    ticket: Request,
+    selected_parts: list[dict],
+    saved_parts: list[dict],
+) -> dict[int, Inventory]:
+    old_parts = saved_parts if ticket.parts_reserved else []
+    items_by_id = _inventory_items_for_parts(db, ticket.service_team, selected_parts, old_parts)
+    old_quantities = _part_quantity_map(old_parts)
+    new_quantities = _part_quantity_map(selected_parts)
+
+    insufficient = []
+    for inventory_id, new_quantity in new_quantities.items():
+        item = items_by_id[inventory_id]
+        available_for_ticket = (
+            (item.current_stock or 0)
+            - (item.reserved_stock or 0)
+            + old_quantities.get(inventory_id, 0)
+        )
+        if new_quantity > available_for_ticket:
+            insufficient.append(item.item_name)
+
     if insufficient:
         raise HTTPException(
             status_code=422,
-            detail=f"Insufficient stock for: {', '.join(insufficient)}.",
+            detail=f"Insufficient unreserved stock for: {', '.join(insufficient)}.",
         )
 
+    for inventory_id in set(old_quantities) | set(new_quantities):
+        item = items_by_id[inventory_id]
+        item.reserved_stock = max(
+            0,
+            (item.reserved_stock or 0)
+            - old_quantities.get(inventory_id, 0)
+            + new_quantities.get(inventory_id, 0),
+        )
+    ticket.parts_reserved = bool(selected_parts)
+    return items_by_id
+
+
+def _consume_reserved_parts(ticket: Request, parts: list[dict], items_by_id: dict[int, Inventory]) -> None:
     for part in parts:
-        items_by_id[part["inventory_id"]].current_stock -= part["quantity"]
+        item = items_by_id[part["inventory_id"]]
+        quantity = part["quantity"]
+        if (item.current_stock or 0) < quantity:
+            raise HTTPException(status_code=422, detail=f"Insufficient stock for: {item.item_name}.")
+        item.current_stock = (item.current_stock or 0) - quantity
+        item.reserved_stock = max(0, (item.reserved_stock or 0) - quantity)
+    ticket.parts_reserved = False
+    ticket.stock_deducted = True
+
+
+def _parts_cost(parts: list[dict], items_by_id: dict[int, Inventory]) -> float:
+    return round(sum(
+        (items_by_id[part["inventory_id"]].purchase_price or 0) * part["quantity"]
+        for part in parts
+    ), 2)
 
 
 @router.get("/dashboard")
@@ -144,6 +193,8 @@ def engineer_dashboard(
                 "description": call.failure_description,
                 "priority": call.priority,
                 "status": call.status,
+                "assigned_to_username": call.assigned_to_username or "",
+                "assigned_to_name": call.assigned_to_name or "",
                 "reported_time": call.call_received_datetime.strftime("%d %b %Y %I:%M %p")
                 if call.call_received_datetime
                 else "",
@@ -191,6 +242,8 @@ def get_ticket(
         "reported_by": ticket.reported_by,
         "priority": ticket.priority,
         "status": ticket.status,
+        "assigned_to_username": ticket.assigned_to_username or "",
+        "assigned_to_name": ticket.assigned_to_name or "",
         "issue": ticket.problem_category,
         "description": ticket.failure_description,
         "received": ticket.call_received_datetime.strftime("%d %b %Y %I:%M %p")
@@ -201,6 +254,8 @@ def get_ticket(
         "downtime": ticket.final_downtime_hours or 0,
         "spare_parts": _saved_spare_parts(ticket.spare_parts),
         "stock_deducted": ticket.stock_deducted,
+        "parts_reserved": ticket.parts_reserved,
+        "parts_cost": ticket.parts_cost or 0,
         "ward_boy_tasks": [serialize_ward_boy_task(task, ticket) for task in ward_boy_tasks],
     }
 
@@ -228,6 +283,8 @@ def get_maintenance(
                 if call.call_received_datetime
                 else "",
                 "status": call.status,
+                "assigned_to_username": call.assigned_to_username or "",
+                "assigned_to_name": call.assigned_to_name or "",
                 "priority": call.priority,
                 "downtime": call.final_downtime_hours or 0,
                 "issue": call.problem_category,
@@ -250,6 +307,61 @@ class TicketUpdate(BaseModel):
     spare_parts: list[SparePartUse] = Field(default_factory=list)
     start_work: bool = False
     complete_work: bool = False
+
+
+class AssignmentUpdate(BaseModel):
+    username: str | None = None
+
+
+@router.get("/technicians")
+def list_technicians(
+    service_team: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    enforced_team = _service_team_for(current_user)
+    selected_team = enforced_team or service_team
+    role_for_team = {"Biomedical": "BME", "Electrical": "Electrical", "IT": "IT"}.get(selected_team)
+    query = db.query(User).filter(User.role.in_(("BME", "Electrical", "IT")))
+    if role_for_team:
+        query = query.filter(User.role == role_for_team)
+    return [
+        {"username": user.username, "name": user.name or user.username, "service_team": _service_team_for(user)}
+        for user in query.order_by(User.name.asc()).all()
+    ]
+
+
+@router.patch("/ticket/{ticket_id}/assignment")
+def assign_ticket(
+    ticket_id: int,
+    payload: AssignmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ticket = _calls_for_team(db, current_user).filter(Request.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Maintenance call not found.")
+
+    if payload.username:
+        technician = db.query(User).filter(User.username == payload.username).first()
+        if not technician or _service_team_for(technician) != ticket.service_team:
+            raise HTTPException(status_code=422, detail="Select a technician from this engineering department.")
+        ticket.assigned_to_username = technician.username
+        ticket.assigned_to_name = technician.name or technician.username
+        if ticket.status == "Open":
+            ticket.status = "Assigned"
+    else:
+        ticket.assigned_to_username = None
+        ticket.assigned_to_name = None
+        if ticket.status == "Assigned":
+            ticket.status = "Open"
+    db.commit()
+    return {
+        "success": True,
+        "status": ticket.status,
+        "assigned_to_username": ticket.assigned_to_username or "",
+        "assigned_to_name": ticket.assigned_to_name or "",
+    }
 
 
 @router.put("/ticket/{ticket_id}")
@@ -275,14 +387,25 @@ def update_ticket(
             status_code=409,
             detail="Spare parts cannot be changed after stock has been deducted.",
         )
-    if completing and not ticket.stock_deducted:
-        _deduct_spare_parts(db, ticket.service_team, selected_parts)
-        ticket.stock_deducted = True
+    if not ticket.stock_deducted:
+        items_by_id = _sync_spare_part_reservations(
+            db,
+            ticket,
+            selected_parts,
+            saved_parts,
+        )
+        ticket.parts_cost = _parts_cost(selected_parts, items_by_id)
+        if completing:
+            _consume_reserved_parts(ticket, selected_parts, items_by_id)
 
     ticket.engineer_notes = payload.engineer_notes
     ticket.work_done = payload.work_done
     ticket.spare_parts = json.dumps(selected_parts)
     ticket.status = next_status
+
+    if payload.start_work and not ticket.assigned_to_username and current_user.role != "Manager":
+        ticket.assigned_to_username = current_user.username
+        ticket.assigned_to_name = current_user.name or current_user.username
 
     if ticket.status == "In Progress" and ticket.engineer_start_datetime is None:
         ticket.engineer_start_datetime = datetime.now()

@@ -9,11 +9,15 @@ test("dashboard loads local application code from two bundles", () => {
     const html = fs.readFileSync(path.join(root, "frontend/dashboard_v2/dashboard.html"), "utf8");
     const localStyles = [...html.matchAll(/<link[^>]+href="(\/static\/[^"]+\.css[^\"]*)"/g)];
     const localScripts = [...html.matchAll(/<script[^>]+src="(\/static\/[^"]+\.js[^\"]*)"/g)];
+    const applicationStyles = localStyles.filter(match => match[1].includes("/dashboard_v2/"));
+    const applicationScripts = localScripts.filter(match => match[1].includes("/dashboard_v2/"));
 
-    assert.equal(localStyles.length, 1);
-    assert.ok(localStyles[0][1].includes("dashboard.bundle.css"));
-    assert.ok(localScripts.some(match => match[1].includes("dashboard.bundle.js")));
-    assert.ok(localScripts.length <= 2, "only the dashboard bundle and PWA registration should remain");
+    assert.equal(applicationStyles.length, 1);
+    assert.ok(applicationStyles[0][1].includes("dashboard.bundle.css"));
+    assert.equal(applicationScripts.length, 1);
+    assert.ok(applicationScripts[0][1].includes("dashboard.bundle.js"));
+    assert.ok(localStyles.every(match => /dashboard\.bundle|vendor\/fontawesome/.test(match[1])));
+    assert.ok(localScripts.every(match => /dashboard\.bundle|vendor\/lucide|js\/pwa/.test(match[1])));
 
     for (const file of ["dashboard.bundle.css", "dashboard.bundle.js"]) {
         const bundle = path.join(root, "frontend/dashboard_v2/dist", file);

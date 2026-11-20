@@ -38,3 +38,19 @@ test("inventory action dialogs are responsive and have destructive styling", () 
     assert.match(styles, /\.form-group\.full-width/);
     assert.match(styles, /@media\(max-width:768px\)/);
 });
+
+test("manager inventory is separated into department workspaces", () => {
+    assert.match(source, /const INVENTORY_TEAMS = \["Biomedical", "Electrical", "IT"\]/);
+    assert.match(source, /id="inventoryTeamSwitcher"/);
+    assert.match(source, /data-inventory-team/);
+    assert.match(source, /function selectInventoryTeam\(team\)/);
+    assert.match(source, /service_team: document\.getElementById\("inv_team"\)\.value/);
+    assert.match(styles, /\.inventory-team-switcher/);
+    assert.match(styles, /\.inventory-team-badge\.electrical/);
+});
+
+test("imports and exports remain inside the selected department", () => {
+    assert.match(source, /upload\?service_team=/);
+    assert.match(source, /Choose a department/);
+    assert.match(source, /BioTrack-\$\{teamName\}-Inventory/);
+});

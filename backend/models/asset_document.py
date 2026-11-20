@@ -37,6 +37,12 @@ class AssetDocument(Base):
 
     file_path = Column(String, nullable=False)
 
+    content_type = Column(String, nullable=False, default="application/pdf")
+
+    original_size_bytes = Column(Integer, nullable=False, default=0)
+
+    stored_size_bytes = Column(Integer, nullable=False, default=0)
+
     uploaded_by = Column(String)
 
     uploaded_at = Column(

@@ -35,8 +35,22 @@ class SchemaTests(unittest.TestCase):
                 "manufacturers",
                 "suppliers",
                 "logs",
+                "request_attachments",
+                "vendor_contracts",
+                "vendor_service_history",
+                "central_store_items",
+                "spare_part_requests",
+                "store_delivery_tasks",
             }.issubset(tables)
         )
+
+        connection = sqlite3.connect(":memory:")
+        try:
+            connection.executescript(schema_path.read_text(encoding="utf-8"))
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(asset_documents)")}
+        finally:
+            connection.close()
+        self.assertTrue({"content_type", "original_size_bytes", "stored_size_bytes"}.issubset(columns))
 
 
 if __name__ == "__main__":

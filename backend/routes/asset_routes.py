@@ -12,6 +12,10 @@ from fastapi import (
     HTTPException,
     Body,
 )
+from fastapi.responses import FileResponse
+from pathlib import Path
+from uuid import uuid4
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from sqlalchemy import false, func, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -29,7 +33,18 @@ from backend.auth import get_current_user, require_roles
 from backend.models.user import User
 from backend.services.service_team import scope_to_team, team_for_user
 from backend.services.qr_service import qr_url_for_asset_code
+from backend.services.attachment_service import ASSET_DOCUMENT_DIRECTORY, optimize_attachment
 from datetime import datetime
+
+
+ASSET_DOCUMENT_TYPES = {
+    "Manual",
+    "Invoice",
+    "Certificate",
+    "Service Report",
+    "Photo",
+    "Calibration Document",
+}
 
 
 # ==========================================
@@ -490,6 +505,145 @@ def bulk_delete_assets(
 # ==========================================
 # GET SINGLE ASSET
 # ==========================================
+
+def _asset_document_payload(document: AssetDocument) -> dict:
+    return {
+        "id": document.id,
+        "asset_id": document.asset_id,
+        "document_name": document.document_name,
+        "document_type": document.document_type or "Manual",
+        "content_type": document.content_type or "application/pdf",
+        "original_size_bytes": document.original_size_bytes or 0,
+        "stored_size_bytes": document.stored_size_bytes or 0,
+        "uploaded_by": document.uploaded_by or "",
+        "uploaded_at": document.uploaded_at,
+        "download_url": f"/api/assets/documents/{document.id}/download",
+    }
+
+
+def _engineering_asset(db: Session, asset_id: int, current_user: User) -> Asset:
+    asset = _assets_visible_to(db, current_user).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found for your engineering team.")
+    return asset
+
+
+@router.get(
+    "/{asset_id}/documents",
+    dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))],
+)
+def list_asset_documents(
+    asset_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    asset = _engineering_asset(db, asset_id, current_user)
+    documents = (
+        db.query(AssetDocument)
+        .filter(AssetDocument.asset_id == asset.id)
+        .order_by(AssetDocument.uploaded_at.desc(), AssetDocument.id.desc())
+        .all()
+    )
+    return [_asset_document_payload(document) for document in documents]
+
+
+@router.post(
+    "/{asset_id}/documents",
+    dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))],
+)
+async def upload_asset_document(
+    asset_id: int,
+    document_type: str = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    asset = _engineering_asset(db, asset_id, current_user)
+    if document_type not in ASSET_DOCUMENT_TYPES:
+        raise HTTPException(status_code=422, detail="Select a supported document type.")
+
+    original_name = Path(file.filename or "asset-document").name[:240]
+    raw = await file.read()
+    optimized, content_type, extension = await run_in_threadpool(
+        optimize_attachment,
+        original_name,
+        file.content_type or "",
+        raw,
+    )
+    stored_name = f"{uuid4().hex}{extension}"
+    target = ASSET_DOCUMENT_DIRECTORY / stored_name
+    await run_in_threadpool(target.write_bytes, optimized)
+
+    document = AssetDocument(
+        asset_id=asset.id,
+        document_name=original_name,
+        document_type=document_type,
+        file_path=stored_name,
+        content_type=content_type,
+        original_size_bytes=len(raw),
+        stored_size_bytes=len(optimized),
+        uploaded_by=current_user.name or current_user.username,
+    )
+    db.add(document)
+    try:
+        db.commit()
+        db.refresh(document)
+    except Exception:
+        db.rollback()
+        if target.is_file():
+            target.unlink()
+        raise
+    return {"success": True, "document": _asset_document_payload(document)}
+
+
+def _asset_document_for_user(
+    db: Session,
+    document_id: int,
+    current_user: User,
+) -> AssetDocument:
+    document = db.get(AssetDocument, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Asset document not found.")
+    _engineering_asset(db, document.asset_id, current_user)
+    return document
+
+
+@router.get(
+    "/documents/{document_id}/download",
+    dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))],
+)
+def download_asset_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    document = _asset_document_for_user(db, document_id, current_user)
+    path = ASSET_DOCUMENT_DIRECTORY / Path(document.file_path).name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="The stored asset document is missing.")
+    return FileResponse(
+        path,
+        media_type=document.content_type or "application/octet-stream",
+        filename=document.document_name,
+    )
+
+
+@router.delete(
+    "/documents/{document_id}",
+    dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT"))],
+)
+def delete_asset_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    document = _asset_document_for_user(db, document_id, current_user)
+    path = ASSET_DOCUMENT_DIRECTORY / Path(document.file_path).name
+    db.delete(document)
+    db.commit()
+    if path.is_file():
+        path.unlink()
+    return {"success": True}
 
 @router.get("/{asset_id}")
 def get_asset(

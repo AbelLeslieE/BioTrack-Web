@@ -1,0 +1,110 @@
+"""Fail-fast readiness audit for BioTrack builds and scheduled CI checks."""
+
+from __future__ import annotations
+
+import importlib
+import os
+import sqlite3
+import sys
+import tempfile
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+REQUIRED_TABLES = {
+    "users",
+    "assets",
+    "asset_documents",
+    "inventory",
+    "requests",
+    "request_attachments",
+    "vendor_contracts",
+    "vendor_service_history",
+    "central_store_items",
+    "spare_part_requests",
+    "store_delivery_tasks",
+    "ward_boy_tasks",
+}
+REQUIRED_ROUTES = {
+    "/api/assets/{asset_id}/documents",
+    "/api/assets/documents/{document_id}/download",
+    "/api/engineer/ticket/{ticket_id}/attachments",
+    "/api/vendors",
+    "/api/central-store/dashboard",
+    "/api/central-store/requests",
+    "/api/ward-boy/dashboard",
+}
+
+
+def check(condition: bool, message: str, failures: list[str]) -> None:
+    if condition:
+        print(f"[PASS] {message}")
+    else:
+        print(f"[FAIL] {message}")
+        failures.append(message)
+
+
+def main() -> int:
+    failures: list[str] = []
+    schema_path = ROOT / "database" / "schema.sql"
+    connection = sqlite3.connect(":memory:")
+    try:
+        connection.executescript(schema_path.read_text(encoding="utf-8"))
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+        }
+        check(REQUIRED_TABLES.issubset(tables), "fresh database schema contains every operational table", failures)
+        asset_document_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(asset_documents)")
+        }
+        check(
+            {"content_type", "original_size_bytes", "stored_size_bytes"}.issubset(asset_document_columns),
+            "asset documents retain compression metadata",
+            failures,
+        )
+    finally:
+        connection.close()
+
+    for package in ("PIL", "fitz"):
+        try:
+            importlib.import_module(package)
+            available = True
+        except ImportError:
+            available = False
+        check(available, f"attachment compression dependency {package} is installed", failures)
+
+    with tempfile.TemporaryDirectory(prefix="biotrack-audit-", ignore_cleanup_errors=True) as directory:
+        os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+        os.environ["DATABASE_URL_UNPOOLED"] = "sqlite:///:memory:"
+        os.environ["BIOTRACK_DATA_DIR"] = directory
+        os.environ.setdefault("JWT_SECRET", "x" * 40)
+        from backend.main import app
+
+        route_paths = {route.path for route in app.routes}
+        check(REQUIRED_ROUTES.issubset(route_paths), "all critical API routes are registered", failures)
+
+    worker = (ROOT / "frontend" / "service-worker.js").read_text(encoding="utf-8")
+    check(
+        'url.pathname.startsWith("/api/")' in worker and "caches.open(CACHE_VERSION)" in worker,
+        "offline cache is enabled while authenticated API responses stay network-only",
+        failures,
+    )
+    bundle = (ROOT / "frontend" / "dashboard_v2" / "dist" / "dashboard.bundle.js").read_text(encoding="utf-8")
+    check("views/centralStoreView.js" in bundle, "Central Store portal is present in the dashboard bundle", failures)
+    check("views/vendorsView.js" in bundle, "vendor contracts are present in the dashboard bundle", failures)
+    check("uploadAssetDocument" in bundle, "asset document upload is present in the dashboard bundle", failures)
+
+    if failures:
+        print(f"\nBioTrack audit failed with {len(failures)} issue(s).")
+        return 1
+    print("\nBioTrack readiness audit passed.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -38,6 +38,16 @@ const adminMenu = `
     <span>Inventory</span>
 </a>
 
+<a href="#" class="nav-item" data-page="centralStore">
+    <i data-lucide="warehouse"></i>
+    <span>Central Store</span>
+</a>
+
+<a href="#" class="nav-item" data-page="vendors">
+    <i data-lucide="handshake"></i>
+    <span>Vendors & Contracts</span>
+</a>
+
 <a href="#" class="nav-item" data-page="users">
     <i data-lucide="users"></i>
     <span>Users</span>
@@ -93,6 +103,16 @@ const engineerMenu = `
     <span>Inventory & Parts</span>
 </a>
 
+<a href="#" class="nav-item" data-page="storeRequests">
+    <i data-lucide="package-plus"></i>
+    <span>Request Spare Parts</span>
+</a>
+
+<a href="#" class="nav-item" data-page="vendors">
+    <i data-lucide="handshake"></i>
+    <span>Vendors & Contracts</span>
+</a>
+
 <a href="#" class="nav-item" data-page="reports">
     <i data-lucide="bar-chart-3"></i>
     <span>Reports</span>
@@ -135,6 +155,16 @@ const electricalMenu = `
     <span>Inventory & Parts</span>
 </a>
 
+<a href="#" class="nav-item" data-page="storeRequests">
+    <i data-lucide="package-plus"></i>
+    <span>Request Spare Parts</span>
+</a>
+
+<a href="#" class="nav-item" data-page="vendors">
+    <i data-lucide="handshake"></i>
+    <span>Vendors & Contracts</span>
+</a>
+
 <a href="#" class="nav-item" data-page="settings">
     <i data-lucide="settings"></i>
     <span>Settings</span>
@@ -165,6 +195,16 @@ const itMenu = `
 <a href="#" class="nav-item" data-page="inventory">
     <i data-lucide="boxes"></i>
     <span>Inventory & Parts</span>
+</a>
+
+<a href="#" class="nav-item" data-page="storeRequests">
+    <i data-lucide="package-plus"></i>
+    <span>Request Spare Parts</span>
+</a>
+
+<a href="#" class="nav-item" data-page="vendors">
+    <i data-lucide="handshake"></i>
+    <span>Vendors & Contracts</span>
 </a>
 
 <a href="#" class="nav-item" data-page="settings">
@@ -225,6 +265,17 @@ const wardBoyMenu = `
     <span>Settings</span>
 </a>
 `;
+
+const centralStoreMenu = `
+<a href="#" class="nav-item active" data-page="centralStore">
+    <i data-lucide="warehouse"></i>
+    <span>Central Store</span>
+</a>
+<a href="#" class="nav-item" data-page="settings">
+    <i data-lucide="settings"></i>
+    <span>Settings</span>
+</a>
+`;
  
 // ==========================================
 // LOAD MENU
@@ -269,6 +320,11 @@ document.addEventListener("DOMContentLoaded", () => {
             sidebar.innerHTML = wardBoyMenu;
             break;
 
+        case "centralstore":
+
+            sidebar.innerHTML = centralStoreMenu;
+            break;
+
         default:
 
             sidebar.innerHTML = "";
@@ -279,11 +335,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 
-// Mobile navigation remains usable on narrow screens without covering the page.
+// The sidebar is persistent on desktop and becomes a focused drawer on phones.
 document.addEventListener("DOMContentLoaded", () => {
     const menuButton = document.querySelector(".menu-toggle");
     const appSidebar = document.querySelector(".sidebar");
     if (!menuButton || !appSidebar) return;
+    const mobileQuery = window.matchMedia("(max-width: 768px)");
 
     const backdrop = document.createElement("button");
     backdrop.type = "button";
@@ -295,12 +352,13 @@ document.addEventListener("DOMContentLoaded", () => {
         appSidebar.classList.remove("active");
         backdrop.classList.remove("show");
         document.body.classList.remove("mobile-nav-open");
-        appSidebar.setAttribute("aria-hidden", "true");
-        appSidebar.inert = true;
+        appSidebar.setAttribute("aria-hidden", String(mobileQuery.matches));
+        appSidebar.inert = mobileQuery.matches;
         menuButton.setAttribute("aria-expanded", "false");
         menuButton.setAttribute("aria-label", "Open navigation menu");
     };
     const toggleMenu = () => {
+        if (!mobileQuery.matches) return;
         const willOpen = !appSidebar.classList.contains("active");
         appSidebar.classList.toggle("active", willOpen);
         backdrop.classList.toggle("show", willOpen);
@@ -311,7 +369,15 @@ document.addEventListener("DOMContentLoaded", () => {
         menuButton.setAttribute("aria-label", willOpen ? "Close navigation menu" : "Open navigation menu");
     };
 
-    closeMenu();
+    const syncNavigationMode = () => {
+        closeMenu();
+        if (!mobileQuery.matches) {
+            appSidebar.removeAttribute("aria-hidden");
+            appSidebar.inert = false;
+        }
+    };
+
+    syncNavigationMode();
     menuButton.addEventListener("click", toggleMenu);
     backdrop.addEventListener("click", closeMenu);
     appSidebar.addEventListener("click", event => {
@@ -320,5 +386,5 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("keydown", event => {
         if (event.key === "Escape") closeMenu();
     });
-    window.addEventListener("resize", closeMenu);
+    mobileQuery.addEventListener?.("change", syncNavigationMode);
 });

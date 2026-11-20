@@ -7,6 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.models.request import Request
 from backend.models.ward_boy_task import WardBoyTask
+from backend.models.central_store import CentralStoreItem, SparePartRequest, StoreDeliveryTask
 from backend.routes.ward_boy_routes import (
     WardBoyTaskCreate,
     accept_ward_boy_task,
@@ -21,6 +22,9 @@ class WardBoyWorkflowTests(unittest.TestCase):
         self.engine = create_engine("sqlite:///:memory:")
         Request.__table__.create(self.engine)
         WardBoyTask.__table__.create(self.engine)
+        CentralStoreItem.__table__.create(self.engine)
+        SparePartRequest.__table__.create(self.engine)
+        StoreDeliveryTask.__table__.create(self.engine)
         self.session = sessionmaker(bind=self.engine)()
         self.request = Request(
             ticket_number="BT-2026-000001",

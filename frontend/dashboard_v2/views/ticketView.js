@@ -6,6 +6,8 @@ let currentTicketId = null;
 let sparePartsInventory = [];
 let selectedSpareParts = [];
 let sparePartsLocked = false;
+let sparePartsReserved = false;
+let ticketTechnicians = [];
 
 function renderWardBoyTransport(ticket) {
     const tasks = Array.isArray(ticket.ward_boy_tasks) ? ticket.ward_boy_tasks : [];
@@ -288,6 +290,12 @@ async function loadTicket() {
 
                 </div>
 
+                <div class="ticket-assignment-panel">
+                    <div><span><i data-lucide="user-round-cog"></i></span><div><strong>Assigned technician</strong><small>Assignment moves a new call into the Assigned board column.</small></div></div>
+                    <select id="ticketTechnician"><option value="">Loading technicians…</option></select>
+                    <button type="button" onclick="saveTicketAssignment()"><i data-lucide="user-check"></i> Assign</button>
+                </div>
+
             </div>
 
             <!-- =========================== -->
@@ -341,13 +349,26 @@ async function loadTicket() {
                 <h2>Spare Parts Used</h2>
 
                 <p class="spare-parts-help">
-                    Select parts from this department's inventory. Stock is deducted only when the repair is completed.
+                    Selected parts are reserved when progress is saved. Completion converts the reservation into inventory consumption.
                 </p>
+
+                <div class="ticket-parts-cost"><span><i data-lucide="receipt-indian-rupee"></i> Repair parts cost</span><strong id="ticketPartsCost">${new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(ticket.parts_cost || 0)}</strong><small id="ticketReservationState">${ticket.parts_reserved ? "Parts reserved for this repair" : ticket.stock_deducted ? "Inventory deducted" : "No parts reserved"}</small></div>
 
                 <div id="sparePartsPicker" class="spare-parts-picker">
                     Loading available spare parts...
                 </div>
 
+            </div>
+
+            <div class="ticket-card full ticket-attachments-card">
+                <div class="ticket-attachments-heading"><div><h2>Attachments & evidence</h2><p>Manuals, invoices, certificates, service reports, photos and calibration documents.</p></div><span><i data-lucide="minimize-2"></i> Auto-compressed below 900 KB</span></div>
+                <form id="ticketAttachmentForm" class="ticket-attachment-form">
+                    <select id="ticketDocumentType" aria-label="Document type"><option>Service Report</option><option>Photo</option><option>Manual</option><option>Invoice</option><option>Certificate</option><option>Calibration Document</option></select>
+                    <label><i data-lucide="paperclip"></i><span id="ticketAttachmentFileName">Choose PDF or image</span><input id="ticketAttachmentFile" type="file" accept="application/pdf,image/jpeg,image/png" required></label>
+                    <button type="submit"><i data-lucide="cloud-upload"></i> Optimize & upload</button>
+                </form>
+                <p id="ticketAttachmentProgress" class="ticket-attachment-progress" role="status"></p>
+                <div id="ticketAttachmentList" class="ticket-attachment-list"><p>Loading attachments…</p></div>
             </div>
 
             <!-- =========================== -->
@@ -386,7 +407,16 @@ async function loadTicket() {
 
         window.currentTicketServiceTeam = ticket.service_team;
 
-        await initializeSparePartsPicker(ticket.spare_parts, ticket.stock_deducted);
+        await Promise.all([
+            initializeSparePartsPicker(ticket.spare_parts, ticket.stock_deducted, ticket.parts_reserved),
+            initializeTicketAssignment(ticket),
+            loadTicketAttachments(),
+        ]);
+
+        document.getElementById("ticketAttachmentForm")?.addEventListener("submit", uploadTicketAttachment);
+        document.getElementById("ticketAttachmentFile")?.addEventListener("change", event => {
+            document.getElementById("ticketAttachmentFileName").textContent = event.target.files?.[0]?.name || "Choose PDF or image";
+        });
 
         if (window.lucide) lucide.createIcons();
 
@@ -450,6 +480,8 @@ async function saveTicketChanges(){
         const data = await response.json();
 
         if(data.success){
+
+            await loadTicket();
 
             showSuccess({
 
@@ -646,8 +678,9 @@ function completeWork(){
 // INVENTORY-BACKED SPARE PARTS
 // ==========================================
 
-async function initializeSparePartsPicker(savedParts, stockDeducted) {
+async function initializeSparePartsPicker(savedParts, stockDeducted, partsReserved = false) {
     sparePartsLocked = Boolean(stockDeducted);
+    sparePartsReserved = Boolean(partsReserved);
     selectedSpareParts = Array.isArray(savedParts)
         ? savedParts.map(part => ({
             inventory_id: Number(part.inventory_id),
@@ -664,10 +697,17 @@ async function initializeSparePartsPicker(savedParts, stockDeducted) {
         );
         if (!response.ok) throw new Error("Unable to load inventory.");
         sparePartsInventory = await response.json();
+        if (sparePartsReserved && !sparePartsLocked) {
+            selectedSpareParts.forEach(part => {
+                const item = sparePartsInventory.find(entry => Number(entry.id) === Number(part.inventory_id));
+                if (item) item.available_stock = Number(item.available_stock || 0) + Number(part.quantity || 0);
+            });
+        }
         if (!selectedSpareParts.length && !sparePartsLocked) {
             selectedSpareParts = [{ inventory_id: "", quantity: 1 }];
         }
         renderSparePartsPicker();
+        updateTicketPartsCost();
     } catch (error) {
         container.innerHTML = `<p class="spare-parts-error">${escapeHTML(error.message)}</p>`;
     }
@@ -695,7 +735,7 @@ function renderSparePartsPicker() {
                     <select onchange="setSparePart(${index}, this.value)">
                         <option value="">Select a spare part</option>
                         ${sparePartsInventory.map(item =>
-                            `<option value="${Number(item.id)}" ${Number(part.inventory_id) === item.id ? "selected" : ""}>${escapeHTML(item.item_name)} — Available: ${escapeHTML(item.current_stock)} ${escapeHTML(item.unit || "")}</option>`
+                            `<option value="${Number(item.id)}" ${Number(part.inventory_id) === item.id ? "selected" : ""}>${escapeHTML(item.item_name)} — Available: ${escapeHTML(item.available_stock ?? item.current_stock)} ${escapeHTML(item.unit || "")} · ${new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(item.purchase_price || 0)}</option>`
                         ).join("")}
                     </select>
                     <input type="number" min="1" value="${Math.max(1, Number(part.quantity) || 1)}" aria-label="Quantity" onchange="setSpareQuantity(${index}, this.value)">
@@ -709,41 +749,48 @@ function renderSparePartsPicker() {
 
 function setSparePart(index, inventoryId) {
     const item = sparePartsInventory.find(entry => entry.id === Number(inventoryId));
-    if (item && Number(item.current_stock || 0) <= 0) {
+    if (item && Number(item.available_stock ?? item.current_stock ?? 0) <= 0) {
         selectedSpareParts[index].inventory_id = "";
         renderSparePartsPicker();
         showSparePartsToast(`No stock left for ${item.item_name}.`, "error");
         return;
     }
+    sparePartsReserved = false;
     selectedSpareParts[index].inventory_id = inventoryId ? Number(inventoryId) : "";
+    updateTicketPartsCost();
 }
 
 function setSpareQuantity(index, quantity) {
+    sparePartsReserved = false;
     const selectedItem = sparePartsInventory.find(
         item => item.id === Number(selectedSpareParts[index].inventory_id)
     );
     const requested = Math.max(1, Number(quantity) || 1);
-    if (selectedItem && requested > Number(selectedItem.current_stock || 0)) {
-        selectedSpareParts[index].quantity = Math.max(1, Number(selectedItem.current_stock || 0));
+    if (selectedItem && requested > Number(selectedItem.available_stock ?? selectedItem.current_stock ?? 0)) {
+        selectedSpareParts[index].quantity = Math.max(1, Number(selectedItem.available_stock ?? selectedItem.current_stock ?? 0));
         renderSparePartsPicker();
         showSparePartsToast(
-            `Only ${selectedItem.current_stock} ${selectedItem.unit || "item(s)"} of ${selectedItem.item_name} are available.`,
+            `Only ${selectedItem.available_stock ?? selectedItem.current_stock} ${selectedItem.unit || "item(s)"} of ${selectedItem.item_name} are available.`,
             "error"
         );
         return;
     }
     selectedSpareParts[index].quantity = requested;
+    updateTicketPartsCost();
 }
 
 function addSparePart() {
+    sparePartsReserved = false;
     selectedSpareParts.push({ inventory_id: "", quantity: 1 });
     renderSparePartsPicker();
 }
 
 function removeSparePart(index) {
+    sparePartsReserved = false;
     selectedSpareParts.splice(index, 1);
     if (!selectedSpareParts.length) selectedSpareParts.push({ inventory_id: "", quantity: 1 });
     renderSparePartsPicker();
+    updateTicketPartsCost();
 }
 
 function getSparePartsPayload() {
@@ -760,14 +807,15 @@ function getSparePartsPayload() {
     });
     for (const [inventoryId, quantity] of requestedByItem) {
         const item = sparePartsInventory.find(entry => entry.id === inventoryId);
-        if (!item || Number(item.current_stock || 0) <= 0) {
+        const available = Number(item?.available_stock ?? item?.current_stock ?? 0);
+        if (!item || available <= 0) {
             const itemName = item?.item_name || `Item #${inventoryId}`;
             showSparePartsToast(`No stock left for ${itemName}.`, "error");
             throw new Error(`No stock left for ${itemName}.`);
         }
-        if (quantity > Number(item.current_stock || 0)) {
+        if (quantity > available) {
             showSparePartsToast(
-                `Only ${item.current_stock} ${item.unit || "item(s)"} of ${item.item_name} are available.`,
+                `Only ${available} ${item.unit || "item(s)"} of ${item.item_name} are available.`,
                 "error"
             );
             throw new Error(`Insufficient stock for ${item.item_name}.`);
@@ -784,6 +832,131 @@ function showSparePartsToast(message, type = "error") {
     BioTrackToast.show({ title, message, type });
 }
 
+function updateTicketPartsCost() {
+    const total = selectedSpareParts.reduce((sum, part) => {
+        const item = sparePartsInventory.find(entry => Number(entry.id) === Number(part.inventory_id));
+        return sum + (Number(item?.purchase_price || 0) * Number(part.quantity || 0));
+    }, 0);
+    const target = document.getElementById("ticketPartsCost");
+    if (target) target.textContent = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(total);
+    const state = document.getElementById("ticketReservationState");
+    if (state) {
+        state.textContent = sparePartsLocked
+            ? "Inventory deducted"
+            : sparePartsReserved
+                ? "Parts reserved for this repair"
+                : total > 0
+                    ? "Save progress to reserve these parts"
+                    : "No parts reserved";
+    }
+}
+
+async function initializeTicketAssignment(ticket) {
+    const select = document.getElementById("ticketTechnician");
+    if (!select) return;
+    try {
+        const response = await fetch(`/api/engineer/technicians?service_team=${encodeURIComponent(ticket.service_team || "")}`);
+        if (!response.ok) throw new Error("Unable to load technicians.");
+        ticketTechnicians = await response.json();
+        select.innerHTML = '<option value="">Unassigned</option>' + ticketTechnicians.map(technician => `<option value="${escapeHTML(technician.username)}" ${technician.username === ticket.assigned_to_username ? "selected" : ""}>${escapeHTML(technician.name)}</option>`).join("");
+    } catch (error) {
+        select.innerHTML = '<option value="">Technicians unavailable</option>';
+    }
+}
+
+async function saveTicketAssignment() {
+    const select = document.getElementById("ticketTechnician");
+    if (!select) return;
+    try {
+        const response = await fetch(`/api/engineer/ticket/${currentTicketId}/assignment`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: select.value || null }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to update assignment.");
+        document.getElementById("ticketStatus").value = result.status;
+        BioTrackToast.success("Technician assignment updated", result.assigned_to_name ? `${result.assigned_to_name} owns this repair.` : "This repair is unassigned.");
+    } catch (error) { BioTrackToast.error("Assignment not changed", error.message); }
+}
+
+function ticketFileSize(bytes) {
+    const value = Number(bytes || 0);
+    return value < 1024 * 1024 ? `${Math.max(1, Math.round(value / 1024))} KB` : `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+async function loadTicketAttachments() {
+    const container = document.getElementById("ticketAttachmentList");
+    if (!container) return;
+    try {
+        const response = await fetch(`/api/engineer/ticket/${currentTicketId}/attachments`);
+        const items = await response.json().catch(() => []);
+        if (!response.ok) throw new Error(items.detail || "Unable to load attachments.");
+        container.innerHTML = items.length ? items.map(item => `
+            <article class="ticket-attachment-item">
+                <span><i data-lucide="${item.content_type === "application/pdf" ? "file-text" : "image"}"></i></span>
+                <div><strong>${escapeHTML(item.original_name)}</strong><small>${escapeHTML(item.document_type)} · ${ticketFileSize(item.stored_size_bytes)}${item.original_size_bytes > item.stored_size_bytes ? ` · compressed from ${ticketFileSize(item.original_size_bytes)}` : ""}</small></div>
+                <a href="${item.download_url}" download><i data-lucide="download"></i><span>Download</span></a>
+                <button type="button" onclick="deleteTicketAttachment(${Number(item.id)})" aria-label="Delete ${escapeHTML(item.original_name)}"><i data-lucide="trash-2"></i></button>
+            </article>`).join("") : '<p class="ticket-attachments-empty">No evidence attached to this maintenance call yet.</p>';
+        window.lucide?.createIcons();
+    } catch (error) { container.innerHTML = `<p class="spare-parts-error">${escapeHTML(error.message)}</p>`; }
+}
+
+async function compressTicketImage(file, targetBytes = 850 * 1024) {
+    const bitmap = await createImageBitmap(file);
+    let width = bitmap.width;
+    let height = bitmap.height;
+    const maxDimension = 2200;
+    if (Math.max(width, height) > maxDimension) {
+        const scale = maxDimension / Math.max(width, height);
+        width = Math.round(width * scale); height = Math.round(height * scale);
+    }
+    let blob = file;
+    for (let round = 0; round < 4; round += 1) {
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d", { alpha: false }).drawImage(bitmap, 0, 0, width, height);
+        for (const quality of [.82, .68, .54, .4]) {
+            blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", quality));
+            if (blob.size <= targetBytes) return new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+        }
+        width = Math.max(1, Math.round(width * .8)); height = Math.max(1, Math.round(height * .8));
+    }
+    return new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+}
+
+async function uploadTicketAttachment(event) {
+    event.preventDefault();
+    const input = document.getElementById("ticketAttachmentFile");
+    const progress = document.getElementById("ticketAttachmentProgress");
+    const button = event.currentTarget.querySelector("button[type=submit]");
+    let file = input.files?.[0];
+    if (!file) return;
+    button.disabled = true;
+    progress.textContent = file.type.startsWith("image/") ? "Compressing image to the KB target…" : "Uploading PDF for automatic KB compression…";
+    try {
+        const originalSize = file.size;
+        if (file.type.startsWith("image/")) file = await compressTicketImage(file);
+        const formData = new FormData();
+        formData.append("document_type", document.getElementById("ticketDocumentType").value);
+        formData.append("file", file);
+        const response = await fetch(`/api/engineer/ticket/${currentTicketId}/attachments`, { method: "POST", body: formData });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to upload this attachment.");
+        progress.textContent = `Stored at ${ticketFileSize(result.attachment.stored_size_bytes)}${originalSize > result.attachment.stored_size_bytes ? ` (from ${ticketFileSize(originalSize)})` : ""}.`;
+        event.currentTarget.reset();
+        document.getElementById("ticketAttachmentFileName").textContent = "Choose PDF or image";
+        await loadTicketAttachments();
+    } catch (error) { progress.textContent = error.message || "Upload failed."; BioTrackToast.error("Attachment not uploaded", progress.textContent); }
+    finally { button.disabled = false; }
+}
+
+async function deleteTicketAttachment(id) {
+    try {
+        const response = await fetch(`/api/engineer/ticket/attachments/${id}`, { method: "DELETE" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to delete the attachment.");
+        await loadTicketAttachments();
+    } catch (error) { BioTrackToast.error("Attachment not deleted", error.message); }
+}
+
 // ==========================================
 // GLOBAL FUNCTIONS
 // ==========================================
@@ -796,3 +969,5 @@ window.setSparePart = setSparePart;
 window.setSpareQuantity = setSpareQuantity;
 window.addSparePart = addSparePart;
 window.removeSparePart = removeSparePart;
+window.saveTicketAssignment = saveTicketAssignment;
+window.deleteTicketAttachment = deleteTicketAttachment;

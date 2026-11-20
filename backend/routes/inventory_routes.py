@@ -69,6 +69,10 @@ def get_inventory(
 
             "current_stock": item.current_stock,
 
+            "reserved_stock": item.reserved_stock or 0,
+
+            "available_stock": max(0, (item.current_stock or 0) - (item.reserved_stock or 0)),
+
             "minimum_stock": item.minimum_stock,
 
             "maximum_stock": item.maximum_stock,
@@ -89,13 +93,13 @@ def get_inventory(
 
                 "Out of Stock"
 
-                if item.current_stock == 0
+                if (item.current_stock or 0) - (item.reserved_stock or 0) <= 0
 
                 else
 
                 "Low Stock"
 
-                if item.current_stock <= item.minimum_stock
+                if (item.current_stock or 0) - (item.reserved_stock or 0) <= item.minimum_stock
 
                 else
 
@@ -168,7 +172,10 @@ def create_inventory_item(
         db.refresh(item)
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=409, detail="An inventory item with this BPK number already exists.") from exc
+        raise HTTPException(
+            status_code=409,
+            detail="An item with this BPK number already exists in this department inventory.",
+        ) from exc
 
     return {
 
@@ -224,7 +231,10 @@ def update_inventory_item(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=409, detail="An inventory item with this BPK number already exists.") from exc
+        raise HTTPException(
+            status_code=409,
+            detail="An item with this BPK number already exists in this department inventory.",
+        ) from exc
 
     return {
         "success": True
@@ -277,9 +287,15 @@ def delete_inventory_item(
 def inventory_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    service_team: str | None = Query(default=None),
 ):
 
-    items = scope_to_team(db.query(Inventory), Inventory, current_user).all()
+    inventory_query = scope_to_team(db.query(Inventory), Inventory, current_user)
+    if current_user.role == "Manager" and service_team:
+        inventory_query = inventory_query.filter(
+            Inventory.service_team == team_for_user(current_user, service_team)
+        )
+    items = inventory_query.all()
 
     total_items = len(items)
 
@@ -287,8 +303,8 @@ def inventory_stats(
 
         i for i in items
 
-        if i.current_stock > 0
-        and i.current_stock <= i.minimum_stock
+        if (i.current_stock or 0) - (i.reserved_stock or 0) > 0
+        and (i.current_stock or 0) - (i.reserved_stock or 0) <= i.minimum_stock
 
     ])
 
@@ -296,7 +312,7 @@ def inventory_stats(
 
         i for i in items
 
-        if i.current_stock == 0
+        if (i.current_stock or 0) - (i.reserved_stock or 0) <= 0
 
     ])
 
@@ -332,8 +348,15 @@ async def upload_inventory_excel(
 
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    service_team: str | None = Query(default=None),
 
 ):
+
+    if current_user.role == "Manager" and not service_team:
+        raise HTTPException(
+            status_code=422,
+            detail="Select Biomedical, Electrical, or IT before importing inventory.",
+        )
 
     return import_inventory_excel(
 
@@ -341,7 +364,7 @@ async def upload_inventory_excel(
 
         db,
 
-        team_for_user(current_user)
+        team_for_user(current_user, service_team)
 
     )
     

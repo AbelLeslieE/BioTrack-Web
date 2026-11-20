@@ -7,6 +7,8 @@ from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Float
 from sqlalchemy import DateTime
+from sqlalchemy import CheckConstraint
+from sqlalchemy import UniqueConstraint
 
 from datetime import datetime
 
@@ -17,9 +19,24 @@ class Inventory(Base):
 
     __tablename__ = "inventory"
 
+    __table_args__ = (
+        UniqueConstraint(
+            "service_team",
+            "bpk_number",
+            name="uq_inventory_service_team_bpk",
+        ),
+        CheckConstraint(
+            "service_team IN ('Biomedical', 'Electrical', 'IT')",
+            name="ck_inventory_service_team",
+        ),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
 
-    bpk_number = Column(String, unique=True, nullable=False)
+    # Part codes are unique inside a department store, not across every
+    # engineering discipline. This lets two teams keep independent stock for
+    # a vendor code they both use.
+    bpk_number = Column(String, nullable=False)
 
     item_name = Column(String, nullable=False)
 
@@ -32,6 +49,8 @@ class Inventory(Base):
     unit = Column(String)
 
     current_stock = Column(Integer, default=0)
+
+    reserved_stock = Column(Integer, nullable=False, default=0)
 
     minimum_stock = Column(Integer, default=5)
 

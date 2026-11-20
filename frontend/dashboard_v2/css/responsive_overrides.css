@@ -4,25 +4,28 @@ body.mobile-nav-open{overflow:hidden}
 img,svg,canvas,video{max-width:100%}
 button,input,select,textarea{max-width:100%}
 
-/* The primary navigation is an off-canvas drawer at every viewport size. */
-.dashboard{grid-template-columns:minmax(0,1fr)}
+/* Desktop uses a persistent operations rail; phones switch to an off-canvas drawer. */
+:root{--sidebar-width:248px;--topbar-height:72px;--page-padding:24px}
+.dashboard{display:block;min-height:100vh}
+.main-content{margin-left:var(--sidebar-width);transition:margin-left .24s ease}
+.topbar{left:var(--sidebar-width);height:var(--topbar-height);padding:0 24px;background:rgba(255,255,255,.94);backdrop-filter:blur(16px);transition:left .24s ease}
 .sidebar{
     position:fixed;
     top:0;
     bottom:0;
     left:0;
     z-index:1000;
-    width:min(280px,calc(100vw - 44px));
+    width:var(--sidebar-width);
     height:100vh;
     height:100dvh;
     overflow-y:auto;
-    transform:translateX(-105%);
+    transform:none;
     transition:transform .28s ease,box-shadow .28s ease;
-    box-shadow:none;
+    box-shadow:10px 0 32px rgba(4,18,36,.12);
 }
 .sidebar.active{
-    transform:translateX(0);
-    box-shadow:18px 0 45px rgba(15,23,42,.28);
+    transform:none;
+    box-shadow:10px 0 32px rgba(4,18,36,.12);
 }
 .sidebar .logo-text,
 .sidebar .nav-item span,
@@ -37,7 +40,7 @@ button,input,select,textarea{max-width:100%}
 .sidebar-logo .logo-text h2{font-size:23px}
 .sidebar-logo .logo-text p{font-size:11px}
 .sidebar-mobile-backdrop{
-    display:block;
+    display:none;
     position:fixed;
     inset:0;
     z-index:999;
@@ -48,7 +51,28 @@ button,input,select,textarea{max-width:100%}
     transition:opacity .25s ease;
 }
 .sidebar-mobile-backdrop.show{opacity:1;pointer-events:auto}
-.menu-toggle{display:flex}
+.menu-toggle{display:none}
+
+@media(max-width:1100px) and (min-width:769px){
+    :root{--sidebar-width:86px}
+    .sidebar{padding:20px 12px}
+    .sidebar .logo-text,.sidebar .nav-item span,.sidebar .profile-card div:not(.profile-avatar),.sidebar .logout-btn span{display:none}
+    .sidebar-logo,.sidebar .nav-item,.sidebar .profile-card,.sidebar .logout-btn{justify-content:center}
+    .sidebar-logo{margin-bottom:25px}
+    .sidebar .nav-item{padding:13px}
+    .sidebar .nav-item svg{width:21px;height:21px}
+    .sidebar .profile-card{padding:10px}
+}
+
+@media(max-width:768px){
+    :root{--sidebar-width:290px;--topbar-height:68px;--page-padding:16px}
+    .main-content{margin-left:0}
+    .topbar{left:0}
+    .sidebar{width:min(var(--sidebar-width),calc(100vw - 44px));transform:translateX(-105%);box-shadow:none}
+    .sidebar.active{transform:translateX(0);box-shadow:18px 0 45px rgba(15,23,42,.28)}
+    .sidebar-mobile-backdrop{display:block}
+    .menu-toggle{display:flex}
+}
 
 /* Compact typography shared by every dashboard module. */
 body{font-size:14px}

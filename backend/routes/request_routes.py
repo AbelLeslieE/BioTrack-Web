@@ -12,8 +12,11 @@ from fastapi import Depends
 
 from backend.database import get_db
 from backend.models.request import Request
+from backend.models.inventory import Inventory
+from backend.models.request_attachment import RequestAttachment
 from backend.models.user import User
 from backend.services.ward_boy_service import create_ward_boy_task
+from backend.services.attachment_service import ATTACHMENT_DIRECTORY
 from backend.auth import get_current_user, require_roles
 import json
 
@@ -475,9 +478,27 @@ def delete_request(
             "message": "Request not found"
         }
 
+    if request.parts_reserved:
+        try:
+            reserved_parts = json.loads(request.spare_parts or "[]")
+        except (TypeError, json.JSONDecodeError):
+            reserved_parts = []
+        for part in reserved_parts if isinstance(reserved_parts, list) else []:
+            inventory = db.get(Inventory, part.get("inventory_id")) if isinstance(part, dict) else None
+            if inventory:
+                inventory.reserved_stock = max(0, (inventory.reserved_stock or 0) - int(part.get("quantity", 0) or 0))
+
+    attachments = db.query(RequestAttachment).filter(RequestAttachment.request_id == request.id).all()
+    stored_names = [attachment.stored_name for attachment in attachments]
+
     db.delete(request)
 
     db.commit()
+
+    for stored_name in stored_names:
+        path = ATTACHMENT_DIRECTORY / stored_name
+        if path.is_file():
+            path.unlink()
 
     return {
         "success": True

@@ -38,381 +38,153 @@ function renderAssets() {
     selectedAssetIds = new Set();
 
     pageContent.innerHTML = `
-
-
-    <div class="asset-page">
-
-        <!-- ==========================================
-             PAGE HEADER
-        =========================================== -->
-
-
-
-        <div class="asset-hero">
-
-            <div class="asset-hero-left">
-
-                <span class="asset-badge">
-
-                    ${registryCopy.badge}
-
-                </span>
-
-                <h1>
-
-                    Asset Management
-
-                </h1>
-
-                <p>
-
-                    ${registryCopy.description}
-
-                </p>
-
-            </div>
-
-            <div class="asset-hero-right">
-
-            <div class="quick-actions-card" aria-label="Asset quick actions">
-
-                <div class="asset-actions">
-
-                    <button
-                        id="addAssetBtn"
-                        class="btn-primary hero-btn">
-
-                        + Add New Asset
-
-                    </button>
-
-                    ${canManageAssetQR() ? `<button
-                        id="assetQrBtn"
-                        class="btn-secondary hero-btn">
-
-                        <i data-lucide="qr-code"></i> Generate QR
-
-                    </button>` : ""}
-
-                    ${canManageAssetQR() ? `<button
-                        id="assetRelocationRequestsBtn"
-                        class="btn-secondary hero-btn">
-
-                        <i data-lucide="route"></i> Relocation Requests
-
-                    </button>` : ""}
-
-                    <button
-                        id="importExcelBtn"
-                        class="btn-secondary hero-btn">
-
-                        📄 Import Excel
-
-                    </button>
-
-                    ${isAssetAdministrator() ? `
-                        <label class="asset-import-team-label" for="assetImportTeam">
-                            <span>Excel import team</span>
-                            <select id="assetImportTeam">
-                                <option value="">Select service team</option>
-                                <option value="Biomedical">Biomedical</option>
-                                <option value="Electrical">Electrical</option>
-                                <option value="IT">IT</option>
-                            </select>
-                        </label>
-                    ` : ""}
-
-                    <button
-                        id="exportAssetBtn"
-                        class="btn-secondary hero-btn">
-
-                        ⬇ Export
-
-                    </button>
-
+        <div class="asset-page">
+            <section class="asset-hero">
+                <div class="asset-hero-left">
+                    <div class="asset-hero-eyebrow">
+                        <span class="asset-badge"><i data-lucide="activity"></i>${registryCopy.badge}</span>
+                        <span class="asset-live-state"><span></span>Live inventory</span>
+                    </div>
+                    <h1>Asset Management</h1>
+                    <p>${registryCopy.description}</p>
                 </div>
 
-                <input
-                    id="excelFileInput"
-                    type="file"
-                    accept=".xlsx,.xls"
-                    hidden>
-
-            </div>
-
-        </div>
-
-        </div>
-
-
-        ${isAssetAdministrator() ? `
-            <section class="asset-mode-switcher" aria-label="Asset service-team mode">
-                <div>
-                    <span>Asset mode</span>
-                    <strong id="assetModeTitle">All engineering assets</strong>
-                </div>
-                <div class="asset-mode-options" role="tablist" aria-label="Filter assets by service team">
-                    <button type="button" class="is-active" data-asset-team="" role="tab" aria-selected="true">All</button>
-                    <button type="button" data-asset-team="Biomedical" role="tab" aria-selected="false">Biomedical</button>
-                    <button type="button" data-asset-team="Electrical" role="tab" aria-selected="false">Electrical</button>
-                    <button type="button" data-asset-team="IT" role="tab" aria-selected="false">IT</button>
+                <div class="asset-hero-right">
+                    <div class="quick-actions-card" aria-label="Asset quick actions">
+                        <span class="asset-action-label">Quick actions</span>
+                        <div class="asset-actions">
+                            <button id="addAssetBtn" class="btn-primary hero-btn">
+                                <i data-lucide="plus"></i><span>Add asset</span>
+                            </button>
+                            ${canManageAssetQR() ? `<button id="assetQrBtn" class="btn-secondary hero-btn">
+                                <i data-lucide="qr-code"></i><span>Generate QR</span>
+                            </button>` : ""}
+                            ${canManageAssetQR() ? `<button id="assetRelocationRequestsBtn" class="btn-secondary hero-btn">
+                                <i data-lucide="route"></i><span>Relocations</span>
+                            </button>` : ""}
+                            <button id="importExcelBtn" class="btn-secondary hero-btn">
+                                <i data-lucide="file-up"></i><span>Import</span>
+                            </button>
+                            <button id="exportAssetBtn" class="btn-secondary hero-btn">
+                                <i data-lucide="download"></i><span>Export</span>
+                            </button>
+                        </div>
+                        ${isAssetAdministrator() ? `
+                            <label class="asset-import-team-label" for="assetImportTeam">
+                                <span>Excel import team</span>
+                                <select id="assetImportTeam">
+                                    <option value="">Choose team before importing</option>
+                                    <option value="Biomedical">Biomedical</option>
+                                    <option value="Electrical">Electrical</option>
+                                    <option value="IT">IT</option>
+                                </select>
+                            </label>
+                        ` : ""}
+                        <input id="excelFileInput" type="file" accept=".xlsx,.xls" hidden>
+                    </div>
                 </div>
             </section>
-        ` : ""}
 
-
-        <!-- ==========================================
-             KPI CARDS
-        =========================================== -->
-
-        <div class="asset-kpis">
-
-            <div class="asset-card total-card">
-
-                <div class="asset-card-icon">
-
-                    <i data-lucide="package"></i>
-
-                </div>
-
-                <div class="asset-card-content">
-
-                    <h4>Total Assets</h4>
-
-                    <span class="asset-kpi-mode">All teams</span>
-
-                    <h2 id="totalAssets">0</h2>
-
-                    <p>Hospital Inventory</p>
-
-                </div>
-
-            </div>
-
-            <div class="asset-card active-card">
-
-                <div class="asset-card-icon">
-
-                    <i data-lucide="shield-check"></i>
-
-                </div>
-
-                <div class="asset-card-content">
-
-                    <h4>Active Assets</h4>
-
-                    <span class="asset-kpi-mode">All teams</span>
-
-                    <h2 id="activeAssets">0</h2>
-
-                    <p>Operational Equipment</p>
-
-                </div>
-
-            </div>
-
-            <div class="asset-card pm-card">
-
-                <div class="asset-card-icon">
-
-                    <i data-lucide="calendar-check"></i>
-
-                </div>
-
-                <div class="asset-card-content">
-
-                    <h4>PM Due</h4>
-
-                    <span class="asset-kpi-mode">All teams</span>
-
-                    <h2 id="pmDue">0</h2>
-
-                    <p>Scheduled Maintenance</p>
-
-                </div>
-
-            </div>
-
-            <div class="asset-card calibration-card">
-
-                <div class="asset-card-icon">
-
-                    <i data-lucide="flask-conical"></i>
-
-                </div>
-
-                <div class="asset-card-content">
-
-                    <h4>Calibration Due</h4>
-
-                    <span class="asset-kpi-mode">All teams</span>
-
-                    <h2 id="calibrationDue">0</h2>
-
-                    <p>Calibration Schedule</p>
-
-                </div>
-
-            </div>
-
-            <div class="asset-card warranty-card">
-
-                <div class="asset-card-icon">
-
-                    <i data-lucide="shield"></i>
-
-                </div>
-
-                <div class="asset-card-content">
-
-                    <h4>Warranty</h4>
-
-                    <span class="asset-kpi-mode">All teams</span>
-
-                    <h2 id="warrantyDue">0</h2>
-
-                    <p>Expiring Soon</p>
-
-                </div>
-
-            </div>
-
-            <div class="asset-card critical-card">
-
-                <div class="asset-card-icon">
-
-                    <i data-lucide="heart-pulse"></i>
-
-                </div>
-
-                <div class="asset-card-content">
-
-                    <h4>Critical Assets</h4>
-
-                    <span class="asset-kpi-mode">All teams</span>
-
-                    <h2 id="criticalAssets">0</h2>
-
-                    <p>Life Support</p>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <!-- ==========================================
-             FILTER BAR
-        =========================================== -->
-
-        <div class="asset-toolbar">
-
-            <input
-                id="assetSearch"
-                type="text"
-                placeholder="🔍 Search equipment..."
-                class="asset-search"
-            >
-
-            <select id="assetDepartmentFilter">
-
-                <option>All Departments</option>
-
-            </select>
-
-            <select id="assetStatusFilter">
-
-                <option>All Status</option>
-
-            </select>
-
-            <select id="assetCategoryFilter">
-
-                <option>All Categories</option>
-
-            </select>
-
-        </div>
-
-        ${isAssetAdministrator() ? `
-            <section class="asset-bulk-toolbar" aria-label="Bulk asset actions">
-                <div class="asset-bulk-summary">
-                    <span class="asset-bulk-icon"><i data-lucide="list-checks"></i></span>
-                    <span><strong id="assetSelectionCount">0 selected</strong><small>Select rows, find duplicate records, or remove several assets together.</small></span>
-                </div>
-                <div class="asset-bulk-actions">
-                    <button type="button" id="assetSelectFilteredBtn" class="asset-bulk-secondary"><i data-lucide="check-check"></i> Select all</button>
-                    <button type="button" id="assetClearSelectionBtn" class="asset-bulk-secondary" disabled><i data-lucide="x"></i> Deselect all</button>
-                    <button type="button" id="assetFindDuplicatesBtn" class="asset-bulk-secondary"><i data-lucide="copy-check"></i> Find duplicates</button>
-                    <button type="button" id="assetDeleteSelectedBtn" class="asset-bulk-danger" disabled><i data-lucide="trash-2"></i> Delete selected</button>
-                </div>
+            ${isAssetAdministrator() ? `
+                <section class="asset-mode-switcher" aria-label="Asset service-team mode">
+                    <div>
+                        <span>Service team scope</span>
+                        <strong id="assetModeTitle">All engineering assets</strong>
+                    </div>
+                    <div class="asset-mode-options" role="tablist" aria-label="Filter assets by service team">
+                        <button type="button" class="is-active" data-asset-team="" role="tab" aria-selected="true"><i data-lucide="layers-3"></i>All assets</button>
+                        <button type="button" data-asset-team="Biomedical" role="tab" aria-selected="false"><i data-lucide="heart-pulse"></i>Biomedical</button>
+                        <button type="button" data-asset-team="Electrical" role="tab" aria-selected="false"><i data-lucide="zap"></i>Electrical</button>
+                        <button type="button" data-asset-team="IT" role="tab" aria-selected="false"><i data-lucide="server"></i>IT</button>
+                    </div>
+                </section>
+            ` : ""}
+
+            <section class="asset-kpis" aria-label="Asset overview">
+                <article class="asset-card total-card">
+                    <div class="asset-card-top"><div class="asset-card-icon"><i data-lucide="package-open"></i></div><span class="asset-kpi-mode">All teams</span></div>
+                    <div class="asset-card-content"><h4>Total assets</h4><h2 id="totalAssets">0</h2><p>Registered inventory</p></div>
+                </article>
+                <article class="asset-card active-card">
+                    <div class="asset-card-top"><div class="asset-card-icon"><i data-lucide="circle-check-big"></i></div><span class="asset-kpi-mode">All teams</span></div>
+                    <div class="asset-card-content"><h4>Active assets</h4><h2 id="activeAssets">0</h2><p>Ready for service</p></div>
+                </article>
+                <article class="asset-card pm-card">
+                    <div class="asset-card-top"><div class="asset-card-icon"><i data-lucide="calendar-clock"></i></div><span class="asset-kpi-mode">All teams</span></div>
+                    <div class="asset-card-content"><h4>PM due</h4><h2 id="pmDue">0</h2><p>Needs scheduling</p></div>
+                </article>
+                <article class="asset-card calibration-card">
+                    <div class="asset-card-top"><div class="asset-card-icon"><i data-lucide="flask-conical"></i></div><span class="asset-kpi-mode">All teams</span></div>
+                    <div class="asset-card-content"><h4>Calibration due</h4><h2 id="calibrationDue">0</h2><p>Quality checks due</p></div>
+                </article>
+                <article class="asset-card warranty-card">
+                    <div class="asset-card-top"><div class="asset-card-icon"><i data-lucide="shield-alert"></i></div><span class="asset-kpi-mode">All teams</span></div>
+                    <div class="asset-card-content"><h4>Warranty</h4><h2 id="warrantyDue">0</h2><p>Expiring soon</p></div>
+                </article>
+                <article class="asset-card critical-card">
+                    <div class="asset-card-top"><div class="asset-card-icon"><i data-lucide="siren"></i></div><span class="asset-kpi-mode">All teams</span></div>
+                    <div class="asset-card-content"><h4>Critical assets</h4><h2 id="criticalAssets">0</h2><p>Life-support equipment</p></div>
+                </article>
             </section>
-        ` : ""}
 
+            <section class="asset-registry-panel" aria-labelledby="assetRegistryTitle">
+                <header class="asset-registry-header">
+                    <div>
+                        <span class="asset-section-kicker">Equipment registry</span>
+                        <h2 id="assetRegistryTitle">Hospital asset directory</h2>
+                        <p>Search, filter and open the complete equipment record.</p>
+                    </div>
+                    <div class="asset-result-count" aria-live="polite">
+                        <span></span><strong id="assetResultCount">0</strong><small>matching records</small>
+                    </div>
+                </header>
 
-        <!-- ==========================================
-             TABLE
-        =========================================== -->
+                <div class="asset-toolbar">
+                    <label class="asset-search-wrap" for="assetSearch">
+                        <i data-lucide="search"></i>
+                        <span class="sr-only">Search equipment</span>
+                        <input id="assetSearch" type="search" placeholder="Search by equipment, code, model or maker" class="asset-search" autocomplete="off">
+                    </label>
+                    <div class="asset-filter-group">
+                        <label><span>Department</span><select id="assetDepartmentFilter"><option>All Departments</option></select></label>
+                        <label><span>Status</span><select id="assetStatusFilter"><option>All Status</option></select></label>
+                        <label><span>Category</span><select id="assetCategoryFilter"><option>All Categories</option></select></label>
+                    </div>
+                </div>
 
-        <div class="asset-table-container">
+                ${isAssetAdministrator() ? `
+                    <section class="asset-bulk-toolbar" aria-label="Bulk asset actions">
+                        <div class="asset-bulk-summary">
+                            <span class="asset-bulk-icon"><i data-lucide="list-checks"></i></span>
+                            <span><strong id="assetSelectionCount">0 selected</strong><small>Use bulk tools to review or clean the registry.</small></span>
+                        </div>
+                        <div class="asset-bulk-actions">
+                            <button type="button" id="assetSelectFilteredBtn" class="asset-bulk-secondary"><i data-lucide="check-check"></i> Select all</button>
+                            <button type="button" id="assetClearSelectionBtn" class="asset-bulk-secondary" disabled><i data-lucide="x"></i> Deselect all</button>
+                            <button type="button" id="assetFindDuplicatesBtn" class="asset-bulk-secondary"><i data-lucide="copy-check"></i> Find duplicates</button>
+                            <button type="button" id="assetDeleteSelectedBtn" class="asset-bulk-danger" disabled><i data-lucide="trash-2"></i> Delete selected</button>
+                        </div>
+                    </section>
+                ` : ""}
 
-            <table class="asset-table">
-
-                <thead>
-
-                    <tr>
-
-                        ${isAssetAdministrator() ? '<th class="asset-select-column"><input id="assetSelectPage" type="checkbox" aria-label="Select all assets on this page"></th>' : ""}
-
-                        <th>Equipment No</th>
-
-                        <th>Equipment Name</th>
-
-                        <th>Department</th>
-
-                        <th>Service Team</th>
-
-                        <th>Manufacturer</th>
-
-                        <th>Model</th>
-
-                        <th>Status</th>
-
-                        <th>QR</th>
-
-                        <th>Action</th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody id="assetTableBody">
-
-                    <tr>
-
-                        <td colspan="${isAssetAdministrator() ? 10 : 9}" class="empty-table">
-
-                            No assets found.
-
-                            <br><br>
-
-                            Import an Excel sheet to begin.
-
-                        </td>
-
-                    </tr>
-
-                </tbody>
-
-            </table>
-
+                <div class="asset-table-container">
+                    <table class="asset-table">
+                        <thead><tr>
+                            ${isAssetAdministrator() ? '<th class="asset-select-column"><input id="assetSelectPage" type="checkbox" aria-label="Select all assets on this page"></th>' : ""}
+                            <th>Asset code</th><th>Equipment</th><th>Department</th><th>Service team</th>
+                            <th>Manufacturer</th><th>Model</th><th>Status</th><th>QR record</th><th><span class="sr-only">Action</span></th>
+                        </tr></thead>
+                        <tbody id="assetTableBody">
+                            <tr><td colspan="${isAssetAdministrator() ? 10 : 9}" class="empty-table">
+                                <span class="empty-table-icon"><i data-lucide="package-search"></i></span>
+                                <strong>No assets found</strong><small>Import an Excel sheet or add an asset to begin.</small>
+                            </td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="assetsPagination" class="table-pagination"></div>
+            </section>
         </div>
-
-        <div id="assetsPagination" class="table-pagination"></div>
-
-    </div>
-
     `;
     initializeAssetImport();
     initializeAddAsset();
@@ -515,7 +287,8 @@ function initializeAssetImport() {
         finally {
 
             importButton.disabled = false;
-            importButton.innerHTML = "📄 Import Excel";
+            importButton.innerHTML = '<i data-lucide="file-up"></i><span>Import</span>';
+            if (window.lucide) lucide.createIcons();
 
             excelInput.value = "";
 
@@ -710,15 +483,19 @@ function applyAssetFilters() {
 function populateAssetTable(assets) {
 
     const table = document.getElementById("assetTableBody");
+    const resultCount = document.getElementById("assetResultCount");
 
     if (!table) return;
+    if (resultCount) resultCount.textContent = String(assets.length);
 
     if (assets.length === 0) {
 
         table.innerHTML = `
             <tr>
                 <td colspan="${isAssetAdministrator() ? 10 : 9}" class="empty-table">
-                    No assets found.
+                    <span class="empty-table-icon"><i data-lucide="search-x"></i></span>
+                    <strong>No matching assets</strong>
+                    <small>Try adjusting the search or filters above.</small>
                 </td>
             </tr>
         `;
@@ -732,6 +509,7 @@ function populateAssetTable(assets) {
         );
 
         updateAssetBulkControls();
+        if (window.lucide) lucide.createIcons();
 
         return;
 
@@ -743,24 +521,33 @@ function populateAssetTable(assets) {
 
     pageItems.forEach(asset => {
 
+        const statusValue = String(asset.status || "Unknown");
+        const statusTone = /active|operational|working|available/i.test(statusValue)
+            ? "is-active"
+            : /repair|breakdown|inactive|out of service/i.test(statusValue)
+                ? "is-alert"
+                : /maintenance|service|due|pending/i.test(statusValue)
+                    ? "is-warning"
+                    : "is-neutral";
+
         table.innerHTML += `
-            <tr>
+            <tr class="asset-data-row">
 
                 ${isAssetAdministrator() ? `<td class="asset-select-column"><input type="checkbox" ${selectedAssetIds.has(Number(asset.id)) ? "checked" : ""} onchange="toggleAssetSelection(${Number(asset.id)}, this.checked)" aria-label="Select ${escapeHTML(asset.equipment_name || asset.asset_code || "asset")}"></td>` : ""}
 
-                <td>${escapeHTML(asset.equipment_no ?? "")}</td>
+                <td><span class="asset-code">${escapeHTML(asset.equipment_no ?? "—")}</span></td>
 
-                <td>${escapeHTML(asset.equipment_name ?? "")}</td>
+                <td><div class="asset-name-cell"><span class="asset-name-icon"><i data-lucide="monitor-cog"></i></span><span><strong>${escapeHTML(asset.equipment_name || "Unnamed equipment")}</strong><small>${escapeHTML(asset.classification || asset.category || "General equipment")}</small></span></div></td>
 
-                <td>${escapeHTML(asset.department ?? "")}</td>
+                <td><span class="asset-department-cell"><i data-lucide="map-pin"></i>${escapeHTML(asset.department || "Unassigned")}</span></td>
 
                 <td><span class="asset-team-badge is-${String(asset.service_team || "Biomedical").toLowerCase()}">${escapeHTML(asset.service_team || "Biomedical")}</span></td>
 
-                <td>${escapeHTML(asset.manufacturer ?? "")}</td>
+                <td>${escapeHTML(asset.manufacturer || "—")}</td>
 
-                <td>${escapeHTML(asset.model ?? "")}</td>
+                <td>${escapeHTML(asset.model || "—")}</td>
 
-                <td>${escapeHTML(asset.status ?? "")}</td>
+                <td><span class="asset-status-badge ${statusTone}"><span></span>${escapeHTML(statusValue)}</span></td>
 
                 <td>${asset.qr_generated || canManageAssetQR() ? `<button type="button" class="asset-qr-table-button ${asset.qr_generated ? "is-ready" : ""}" onclick="openAssetQRGenerator(${Number(asset.id)})"><i data-lucide="qr-code"></i><span>${asset.qr_generated ? "View QR" : "Generate"}</span></button>` : '<span class="asset-qr-unavailable">Not generated</span>'}</td>
 
@@ -768,10 +555,9 @@ function populateAssetTable(assets) {
 
                     <button
                         class="btn-open-asset"
+                        aria-label="Open ${escapeHTML(asset.equipment_name || asset.equipment_no || "asset")}"
                         onclick="openAssetPage(${Number(asset.id)})">
-
-                        👁 View Asset
-
+                        <i data-lucide="arrow-up-right"></i><span>Open</span>
                     </button>
 
                 </td>

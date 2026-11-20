@@ -10,6 +10,7 @@ const USER_ROLE_LABELS = {
     IT: "IT Department",
     User: "Department User",
     WardBoy: "Ward Boy",
+    CentralStore: "Central Store",
 };
 
 function renderUsers() {
@@ -193,7 +194,7 @@ function showRegisterUser() {
                         <label><span>Full name</span><input id="newName" maxlength="120" autocomplete="name" placeholder="e.g. Anjali Thomas" required></label>
                         <label><span>Username</span><input id="newUsername" minlength="3" maxlength="80" autocomplete="username" placeholder="e.g. anjali.thomas" required></label>
                         <label><span>Department</span><select id="newDept" required>${renderHospitalDepartmentOptions(currentUser?.department)}</select></label>
-                        <label><span>Access role</span><select id="newRole" required><option value="">Select a role</option><option value="Manager">Administrator</option><option value="BME">Biomedical Engineer</option><option value="Electrical">Electrical Engineer</option><option value="IT">IT Department</option><option value="User">Department User</option><option value="WardBoy">Ward Boy</option></select></label>
+                        <label><span>Access role</span><select id="newRole" required><option value="">Select a role</option><option value="Manager">Administrator</option><option value="BME">Biomedical Engineer</option><option value="Electrical">Electrical Engineer</option><option value="IT">IT Department</option><option value="User">Department User</option><option value="WardBoy">Ward Boy</option><option value="CentralStore">Central Store</option></select></label>
                         <label><span>Email address</span><input id="newEmail" type="email" autocomplete="email" placeholder="name@hospital.org" required></label>
                         <label><span>Phone number</span><input id="newPhone" type="tel" autocomplete="tel" placeholder="10-digit mobile number" required></label>
                         <label class="user-password-field"><span>${currentUser ? "New password" : "Password"}</span><div><input id="newPassword" type="password" minlength="12" maxlength="72" autocomplete="new-password" placeholder="${currentUser ? "Leave blank to keep current" : "At least 12 characters"}" ${currentUser ? "" : "required"}><button type="button" onclick="toggleUserPassword()" aria-label="Show password"><i data-lucide="eye"></i></button></div><small>${currentUser ? "Only enter a password if it needs to change." : "Use 12–72 characters."}</small></label>
@@ -211,22 +212,25 @@ function showRegisterUser() {
     }
     const roleSelect = document.getElementById("newRole");
     const departmentSelect = document.getElementById("newDept");
-    if (departmentSelect) departmentSelect.dataset.previousDepartment = currentUser?.role === "WardBoy" ? "" : (currentUser?.department || "");
-    roleSelect?.addEventListener("change", syncWardBoyDepartment);
-    syncWardBoyDepartment();
+    if (departmentSelect) departmentSelect.dataset.previousDepartment = ["WardBoy", "CentralStore"].includes(currentUser?.role) ? "" : (currentUser?.department || "");
+    roleSelect?.addEventListener("change", syncServiceRoleDepartment);
+    syncServiceRoleDepartment();
     document.body.classList.add("user-modal-open");
     if (window.lucide) lucide.createIcons();
     requestAnimationFrame(() => document.getElementById("newName")?.focus());
 }
 
-function syncWardBoyDepartment() {
+function syncServiceRoleDepartment() {
     const roleSelect = document.getElementById("newRole");
     const departmentSelect = document.getElementById("newDept");
     if (!roleSelect || !departmentSelect) return;
-    if (roleSelect.value === "WardBoy") {
+    const lockedDepartment = roleSelect.value === "WardBoy"
+        ? "Hospital Support Services"
+        : roleSelect.value === "CentralStore" ? "Central Store" : "";
+    if (lockedDepartment) {
         if (!departmentSelect.disabled) departmentSelect.dataset.previousDepartment = departmentSelect.value || "";
-        departmentSelect.innerHTML = '<option value="Hospital Support Services">Hospital Support Services</option>';
-        departmentSelect.value = "Hospital Support Services";
+        departmentSelect.innerHTML = `<option value="${lockedDepartment}">${lockedDepartment}</option>`;
+        departmentSelect.value = lockedDepartment;
         departmentSelect.disabled = true;
         departmentSelect.closest("label")?.classList.add("is-role-locked");
         return;
@@ -317,9 +321,9 @@ function userInitials(value) {
 }
 
 function userRoleClass(role) {
-    return ({ Manager: "admin", BME: "biomedical", Electrical: "electrical", IT: "it", User: "user", WardBoy: "ward-boy" })[role] || "user";
+    return ({ Manager: "admin", BME: "biomedical", Electrical: "electrical", IT: "it", User: "user", WardBoy: "ward-boy", CentralStore: "central-store" })[role] || "user";
 }
 
 function userRoleIcon(role) {
-    return ({ Manager: "shield-check", BME: "heart-pulse", Electrical: "zap", IT: "monitor-cog", User: "user-round", WardBoy: "truck" })[role] || "user-round";
+    return ({ Manager: "shield-check", BME: "heart-pulse", Electrical: "zap", IT: "monitor-cog", User: "user-round", WardBoy: "truck", CentralStore: "warehouse" })[role] || "user-round";
 }

@@ -13,7 +13,7 @@ function createRouter(role) {
         "renderITDashboard", "renderMaintenance", "renderMaintenanceModule", "renderAssets",
         "renderAssetForm", "renderAssetDetails", "renderInventory", "renderPM",
         "renderReports", "renderAI", "renderUsers", "renderQRScannerModule", "renderQRAssetProfile", "renderSettings",
-        "renderWardBoyDashboard",
+        "renderWardBoyDashboard", "renderCentralStore", "renderStoreRequests",
     ];
     const context = {
         console: { log() {}, warn() {}, error() {} },
@@ -62,6 +62,17 @@ test("Ward Boy accounts open only the transport dashboard", () => {
     wardBoy.navigate("wardBoyDashboard");
     wardBoy.navigate("assets");
     assert.deepEqual(wardBoy.renders, ["renderWardBoyDashboard", "renderWardBoyDashboard"]);
+});
+
+test("Central Store and engineers receive their scoped supply pages", () => {
+    const store = createRouter("centralstore");
+    store.navigate("centralStore");
+    store.navigate("assets");
+    assert.deepEqual(store.renders, ["renderCentralStore", "renderCentralStore"]);
+
+    const bme = createRouter("bme");
+    bme.navigate("storeRequests");
+    assert.deepEqual(bme.renders, ["renderStoreRequests"]);
 });
 
 test("unknown roles are returned to login instead of receiving a dashboard", () => {

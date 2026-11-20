@@ -6,6 +6,8 @@ let maintenanceCalls = [];
 let filteredMaintenanceCalls = [];
 let maintenanceStatusMode = "all";
 let maintenanceRefreshTimer = null;
+let maintenanceViewMode = "board";
+let maintenanceTechnicians = [];
 const maintenancePagination = { page: 1, pageSize: 25 };
 const DOWNTIME_SECRET_CLICK_COUNT = 15;
 const DOWNTIME_SECRET_CLICK_WINDOW_MS = 10000;
@@ -81,7 +83,10 @@ function renderMaintenance() {
             <section class="maintenance-workspace">
                 <header class="maintenance-workspace-header">
                     <div><span class="maintenance-section-kicker"><i data-lucide="list-filter"></i> Service request queue</span><h2>Maintenance calls</h2><p id="maintenanceResultsSummary">Loading service requests…</p></div>
-                    <div class="maintenance-downtime-summary"><span><i data-lucide="timer"></i></span><div><small>Total recorded downtime</small><strong id="downtimeHours">0 h</strong></div></div>
+                    <div class="maintenance-header-tools">
+                        <div class="maintenance-view-switch" role="group" aria-label="Choose queue view"><button type="button" data-maintenance-view="board" class="is-active"><i data-lucide="columns-3"></i> Board</button><button type="button" data-maintenance-view="list"><i data-lucide="list"></i> List</button></div>
+                        <div class="maintenance-downtime-summary"><span><i data-lucide="timer"></i></span><div><small>Total recorded downtime</small><strong id="downtimeHours">0 h</strong></div></div>
+                    </div>
                 </header>
 
                 <nav class="maintenance-status-tabs" aria-label="Filter calls by workflow status">
@@ -100,13 +105,14 @@ function renderMaintenance() {
                     <button id="clearMaintenanceFilters" class="maintenance-clear-button" type="button"><i data-lucide="filter-x"></i><span>Clear</span></button>
                 </div>
 
-                <div class="maintenance-table-card">
+                <div id="maintenanceBoardView" class="maintenance-board" aria-label="Technician assignment board"></div>
+                <div id="maintenanceListView" class="maintenance-table-card" hidden>
                     <table class="maintenance-table">
                         <thead><tr><th>Request</th><th>Equipment</th><th>Team & department</th><th>Received</th><th>Status</th><th>Downtime</th><th><span class="sr-only">Action</span></th></tr></thead>
                         <tbody id="maintenanceTableBody"><tr><td colspan="7">Loading maintenance calls…</td></tr></tbody>
                     </table>
                 </div>
-                <div id="maintenancePagination" class="table-pagination"></div>
+                <div id="maintenancePagination" class="table-pagination" hidden></div>
             </section>
         </div>
     `;
@@ -116,6 +122,7 @@ function renderMaintenance() {
     document.getElementById("maintenanceDepartmentFilter")?.addEventListener("change", applyMaintenanceFilters);
     document.getElementById("maintenancePriorityFilter")?.addEventListener("change", applyMaintenanceFilters);
     document.getElementById("clearMaintenanceFilters")?.addEventListener("click", clearMaintenanceFilters);
+    document.querySelectorAll("[data-maintenance-view]").forEach(button => button.addEventListener("click", () => setMaintenanceView(button.dataset.maintenanceView)));
     document.querySelectorAll("[data-maintenance-tab]").forEach(button => button.addEventListener("click", () => {
         maintenanceStatusMode = button.dataset.maintenanceTab;
         document.querySelectorAll("[data-maintenance-tab]").forEach(tab => tab.classList.toggle("is-active", tab === button));
@@ -136,9 +143,13 @@ async function loadMaintenanceData({ silent = false } = {}) {
     refreshButton?.classList.add("is-loading");
     if (refreshButton) refreshButton.disabled = true;
     try {
-        const response = await fetch("/api/engineer/maintenance", { headers: { Accept: "application/json" } });
+        const [response, techniciansResponse] = await Promise.all([
+            fetch("/api/engineer/maintenance", { headers: { Accept: "application/json" } }),
+            fetch("/api/engineer/technicians", { headers: { Accept: "application/json" } }),
+        ]);
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.detail || "Unable to load maintenance data.");
+        maintenanceTechnicians = techniciansResponse.ok ? await techniciansResponse.json() : [];
         maintenanceCalls = Array.isArray(data.calls) ? data.calls : [];
         updateMaintenanceMetrics(data);
         populateMaintenanceFilters(maintenanceCalls);
@@ -212,9 +223,79 @@ function applyMaintenanceFilters(resetPage = true) {
         return (!search || searchable.includes(search)) && (!department || call.department === department) && (!priority || call.priority === priority) && maintenanceStatusMatches(call.status);
     });
     if (resetPage) maintenancePagination.page = 1;
-    renderMaintenanceTable(filteredMaintenanceCalls);
+    if (maintenanceViewMode === "board") renderMaintenanceBoard(filteredMaintenanceCalls);
+    else renderMaintenanceTable(filteredMaintenanceCalls);
     const summary = document.getElementById("maintenanceResultsSummary");
     if (summary) summary.textContent = `Showing ${filteredMaintenanceCalls.length.toLocaleString()} of ${maintenanceCalls.length.toLocaleString()} service requests`;
+}
+
+function setMaintenanceView(mode) {
+    maintenanceViewMode = mode === "list" ? "list" : "board";
+    document.querySelectorAll("[data-maintenance-view]").forEach(button => button.classList.toggle("is-active", button.dataset.maintenanceView === maintenanceViewMode));
+    const board = document.getElementById("maintenanceBoardView");
+    const list = document.getElementById("maintenanceListView");
+    const pagination = document.getElementById("maintenancePagination");
+    if (board) board.hidden = maintenanceViewMode !== "board";
+    if (list) list.hidden = maintenanceViewMode !== "list";
+    if (pagination) pagination.hidden = maintenanceViewMode !== "list";
+    if (maintenanceViewMode === "board") renderMaintenanceBoard(filteredMaintenanceCalls);
+    else renderMaintenanceTable(filteredMaintenanceCalls);
+}
+
+function renderMaintenanceBoard(calls) {
+    const board = document.getElementById("maintenanceBoardView");
+    if (!board) return;
+    const columns = [
+        { key: "Open", label: "New", icon: "inbox" },
+        { key: "Assigned", label: "Assigned", icon: "user-check" },
+        { key: "In Progress", label: "In progress", icon: "wrench" },
+        { key: "Awaiting Parts", label: "Awaiting parts", icon: "package-search" },
+        { key: "Completed", label: "Completed", icon: "circle-check-big" },
+    ];
+    board.innerHTML = columns.map(column => {
+        const items = calls.filter(call => column.key === "Completed" ? ["Completed", "Closed"].includes(call.status) : call.status === column.key);
+        return `<section class="maintenance-board-column is-${column.key.toLowerCase().replaceAll(" ", "-")}">
+            <header><span><i data-lucide="${column.icon}"></i>${column.label}</span><b>${items.length}</b></header>
+            <div class="maintenance-board-stack">${items.map(maintenanceBoardCard).join("") || '<p class="maintenance-board-empty">No calls in this stage</p>'}</div>
+        </section>`;
+    }).join("");
+    window.lucide?.createIcons();
+}
+
+function maintenanceBoardCard(call) {
+    const technicians = maintenanceTechnicians.filter(item => !item.service_team || item.service_team === call.service_team);
+    const options = technicians.map(item => `<option value="${escapeHTML(item.username)}" ${item.username === call.assigned_to_username ? "selected" : ""}>${escapeHTML(item.name)}</option>`).join("");
+    const priority = maintenancePriorityMeta(call.priority);
+    return `<article class="maintenance-board-card" data-ticket-id="${Number(call.id)}">
+        <button type="button" class="maintenance-board-open" onclick="openTicket(${Number(call.id)})">
+            <span class="maintenance-board-ticket"><b>${escapeHTML(call.ticket || "New call")}</b><em class="is-${priority.tone}">${escapeHTML(call.priority || "Low")}</em></span>
+            <strong>${escapeHTML(call.equipment || "Equipment not specified")}</strong>
+            <small><i data-lucide="map-pin"></i>${escapeHTML(call.department || "No department")} · ${escapeHTML(call.location || "No location")}</small>
+            <p>${escapeHTML(call.description || call.issue || "No failure description")}</p>
+        </button>
+        <label><i data-lucide="user-round-cog"></i><select aria-label="Assign ${escapeHTML(call.ticket || "maintenance call")}" onchange="assignMaintenanceTechnician(${Number(call.id)}, this.value)"><option value="">Unassigned</option>${options}</select></label>
+    </article>`;
+}
+
+async function assignMaintenanceTechnician(ticketId, username) {
+    const select = document.querySelector(`[data-ticket-id="${ticketId}"] select`);
+    if (select) select.disabled = true;
+    try {
+        const response = await fetch(`/api/engineer/ticket/${ticketId}/assignment`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: username || null }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to assign this maintenance call.");
+        const call = maintenanceCalls.find(item => Number(item.id) === Number(ticketId));
+        if (call) {
+            call.status = result.status;
+            call.assigned_to_username = result.assigned_to_username;
+            call.assigned_to_name = result.assigned_to_name;
+        }
+        applyMaintenanceFilters(false);
+        BioTrackToast.success("Technician assignment updated", result.assigned_to_name ? `${result.assigned_to_name} now owns this call.` : "The call is unassigned.");
+    } catch (error) {
+        BioTrackToast.error("Assignment not changed", error.message);
+        if (select) select.disabled = false;
+    }
 }
 
 function clearMaintenanceFilters() {

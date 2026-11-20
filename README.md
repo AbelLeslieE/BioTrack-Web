@@ -7,7 +7,8 @@ FastAPI and SQLite application for managing biomedical assets, maintenance reque
 1. Create and activate a Python virtual environment.
 2. Install dependencies with `pip install -r requirements.txt`.
 3. Copy `.env.example` to `.env`, then replace the placeholder secret and bootstrap password. Do not commit `.env`.
-4. For an existing database, run `python -m backend.migrations.add_electrical_engineer_support`, `python -m backend.migrations.separate_engineering_assets_inventory`, and `python -m backend.migrations.add_spare_parts_stock_consumption` once. Re-run the first migration after updating to add the IT role.
+4. For an existing database, run `python -m backend.migrations.add_electrical_engineer_support`, `python -m backend.migrations.separate_engineering_assets_inventory`, `python -m backend.migrations.scope_inventory_bpk_to_service_team`, `python -m backend.migrations.add_spare_parts_stock_consumption`, `python -m backend.migrations.add_service_operations_features`, and `python -m backend.migrations.add_central_store_workflow` once. Re-run the first migration after updating to add the IT role.
+5. Run `npm run audit` for the full database, route, offline-cache, bundle, frontend, and backend readiness audit. GitHub Actions runs the same audit on every push and pull request, once daily, and on manual request.
 5. Start the app from this directory: `uvicorn backend.main:app --reload`.
 6. Open `http://127.0.0.1:8000`.
 

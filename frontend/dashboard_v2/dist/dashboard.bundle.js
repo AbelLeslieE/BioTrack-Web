@@ -113,7 +113,6 @@
         return show({ message: text, type });
     };
 })();
-
 ;
 /* source: dashboard_v2/js/security.js */
 // Shared output-encoding helpers for HTML assembled by dashboard views.
@@ -184,7 +183,6 @@
             .replaceAll("'", "&#39;");
     };
 })(window);
-
 ;
 /* source: dashboard_v2/js/hospital_departments.js */
 (function exposeHospitalDepartments(global) {
@@ -245,7 +243,6 @@
         return placeholderOption + existingOption + options;
     };
 })(window);
-
 ;
 /* source: dashboard_v2/js/assetRelocation.js */
 (function exposeAssetRelocation(global) {
@@ -425,7 +422,6 @@
     global.AssetRelocation = { close, loadMine, openRequest, openQueue };
     global.closeAssetRelocationDialog = close;
 })(window);
-
 ;
 /* source: dashboard_v2/js/api.js */
 // ==========================================
@@ -544,7 +540,6 @@ async function getDashboardData() {
         render: renderPagination,
     };
 })();
-
 ;
 /* source: dashboard_v2/js/logout.js */
 // ==========================================
@@ -588,7 +583,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
 });
-
 ;
 /* source: dashboard_v2/js/dashboard.js */
 // Data binding for the hospital-wide administrator dashboard.
@@ -750,7 +744,6 @@ if (!window.adminDashboardShortcutsBound) {
 function adminEscape(value) {
     return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
-
 ;
 /* source: dashboard_v2/js/sidebar.js */
 // ==========================================
@@ -793,12 +786,22 @@ const adminMenu = `
     <span>Inventory</span>
 </a>
 
+<a href="#" class="nav-item" data-page="centralStore">
+    <i data-lucide="warehouse"></i>
+    <span>Central Store</span>
+</a>
+
+<a href="#" class="nav-item" data-page="vendors">
+    <i data-lucide="handshake"></i>
+    <span>Vendors & Contracts</span>
+</a>
+
 <a href="#" class="nav-item" data-page="users">
     <i data-lucide="users"></i>
     <span>Users</span>
 </a>
 
- 
+
 
 <a href="#" class="nav-item" data-page="qr">
     <i data-lucide="scan-line"></i>
@@ -848,6 +851,16 @@ const engineerMenu = `
     <span>Inventory & Parts</span>
 </a>
 
+<a href="#" class="nav-item" data-page="storeRequests">
+    <i data-lucide="package-plus"></i>
+    <span>Request Spare Parts</span>
+</a>
+
+<a href="#" class="nav-item" data-page="vendors">
+    <i data-lucide="handshake"></i>
+    <span>Vendors & Contracts</span>
+</a>
+
 <a href="#" class="nav-item" data-page="reports">
     <i data-lucide="bar-chart-3"></i>
     <span>Reports</span>
@@ -890,6 +903,16 @@ const electricalMenu = `
     <span>Inventory & Parts</span>
 </a>
 
+<a href="#" class="nav-item" data-page="storeRequests">
+    <i data-lucide="package-plus"></i>
+    <span>Request Spare Parts</span>
+</a>
+
+<a href="#" class="nav-item" data-page="vendors">
+    <i data-lucide="handshake"></i>
+    <span>Vendors & Contracts</span>
+</a>
+
 <a href="#" class="nav-item" data-page="settings">
     <i data-lucide="settings"></i>
     <span>Settings</span>
@@ -920,6 +943,16 @@ const itMenu = `
 <a href="#" class="nav-item" data-page="inventory">
     <i data-lucide="boxes"></i>
     <span>Inventory & Parts</span>
+</a>
+
+<a href="#" class="nav-item" data-page="storeRequests">
+    <i data-lucide="package-plus"></i>
+    <span>Request Spare Parts</span>
+</a>
+
+<a href="#" class="nav-item" data-page="vendors">
+    <i data-lucide="handshake"></i>
+    <span>Vendors & Contracts</span>
 </a>
 
 <a href="#" class="nav-item" data-page="settings">
@@ -980,7 +1013,18 @@ const wardBoyMenu = `
     <span>Settings</span>
 </a>
 `;
- 
+
+const centralStoreMenu = `
+<a href="#" class="nav-item active" data-page="centralStore">
+    <i data-lucide="warehouse"></i>
+    <span>Central Store</span>
+</a>
+<a href="#" class="nav-item" data-page="settings">
+    <i data-lucide="settings"></i>
+    <span>Settings</span>
+</a>
+`;
+
 // ==========================================
 // LOAD MENU
 // ==========================================
@@ -1006,7 +1050,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         case "engineer":
 
-            sidebar.innerHTML = engineerMenu;   
+            sidebar.innerHTML = engineerMenu;
             break;
 
         case "electrical":
@@ -1024,6 +1068,11 @@ document.addEventListener("DOMContentLoaded", () => {
             sidebar.innerHTML = wardBoyMenu;
             break;
 
+        case "centralstore":
+
+            sidebar.innerHTML = centralStoreMenu;
+            break;
+
         default:
 
             sidebar.innerHTML = "";
@@ -1034,11 +1083,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 
-// Mobile navigation remains usable on narrow screens without covering the page.
+// The sidebar is persistent on desktop and becomes a focused drawer on phones.
 document.addEventListener("DOMContentLoaded", () => {
     const menuButton = document.querySelector(".menu-toggle");
     const appSidebar = document.querySelector(".sidebar");
     if (!menuButton || !appSidebar) return;
+    const mobileQuery = window.matchMedia("(max-width: 768px)");
 
     const backdrop = document.createElement("button");
     backdrop.type = "button";
@@ -1050,12 +1100,13 @@ document.addEventListener("DOMContentLoaded", () => {
         appSidebar.classList.remove("active");
         backdrop.classList.remove("show");
         document.body.classList.remove("mobile-nav-open");
-        appSidebar.setAttribute("aria-hidden", "true");
-        appSidebar.inert = true;
+        appSidebar.setAttribute("aria-hidden", String(mobileQuery.matches));
+        appSidebar.inert = mobileQuery.matches;
         menuButton.setAttribute("aria-expanded", "false");
         menuButton.setAttribute("aria-label", "Open navigation menu");
     };
     const toggleMenu = () => {
+        if (!mobileQuery.matches) return;
         const willOpen = !appSidebar.classList.contains("active");
         appSidebar.classList.toggle("active", willOpen);
         backdrop.classList.toggle("show", willOpen);
@@ -1066,7 +1117,15 @@ document.addEventListener("DOMContentLoaded", () => {
         menuButton.setAttribute("aria-label", willOpen ? "Close navigation menu" : "Open navigation menu");
     };
 
-    closeMenu();
+    const syncNavigationMode = () => {
+        closeMenu();
+        if (!mobileQuery.matches) {
+            appSidebar.removeAttribute("aria-hidden");
+            appSidebar.inert = false;
+        }
+    };
+
+    syncNavigationMode();
     menuButton.addEventListener("click", toggleMenu);
     backdrop.addEventListener("click", closeMenu);
     appSidebar.addEventListener("click", event => {
@@ -1075,9 +1134,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("keydown", event => {
         if (event.key === "Escape") closeMenu();
     });
-    window.addEventListener("resize", closeMenu);
+    mobileQuery.addEventListener?.("change", syncNavigationMode);
 });
-
 ;
 /* source: dashboard_v2/js/preferences.js */
 (function () {
@@ -1116,7 +1174,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if ((localStorage.getItem("biotrack-theme") || "light") === "system") applyBioTrackPreferences();
     });
 }());
-
 ;
 /* source: dashboard_v2/js/notifications.js */
 (function () {
@@ -1406,7 +1463,6 @@ document.addEventListener("DOMContentLoaded", () => {
         getItems: () => [...notifications],
     };
 }());
-
 ;
 /* source: dashboard_v2/js/topbarInteractions.js */
 // Functional top-bar search, alerts and account menu.
@@ -1542,7 +1598,6 @@ document.addEventListener("DOMContentLoaded", () => {
         closePopups();
     }, true);
 });
-
 ;
 /* source: dashboard_v2/js/responsive_tables.js */
 (() => {
@@ -1588,7 +1643,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }).observe(content, { childList:true, subtree:true });
 })();
-
 ;
 /* source: dashboard_v2/views/engineerDashboardView.js */
 // ==========================================
@@ -1888,7 +1942,6 @@ function engineerDashboardView() {
 
 }
 window.engineerDashboardView = engineerDashboardView;
-
 ;
 /* source: dashboard_v2/views/wardBoyDashboardView.js */
 let wardBoyTasks = [];
@@ -1914,7 +1967,7 @@ function renderWardBoyDashboard() {
                 <div class="ward-boy-hero-copy">
                     <span class="ward-boy-eyebrow"><i data-lucide="radio-tower"></i> Hospital transport support</span>
                     <h1>Ward Boy Dispatch</h1>
-                    <p>Accept equipment pickup and return jobs, follow the route, and confirm delivery.</p>
+                    <p>Accept equipment transport and Central Store spare-part deliveries, follow the route, and confirm handover.</p>
                     <span class="ward-boy-live"><i></i> Live job queue</span>
                 </div>
                 <div class="ward-boy-hero-art" aria-hidden="true"><i data-lucide="truck"></i></div>
@@ -1929,7 +1982,7 @@ function renderWardBoyDashboard() {
 
             <section class="ward-boy-board">
                 <header>
-                    <div><span>Transport queue</span><h2>Equipment movement jobs</h2></div>
+                    <div><span>Transport queue</span><h2>Equipment and spare-part jobs</h2></div>
                     <nav class="ward-boy-filters" aria-label="Filter jobs">
                         <button class="is-active" type="button" data-filter="available" onclick="setWardBoyFilter('available', this)">Available</button>
                         <button type="button" data-filter="active" onclick="setWardBoyFilter('active', this)">My active</button>
@@ -1999,13 +2052,13 @@ function renderWardBoyTasks() {
     }
 
     list.innerHTML = tasks.map(task => `
-        <article class="ward-boy-task is-${String(task.status || "pending").toLowerCase()}">
+        <article class="ward-boy-task is-${String(task.status || "pending").toLowerCase()}" data-task-kind="${wardBoyEscape(task.task_kind || "equipment")}">
             <header>
-                <span class="ward-boy-task-type is-${String(task.movement_type || "pickup").toLowerCase()}"><i data-lucide="${task.movement_type === "Return" ? "undo-2" : "package-open"}"></i>${wardBoyEscape(task.movement_type)}</span>
+                <span class="ward-boy-task-type is-${String(task.movement_type || "pickup").toLowerCase().replaceAll(" ", "-")}"><i data-lucide="${task.task_kind === "store" ? "warehouse" : task.movement_type === "Return" ? "undo-2" : "package-open"}"></i>${wardBoyEscape(task.movement_type)}</span>
                 <span class="ward-boy-priority is-${String(task.priority || "medium").toLowerCase()}">${wardBoyEscape(task.priority || "Medium")}</span>
             </header>
             <div class="ward-boy-equipment">
-                <span><i data-lucide="monitor-cog"></i></span>
+                <span><i data-lucide="${task.task_kind === "store" ? "package-check" : "monitor-cog"}"></i></span>
                 <div><small>${wardBoyEscape(task.ticket)}</small><h3>${wardBoyEscape(task.equipment || "Equipment")}</h3><p>${wardBoyEscape(task.equipment_identifier || "No equipment ID")}</p></div>
             </div>
             <div class="ward-boy-route">
@@ -2015,22 +2068,23 @@ function renderWardBoyTasks() {
             </div>
             <footer>
                 <div class="ward-boy-meta"><span><i data-lucide="building-2"></i>${wardBoyEscape(task.department || "Hospital")}</span><span><i data-lucide="clock-3"></i>${wardBoyEscape(wardBoyTime(task.requested_at))}</span></div>
-                ${task.status === "Pending" ? `<button type="button" onclick="acceptWardBoyTask(${Number(task.id)})"><i data-lucide="hand"></i> Accept job</button>` : ""}
-                ${task.status === "Accepted" ? `<button type="button" class="is-complete" onclick="completeWardBoyTask(${Number(task.id)})"><i data-lucide="badge-check"></i> Mark delivered</button>` : ""}
+                ${task.status === "Pending" ? `<button type="button" data-ward-task="${Number(task.id)}" onclick="acceptWardBoyTask(${Number(task.id)},'${task.task_kind || "equipment"}')"><i data-lucide="hand"></i> Accept job</button>` : ""}
+                ${task.status === "Accepted" ? `<button type="button" data-ward-task="${Number(task.id)}" class="is-complete" onclick="completeWardBoyTask(${Number(task.id)},'${task.task_kind || "equipment"}')"><i data-lucide="badge-check"></i> Mark delivered</button>` : ""}
                 ${task.status === "Completed" ? '<span class="ward-boy-delivered"><i data-lucide="circle-check-big"></i> Delivered</span>' : ""}
             </footer>
         </article>`).join("");
     if (window.lucide) lucide.createIcons();
 }
 
-async function mutateWardBoyTask(taskId, action) {
-    const buttons = document.querySelectorAll(`button[onclick*="WardBoyTask(${taskId})"]`);
+async function mutateWardBoyTask(taskId, action, taskKind = "equipment") {
+    const buttons = document.querySelectorAll(`button[data-ward-task="${taskId}"]`);
     buttons.forEach(button => { button.disabled = true; });
     try {
-        const response = await fetch(`/api/ward-boy/tasks/${taskId}/${action}`, { method: "PATCH" });
+        const taskPath = taskKind === "store" ? "store-tasks" : "tasks";
+        const response = await fetch(`/api/ward-boy/${taskPath}/${taskId}/${action}`, { method: "PATCH" });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.detail || "Unable to update this job.");
-        BioTrackToast.success(action === "accept" ? "Job accepted" : "Delivery completed", action === "accept" ? "Follow the route shown on the job card." : "The requester and engineering team can now see the delivery status.");
+        BioTrackToast.success(action === "accept" ? "Job accepted" : "Delivery recorded", action === "accept" ? "Follow the route shown on the job card." : taskKind === "store" ? "The engineer must now confirm receipt to complete the request." : "The requester and engineering team can now see the delivery status.");
         wardBoyTaskFilter = action === "accept" ? "active" : "completed";
         document.querySelectorAll(".ward-boy-filters button").forEach(item => item.classList.toggle("is-active", item.dataset.filter === wardBoyTaskFilter));
         await loadWardBoyDashboard();
@@ -2042,9 +2096,8 @@ async function mutateWardBoyTask(taskId, action) {
     }
 }
 
-function acceptWardBoyTask(taskId) { return mutateWardBoyTask(taskId, "accept"); }
-function completeWardBoyTask(taskId) { return mutateWardBoyTask(taskId, "complete"); }
-
+function acceptWardBoyTask(taskId, taskKind = "equipment") { return mutateWardBoyTask(taskId, "accept", taskKind); }
+function completeWardBoyTask(taskId, taskKind = "equipment") { return mutateWardBoyTask(taskId, "complete", taskKind); }
 ;
 /* source: dashboard_v2/views/dashboardView.js */
 // Executive administration dashboard.
@@ -2130,7 +2183,6 @@ function renderDashboard() {
     if (window.dashboardRefresh) clearInterval(window.dashboardRefresh);
     window.dashboardRefresh = setInterval(loadDashboard, 30000);
 }
-
 ;
 /* source: dashboard_v2/views/userDashboardView.js */
 // Department user dashboard
@@ -2277,7 +2329,6 @@ function userDashboardClass(value) {
 function escapeUserDashboardHtml(value) {
     return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
-
 ;
 /* source: dashboard_v2/views/myAssetsView.js */
 let departmentAssets = [];
@@ -2428,7 +2479,6 @@ function departmentStatusClass(status) {
 function escapeMyAssetsHtml(value) {
     return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
-
 ;
 /* source: dashboard_v2/views/departmentPmScheduleView.js */
 let departmentPMSchedules = [];
@@ -2598,7 +2648,6 @@ function departmentPMStatusClass(value) {
 function escapeDepartmentPMHtml(value) {
     return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
-
 ;
 /* source: dashboard_v2/views/newRequestView.js */
 async function renderNewRequest() {
@@ -2624,6 +2673,8 @@ let maintenanceCalls = [];
 let filteredMaintenanceCalls = [];
 let maintenanceStatusMode = "all";
 let maintenanceRefreshTimer = null;
+let maintenanceViewMode = "board";
+let maintenanceTechnicians = [];
 const maintenancePagination = { page: 1, pageSize: 25 };
 const DOWNTIME_SECRET_CLICK_COUNT = 15;
 const DOWNTIME_SECRET_CLICK_WINDOW_MS = 10000;
@@ -2699,7 +2750,10 @@ function renderMaintenance() {
             <section class="maintenance-workspace">
                 <header class="maintenance-workspace-header">
                     <div><span class="maintenance-section-kicker"><i data-lucide="list-filter"></i> Service request queue</span><h2>Maintenance calls</h2><p id="maintenanceResultsSummary">Loading service requests…</p></div>
-                    <div class="maintenance-downtime-summary"><span><i data-lucide="timer"></i></span><div><small>Total recorded downtime</small><strong id="downtimeHours">0 h</strong></div></div>
+                    <div class="maintenance-header-tools">
+                        <div class="maintenance-view-switch" role="group" aria-label="Choose queue view"><button type="button" data-maintenance-view="board" class="is-active"><i data-lucide="columns-3"></i> Board</button><button type="button" data-maintenance-view="list"><i data-lucide="list"></i> List</button></div>
+                        <div class="maintenance-downtime-summary"><span><i data-lucide="timer"></i></span><div><small>Total recorded downtime</small><strong id="downtimeHours">0 h</strong></div></div>
+                    </div>
                 </header>
 
                 <nav class="maintenance-status-tabs" aria-label="Filter calls by workflow status">
@@ -2718,13 +2772,14 @@ function renderMaintenance() {
                     <button id="clearMaintenanceFilters" class="maintenance-clear-button" type="button"><i data-lucide="filter-x"></i><span>Clear</span></button>
                 </div>
 
-                <div class="maintenance-table-card">
+                <div id="maintenanceBoardView" class="maintenance-board" aria-label="Technician assignment board"></div>
+                <div id="maintenanceListView" class="maintenance-table-card" hidden>
                     <table class="maintenance-table">
                         <thead><tr><th>Request</th><th>Equipment</th><th>Team & department</th><th>Received</th><th>Status</th><th>Downtime</th><th><span class="sr-only">Action</span></th></tr></thead>
                         <tbody id="maintenanceTableBody"><tr><td colspan="7">Loading maintenance calls…</td></tr></tbody>
                     </table>
                 </div>
-                <div id="maintenancePagination" class="table-pagination"></div>
+                <div id="maintenancePagination" class="table-pagination" hidden></div>
             </section>
         </div>
     `;
@@ -2734,6 +2789,7 @@ function renderMaintenance() {
     document.getElementById("maintenanceDepartmentFilter")?.addEventListener("change", applyMaintenanceFilters);
     document.getElementById("maintenancePriorityFilter")?.addEventListener("change", applyMaintenanceFilters);
     document.getElementById("clearMaintenanceFilters")?.addEventListener("click", clearMaintenanceFilters);
+    document.querySelectorAll("[data-maintenance-view]").forEach(button => button.addEventListener("click", () => setMaintenanceView(button.dataset.maintenanceView)));
     document.querySelectorAll("[data-maintenance-tab]").forEach(button => button.addEventListener("click", () => {
         maintenanceStatusMode = button.dataset.maintenanceTab;
         document.querySelectorAll("[data-maintenance-tab]").forEach(tab => tab.classList.toggle("is-active", tab === button));
@@ -2754,9 +2810,13 @@ async function loadMaintenanceData({ silent = false } = {}) {
     refreshButton?.classList.add("is-loading");
     if (refreshButton) refreshButton.disabled = true;
     try {
-        const response = await fetch("/api/engineer/maintenance", { headers: { Accept: "application/json" } });
+        const [response, techniciansResponse] = await Promise.all([
+            fetch("/api/engineer/maintenance", { headers: { Accept: "application/json" } }),
+            fetch("/api/engineer/technicians", { headers: { Accept: "application/json" } }),
+        ]);
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.detail || "Unable to load maintenance data.");
+        maintenanceTechnicians = techniciansResponse.ok ? await techniciansResponse.json() : [];
         maintenanceCalls = Array.isArray(data.calls) ? data.calls : [];
         updateMaintenanceMetrics(data);
         populateMaintenanceFilters(maintenanceCalls);
@@ -2830,9 +2890,79 @@ function applyMaintenanceFilters(resetPage = true) {
         return (!search || searchable.includes(search)) && (!department || call.department === department) && (!priority || call.priority === priority) && maintenanceStatusMatches(call.status);
     });
     if (resetPage) maintenancePagination.page = 1;
-    renderMaintenanceTable(filteredMaintenanceCalls);
+    if (maintenanceViewMode === "board") renderMaintenanceBoard(filteredMaintenanceCalls);
+    else renderMaintenanceTable(filteredMaintenanceCalls);
     const summary = document.getElementById("maintenanceResultsSummary");
     if (summary) summary.textContent = `Showing ${filteredMaintenanceCalls.length.toLocaleString()} of ${maintenanceCalls.length.toLocaleString()} service requests`;
+}
+
+function setMaintenanceView(mode) {
+    maintenanceViewMode = mode === "list" ? "list" : "board";
+    document.querySelectorAll("[data-maintenance-view]").forEach(button => button.classList.toggle("is-active", button.dataset.maintenanceView === maintenanceViewMode));
+    const board = document.getElementById("maintenanceBoardView");
+    const list = document.getElementById("maintenanceListView");
+    const pagination = document.getElementById("maintenancePagination");
+    if (board) board.hidden = maintenanceViewMode !== "board";
+    if (list) list.hidden = maintenanceViewMode !== "list";
+    if (pagination) pagination.hidden = maintenanceViewMode !== "list";
+    if (maintenanceViewMode === "board") renderMaintenanceBoard(filteredMaintenanceCalls);
+    else renderMaintenanceTable(filteredMaintenanceCalls);
+}
+
+function renderMaintenanceBoard(calls) {
+    const board = document.getElementById("maintenanceBoardView");
+    if (!board) return;
+    const columns = [
+        { key: "Open", label: "New", icon: "inbox" },
+        { key: "Assigned", label: "Assigned", icon: "user-check" },
+        { key: "In Progress", label: "In progress", icon: "wrench" },
+        { key: "Awaiting Parts", label: "Awaiting parts", icon: "package-search" },
+        { key: "Completed", label: "Completed", icon: "circle-check-big" },
+    ];
+    board.innerHTML = columns.map(column => {
+        const items = calls.filter(call => column.key === "Completed" ? ["Completed", "Closed"].includes(call.status) : call.status === column.key);
+        return `<section class="maintenance-board-column is-${column.key.toLowerCase().replaceAll(" ", "-")}">
+            <header><span><i data-lucide="${column.icon}"></i>${column.label}</span><b>${items.length}</b></header>
+            <div class="maintenance-board-stack">${items.map(maintenanceBoardCard).join("") || '<p class="maintenance-board-empty">No calls in this stage</p>'}</div>
+        </section>`;
+    }).join("");
+    window.lucide?.createIcons();
+}
+
+function maintenanceBoardCard(call) {
+    const technicians = maintenanceTechnicians.filter(item => !item.service_team || item.service_team === call.service_team);
+    const options = technicians.map(item => `<option value="${escapeHTML(item.username)}" ${item.username === call.assigned_to_username ? "selected" : ""}>${escapeHTML(item.name)}</option>`).join("");
+    const priority = maintenancePriorityMeta(call.priority);
+    return `<article class="maintenance-board-card" data-ticket-id="${Number(call.id)}">
+        <button type="button" class="maintenance-board-open" onclick="openTicket(${Number(call.id)})">
+            <span class="maintenance-board-ticket"><b>${escapeHTML(call.ticket || "New call")}</b><em class="is-${priority.tone}">${escapeHTML(call.priority || "Low")}</em></span>
+            <strong>${escapeHTML(call.equipment || "Equipment not specified")}</strong>
+            <small><i data-lucide="map-pin"></i>${escapeHTML(call.department || "No department")} · ${escapeHTML(call.location || "No location")}</small>
+            <p>${escapeHTML(call.description || call.issue || "No failure description")}</p>
+        </button>
+        <label><i data-lucide="user-round-cog"></i><select aria-label="Assign ${escapeHTML(call.ticket || "maintenance call")}" onchange="assignMaintenanceTechnician(${Number(call.id)}, this.value)"><option value="">Unassigned</option>${options}</select></label>
+    </article>`;
+}
+
+async function assignMaintenanceTechnician(ticketId, username) {
+    const select = document.querySelector(`[data-ticket-id="${ticketId}"] select`);
+    if (select) select.disabled = true;
+    try {
+        const response = await fetch(`/api/engineer/ticket/${ticketId}/assignment`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: username || null }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to assign this maintenance call.");
+        const call = maintenanceCalls.find(item => Number(item.id) === Number(ticketId));
+        if (call) {
+            call.status = result.status;
+            call.assigned_to_username = result.assigned_to_username;
+            call.assigned_to_name = result.assigned_to_name;
+        }
+        applyMaintenanceFilters(false);
+        BioTrackToast.success("Technician assignment updated", result.assigned_to_name ? `${result.assigned_to_name} now owns this call.` : "The call is unassigned.");
+    } catch (error) {
+        BioTrackToast.error("Assignment not changed", error.message);
+        if (select) select.disabled = false;
+    }
 }
 
 function clearMaintenanceFilters() {
@@ -3026,7 +3156,6 @@ async function refreshMaintenancePage() {
 document.addEventListener("keydown", event => {
     if (event.key === "Escape" && document.getElementById("downtimeOverrideModal")) closeDowntimeEditor();
 });
-
 ;
 /* source: dashboard_v2/views/ticketView.js */
 // ==========================================
@@ -3037,6 +3166,8 @@ let currentTicketId = null;
 let sparePartsInventory = [];
 let selectedSpareParts = [];
 let sparePartsLocked = false;
+let sparePartsReserved = false;
+let ticketTechnicians = [];
 
 function renderWardBoyTransport(ticket) {
     const tasks = Array.isArray(ticket.ward_boy_tasks) ? ticket.ward_boy_tasks : [];
@@ -3319,6 +3450,12 @@ async function loadTicket() {
 
                 </div>
 
+                <div class="ticket-assignment-panel">
+                    <div><span><i data-lucide="user-round-cog"></i></span><div><strong>Assigned technician</strong><small>Assignment moves a new call into the Assigned board column.</small></div></div>
+                    <select id="ticketTechnician"><option value="">Loading technicians…</option></select>
+                    <button type="button" onclick="saveTicketAssignment()"><i data-lucide="user-check"></i> Assign</button>
+                </div>
+
             </div>
 
             <!-- =========================== -->
@@ -3372,13 +3509,26 @@ async function loadTicket() {
                 <h2>Spare Parts Used</h2>
 
                 <p class="spare-parts-help">
-                    Select parts from this department's inventory. Stock is deducted only when the repair is completed.
+                    Selected parts are reserved when progress is saved. Completion converts the reservation into inventory consumption.
                 </p>
+
+                <div class="ticket-parts-cost"><span><i data-lucide="receipt-indian-rupee"></i> Repair parts cost</span><strong id="ticketPartsCost">${new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(ticket.parts_cost || 0)}</strong><small id="ticketReservationState">${ticket.parts_reserved ? "Parts reserved for this repair" : ticket.stock_deducted ? "Inventory deducted" : "No parts reserved"}</small></div>
 
                 <div id="sparePartsPicker" class="spare-parts-picker">
                     Loading available spare parts...
                 </div>
 
+            </div>
+
+            <div class="ticket-card full ticket-attachments-card">
+                <div class="ticket-attachments-heading"><div><h2>Attachments & evidence</h2><p>Manuals, invoices, certificates, service reports, photos and calibration documents.</p></div><span><i data-lucide="minimize-2"></i> Auto-compressed below 900 KB</span></div>
+                <form id="ticketAttachmentForm" class="ticket-attachment-form">
+                    <select id="ticketDocumentType" aria-label="Document type"><option>Service Report</option><option>Photo</option><option>Manual</option><option>Invoice</option><option>Certificate</option><option>Calibration Document</option></select>
+                    <label><i data-lucide="paperclip"></i><span id="ticketAttachmentFileName">Choose PDF or image</span><input id="ticketAttachmentFile" type="file" accept="application/pdf,image/jpeg,image/png" required></label>
+                    <button type="submit"><i data-lucide="cloud-upload"></i> Optimize & upload</button>
+                </form>
+                <p id="ticketAttachmentProgress" class="ticket-attachment-progress" role="status"></p>
+                <div id="ticketAttachmentList" class="ticket-attachment-list"><p>Loading attachments…</p></div>
             </div>
 
             <!-- =========================== -->
@@ -3417,7 +3567,16 @@ async function loadTicket() {
 
         window.currentTicketServiceTeam = ticket.service_team;
 
-        await initializeSparePartsPicker(ticket.spare_parts, ticket.stock_deducted);
+        await Promise.all([
+            initializeSparePartsPicker(ticket.spare_parts, ticket.stock_deducted, ticket.parts_reserved),
+            initializeTicketAssignment(ticket),
+            loadTicketAttachments(),
+        ]);
+
+        document.getElementById("ticketAttachmentForm")?.addEventListener("submit", uploadTicketAttachment);
+        document.getElementById("ticketAttachmentFile")?.addEventListener("change", event => {
+            document.getElementById("ticketAttachmentFileName").textContent = event.target.files?.[0]?.name || "Choose PDF or image";
+        });
 
         if (window.lucide) lucide.createIcons();
 
@@ -3481,6 +3640,8 @@ async function saveTicketChanges(){
         const data = await response.json();
 
         if(data.success){
+
+            await loadTicket();
 
             showSuccess({
 
@@ -3677,8 +3838,9 @@ function completeWork(){
 // INVENTORY-BACKED SPARE PARTS
 // ==========================================
 
-async function initializeSparePartsPicker(savedParts, stockDeducted) {
+async function initializeSparePartsPicker(savedParts, stockDeducted, partsReserved = false) {
     sparePartsLocked = Boolean(stockDeducted);
+    sparePartsReserved = Boolean(partsReserved);
     selectedSpareParts = Array.isArray(savedParts)
         ? savedParts.map(part => ({
             inventory_id: Number(part.inventory_id),
@@ -3695,10 +3857,17 @@ async function initializeSparePartsPicker(savedParts, stockDeducted) {
         );
         if (!response.ok) throw new Error("Unable to load inventory.");
         sparePartsInventory = await response.json();
+        if (sparePartsReserved && !sparePartsLocked) {
+            selectedSpareParts.forEach(part => {
+                const item = sparePartsInventory.find(entry => Number(entry.id) === Number(part.inventory_id));
+                if (item) item.available_stock = Number(item.available_stock || 0) + Number(part.quantity || 0);
+            });
+        }
         if (!selectedSpareParts.length && !sparePartsLocked) {
             selectedSpareParts = [{ inventory_id: "", quantity: 1 }];
         }
         renderSparePartsPicker();
+        updateTicketPartsCost();
     } catch (error) {
         container.innerHTML = `<p class="spare-parts-error">${escapeHTML(error.message)}</p>`;
     }
@@ -3726,7 +3895,7 @@ function renderSparePartsPicker() {
                     <select onchange="setSparePart(${index}, this.value)">
                         <option value="">Select a spare part</option>
                         ${sparePartsInventory.map(item =>
-                            `<option value="${Number(item.id)}" ${Number(part.inventory_id) === item.id ? "selected" : ""}>${escapeHTML(item.item_name)} — Available: ${escapeHTML(item.current_stock)} ${escapeHTML(item.unit || "")}</option>`
+                            `<option value="${Number(item.id)}" ${Number(part.inventory_id) === item.id ? "selected" : ""}>${escapeHTML(item.item_name)} — Available: ${escapeHTML(item.available_stock ?? item.current_stock)} ${escapeHTML(item.unit || "")} · ${new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(item.purchase_price || 0)}</option>`
                         ).join("")}
                     </select>
                     <input type="number" min="1" value="${Math.max(1, Number(part.quantity) || 1)}" aria-label="Quantity" onchange="setSpareQuantity(${index}, this.value)">
@@ -3740,41 +3909,48 @@ function renderSparePartsPicker() {
 
 function setSparePart(index, inventoryId) {
     const item = sparePartsInventory.find(entry => entry.id === Number(inventoryId));
-    if (item && Number(item.current_stock || 0) <= 0) {
+    if (item && Number(item.available_stock ?? item.current_stock ?? 0) <= 0) {
         selectedSpareParts[index].inventory_id = "";
         renderSparePartsPicker();
         showSparePartsToast(`No stock left for ${item.item_name}.`, "error");
         return;
     }
+    sparePartsReserved = false;
     selectedSpareParts[index].inventory_id = inventoryId ? Number(inventoryId) : "";
+    updateTicketPartsCost();
 }
 
 function setSpareQuantity(index, quantity) {
+    sparePartsReserved = false;
     const selectedItem = sparePartsInventory.find(
         item => item.id === Number(selectedSpareParts[index].inventory_id)
     );
     const requested = Math.max(1, Number(quantity) || 1);
-    if (selectedItem && requested > Number(selectedItem.current_stock || 0)) {
-        selectedSpareParts[index].quantity = Math.max(1, Number(selectedItem.current_stock || 0));
+    if (selectedItem && requested > Number(selectedItem.available_stock ?? selectedItem.current_stock ?? 0)) {
+        selectedSpareParts[index].quantity = Math.max(1, Number(selectedItem.available_stock ?? selectedItem.current_stock ?? 0));
         renderSparePartsPicker();
         showSparePartsToast(
-            `Only ${selectedItem.current_stock} ${selectedItem.unit || "item(s)"} of ${selectedItem.item_name} are available.`,
+            `Only ${selectedItem.available_stock ?? selectedItem.current_stock} ${selectedItem.unit || "item(s)"} of ${selectedItem.item_name} are available.`,
             "error"
         );
         return;
     }
     selectedSpareParts[index].quantity = requested;
+    updateTicketPartsCost();
 }
 
 function addSparePart() {
+    sparePartsReserved = false;
     selectedSpareParts.push({ inventory_id: "", quantity: 1 });
     renderSparePartsPicker();
 }
 
 function removeSparePart(index) {
+    sparePartsReserved = false;
     selectedSpareParts.splice(index, 1);
     if (!selectedSpareParts.length) selectedSpareParts.push({ inventory_id: "", quantity: 1 });
     renderSparePartsPicker();
+    updateTicketPartsCost();
 }
 
 function getSparePartsPayload() {
@@ -3791,14 +3967,15 @@ function getSparePartsPayload() {
     });
     for (const [inventoryId, quantity] of requestedByItem) {
         const item = sparePartsInventory.find(entry => entry.id === inventoryId);
-        if (!item || Number(item.current_stock || 0) <= 0) {
+        const available = Number(item?.available_stock ?? item?.current_stock ?? 0);
+        if (!item || available <= 0) {
             const itemName = item?.item_name || `Item #${inventoryId}`;
             showSparePartsToast(`No stock left for ${itemName}.`, "error");
             throw new Error(`No stock left for ${itemName}.`);
         }
-        if (quantity > Number(item.current_stock || 0)) {
+        if (quantity > available) {
             showSparePartsToast(
-                `Only ${item.current_stock} ${item.unit || "item(s)"} of ${item.item_name} are available.`,
+                `Only ${available} ${item.unit || "item(s)"} of ${item.item_name} are available.`,
                 "error"
             );
             throw new Error(`Insufficient stock for ${item.item_name}.`);
@@ -3815,6 +3992,131 @@ function showSparePartsToast(message, type = "error") {
     BioTrackToast.show({ title, message, type });
 }
 
+function updateTicketPartsCost() {
+    const total = selectedSpareParts.reduce((sum, part) => {
+        const item = sparePartsInventory.find(entry => Number(entry.id) === Number(part.inventory_id));
+        return sum + (Number(item?.purchase_price || 0) * Number(part.quantity || 0));
+    }, 0);
+    const target = document.getElementById("ticketPartsCost");
+    if (target) target.textContent = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(total);
+    const state = document.getElementById("ticketReservationState");
+    if (state) {
+        state.textContent = sparePartsLocked
+            ? "Inventory deducted"
+            : sparePartsReserved
+                ? "Parts reserved for this repair"
+                : total > 0
+                    ? "Save progress to reserve these parts"
+                    : "No parts reserved";
+    }
+}
+
+async function initializeTicketAssignment(ticket) {
+    const select = document.getElementById("ticketTechnician");
+    if (!select) return;
+    try {
+        const response = await fetch(`/api/engineer/technicians?service_team=${encodeURIComponent(ticket.service_team || "")}`);
+        if (!response.ok) throw new Error("Unable to load technicians.");
+        ticketTechnicians = await response.json();
+        select.innerHTML = '<option value="">Unassigned</option>' + ticketTechnicians.map(technician => `<option value="${escapeHTML(technician.username)}" ${technician.username === ticket.assigned_to_username ? "selected" : ""}>${escapeHTML(technician.name)}</option>`).join("");
+    } catch (error) {
+        select.innerHTML = '<option value="">Technicians unavailable</option>';
+    }
+}
+
+async function saveTicketAssignment() {
+    const select = document.getElementById("ticketTechnician");
+    if (!select) return;
+    try {
+        const response = await fetch(`/api/engineer/ticket/${currentTicketId}/assignment`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: select.value || null }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to update assignment.");
+        document.getElementById("ticketStatus").value = result.status;
+        BioTrackToast.success("Technician assignment updated", result.assigned_to_name ? `${result.assigned_to_name} owns this repair.` : "This repair is unassigned.");
+    } catch (error) { BioTrackToast.error("Assignment not changed", error.message); }
+}
+
+function ticketFileSize(bytes) {
+    const value = Number(bytes || 0);
+    return value < 1024 * 1024 ? `${Math.max(1, Math.round(value / 1024))} KB` : `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+async function loadTicketAttachments() {
+    const container = document.getElementById("ticketAttachmentList");
+    if (!container) return;
+    try {
+        const response = await fetch(`/api/engineer/ticket/${currentTicketId}/attachments`);
+        const items = await response.json().catch(() => []);
+        if (!response.ok) throw new Error(items.detail || "Unable to load attachments.");
+        container.innerHTML = items.length ? items.map(item => `
+            <article class="ticket-attachment-item">
+                <span><i data-lucide="${item.content_type === "application/pdf" ? "file-text" : "image"}"></i></span>
+                <div><strong>${escapeHTML(item.original_name)}</strong><small>${escapeHTML(item.document_type)} · ${ticketFileSize(item.stored_size_bytes)}${item.original_size_bytes > item.stored_size_bytes ? ` · compressed from ${ticketFileSize(item.original_size_bytes)}` : ""}</small></div>
+                <a href="${item.download_url}" download><i data-lucide="download"></i><span>Download</span></a>
+                <button type="button" onclick="deleteTicketAttachment(${Number(item.id)})" aria-label="Delete ${escapeHTML(item.original_name)}"><i data-lucide="trash-2"></i></button>
+            </article>`).join("") : '<p class="ticket-attachments-empty">No evidence attached to this maintenance call yet.</p>';
+        window.lucide?.createIcons();
+    } catch (error) { container.innerHTML = `<p class="spare-parts-error">${escapeHTML(error.message)}</p>`; }
+}
+
+async function compressTicketImage(file, targetBytes = 850 * 1024) {
+    const bitmap = await createImageBitmap(file);
+    let width = bitmap.width;
+    let height = bitmap.height;
+    const maxDimension = 2200;
+    if (Math.max(width, height) > maxDimension) {
+        const scale = maxDimension / Math.max(width, height);
+        width = Math.round(width * scale); height = Math.round(height * scale);
+    }
+    let blob = file;
+    for (let round = 0; round < 4; round += 1) {
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d", { alpha: false }).drawImage(bitmap, 0, 0, width, height);
+        for (const quality of [.82, .68, .54, .4]) {
+            blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", quality));
+            if (blob.size <= targetBytes) return new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+        }
+        width = Math.max(1, Math.round(width * .8)); height = Math.max(1, Math.round(height * .8));
+    }
+    return new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+}
+
+async function uploadTicketAttachment(event) {
+    event.preventDefault();
+    const input = document.getElementById("ticketAttachmentFile");
+    const progress = document.getElementById("ticketAttachmentProgress");
+    const button = event.currentTarget.querySelector("button[type=submit]");
+    let file = input.files?.[0];
+    if (!file) return;
+    button.disabled = true;
+    progress.textContent = file.type.startsWith("image/") ? "Compressing image to the KB target…" : "Uploading PDF for automatic KB compression…";
+    try {
+        const originalSize = file.size;
+        if (file.type.startsWith("image/")) file = await compressTicketImage(file);
+        const formData = new FormData();
+        formData.append("document_type", document.getElementById("ticketDocumentType").value);
+        formData.append("file", file);
+        const response = await fetch(`/api/engineer/ticket/${currentTicketId}/attachments`, { method: "POST", body: formData });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to upload this attachment.");
+        progress.textContent = `Stored at ${ticketFileSize(result.attachment.stored_size_bytes)}${originalSize > result.attachment.stored_size_bytes ? ` (from ${ticketFileSize(originalSize)})` : ""}.`;
+        event.currentTarget.reset();
+        document.getElementById("ticketAttachmentFileName").textContent = "Choose PDF or image";
+        await loadTicketAttachments();
+    } catch (error) { progress.textContent = error.message || "Upload failed."; BioTrackToast.error("Attachment not uploaded", progress.textContent); }
+    finally { button.disabled = false; }
+}
+
+async function deleteTicketAttachment(id) {
+    try {
+        const response = await fetch(`/api/engineer/ticket/attachments/${id}`, { method: "DELETE" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to delete the attachment.");
+        await loadTicketAttachments();
+    } catch (error) { BioTrackToast.error("Attachment not deleted", error.message); }
+}
+
 // ==========================================
 // GLOBAL FUNCTIONS
 // ==========================================
@@ -3827,7 +4129,8 @@ window.setSparePart = setSparePart;
 window.setSpareQuantity = setSpareQuantity;
 window.addSparePart = addSparePart;
 window.removeSparePart = removeSparePart;
-
+window.saveTicketAssignment = saveTicketAssignment;
+window.deleteTicketAttachment = deleteTicketAttachment;
 ;
 /* source: dashboard_v2/views/assetsView.js */
 
@@ -3870,381 +4173,153 @@ function renderAssets() {
     selectedAssetIds = new Set();
 
     pageContent.innerHTML = `
-
-
-    <div class="asset-page">
-
-        <!-- ==========================================
-             PAGE HEADER
-        =========================================== -->
-
-
-
-        <div class="asset-hero">
-
-            <div class="asset-hero-left">
-
-                <span class="asset-badge">
-
-                    ${registryCopy.badge}
-
-                </span>
-
-                <h1>
-
-                    Asset Management
-
-                </h1>
-
-                <p>
-
-                    ${registryCopy.description}
-
-                </p>
-
-            </div>
-
-            <div class="asset-hero-right">
-
-            <div class="quick-actions-card" aria-label="Asset quick actions">
-
-                <div class="asset-actions">
-
-                    <button
-                        id="addAssetBtn"
-                        class="btn-primary hero-btn">
-
-                        + Add New Asset
-
-                    </button>
-
-                    ${canManageAssetQR() ? `<button
-                        id="assetQrBtn"
-                        class="btn-secondary hero-btn">
-
-                        <i data-lucide="qr-code"></i> Generate QR
-
-                    </button>` : ""}
-
-                    ${canManageAssetQR() ? `<button
-                        id="assetRelocationRequestsBtn"
-                        class="btn-secondary hero-btn">
-
-                        <i data-lucide="route"></i> Relocation Requests
-
-                    </button>` : ""}
-
-                    <button
-                        id="importExcelBtn"
-                        class="btn-secondary hero-btn">
-
-                        📄 Import Excel
-
-                    </button>
-
-                    ${isAssetAdministrator() ? `
-                        <label class="asset-import-team-label" for="assetImportTeam">
-                            <span>Excel import team</span>
-                            <select id="assetImportTeam">
-                                <option value="">Select service team</option>
-                                <option value="Biomedical">Biomedical</option>
-                                <option value="Electrical">Electrical</option>
-                                <option value="IT">IT</option>
-                            </select>
-                        </label>
-                    ` : ""}
-
-                    <button
-                        id="exportAssetBtn"
-                        class="btn-secondary hero-btn">
-
-                        ⬇ Export
-
-                    </button>
-
+        <div class="asset-page">
+            <section class="asset-hero">
+                <div class="asset-hero-left">
+                    <div class="asset-hero-eyebrow">
+                        <span class="asset-badge"><i data-lucide="activity"></i>${registryCopy.badge}</span>
+                        <span class="asset-live-state"><span></span>Live inventory</span>
+                    </div>
+                    <h1>Asset Management</h1>
+                    <p>${registryCopy.description}</p>
                 </div>
 
-                <input
-                    id="excelFileInput"
-                    type="file"
-                    accept=".xlsx,.xls"
-                    hidden>
-
-            </div>
-
-        </div>
-
-        </div>
-
-
-        ${isAssetAdministrator() ? `
-            <section class="asset-mode-switcher" aria-label="Asset service-team mode">
-                <div>
-                    <span>Asset mode</span>
-                    <strong id="assetModeTitle">All engineering assets</strong>
-                </div>
-                <div class="asset-mode-options" role="tablist" aria-label="Filter assets by service team">
-                    <button type="button" class="is-active" data-asset-team="" role="tab" aria-selected="true">All</button>
-                    <button type="button" data-asset-team="Biomedical" role="tab" aria-selected="false">Biomedical</button>
-                    <button type="button" data-asset-team="Electrical" role="tab" aria-selected="false">Electrical</button>
-                    <button type="button" data-asset-team="IT" role="tab" aria-selected="false">IT</button>
+                <div class="asset-hero-right">
+                    <div class="quick-actions-card" aria-label="Asset quick actions">
+                        <span class="asset-action-label">Quick actions</span>
+                        <div class="asset-actions">
+                            <button id="addAssetBtn" class="btn-primary hero-btn">
+                                <i data-lucide="plus"></i><span>Add asset</span>
+                            </button>
+                            ${canManageAssetQR() ? `<button id="assetQrBtn" class="btn-secondary hero-btn">
+                                <i data-lucide="qr-code"></i><span>Generate QR</span>
+                            </button>` : ""}
+                            ${canManageAssetQR() ? `<button id="assetRelocationRequestsBtn" class="btn-secondary hero-btn">
+                                <i data-lucide="route"></i><span>Relocations</span>
+                            </button>` : ""}
+                            <button id="importExcelBtn" class="btn-secondary hero-btn">
+                                <i data-lucide="file-up"></i><span>Import</span>
+                            </button>
+                            <button id="exportAssetBtn" class="btn-secondary hero-btn">
+                                <i data-lucide="download"></i><span>Export</span>
+                            </button>
+                        </div>
+                        ${isAssetAdministrator() ? `
+                            <label class="asset-import-team-label" for="assetImportTeam">
+                                <span>Excel import team</span>
+                                <select id="assetImportTeam">
+                                    <option value="">Choose team before importing</option>
+                                    <option value="Biomedical">Biomedical</option>
+                                    <option value="Electrical">Electrical</option>
+                                    <option value="IT">IT</option>
+                                </select>
+                            </label>
+                        ` : ""}
+                        <input id="excelFileInput" type="file" accept=".xlsx,.xls" hidden>
+                    </div>
                 </div>
             </section>
-        ` : ""}
 
-
-        <!-- ==========================================
-             KPI CARDS
-        =========================================== -->
-
-        <div class="asset-kpis">
-
-            <div class="asset-card total-card">
-
-                <div class="asset-card-icon">
-
-                    <i data-lucide="package"></i>
-
-                </div>
-
-                <div class="asset-card-content">
-
-                    <h4>Total Assets</h4>
-
-                    <span class="asset-kpi-mode">All teams</span>
-
-                    <h2 id="totalAssets">0</h2>
-
-                    <p>Hospital Inventory</p>
-
-                </div>
-
-            </div>
-
-            <div class="asset-card active-card">
-
-                <div class="asset-card-icon">
-
-                    <i data-lucide="shield-check"></i>
-
-                </div>
-
-                <div class="asset-card-content">
-
-                    <h4>Active Assets</h4>
-
-                    <span class="asset-kpi-mode">All teams</span>
-
-                    <h2 id="activeAssets">0</h2>
-
-                    <p>Operational Equipment</p>
-
-                </div>
-
-            </div>
-
-            <div class="asset-card pm-card">
-
-                <div class="asset-card-icon">
-
-                    <i data-lucide="calendar-check"></i>
-
-                </div>
-
-                <div class="asset-card-content">
-
-                    <h4>PM Due</h4>
-
-                    <span class="asset-kpi-mode">All teams</span>
-
-                    <h2 id="pmDue">0</h2>
-
-                    <p>Scheduled Maintenance</p>
-
-                </div>
-
-            </div>
-
-            <div class="asset-card calibration-card">
-
-                <div class="asset-card-icon">
-
-                    <i data-lucide="flask-conical"></i>
-
-                </div>
-
-                <div class="asset-card-content">
-
-                    <h4>Calibration Due</h4>
-
-                    <span class="asset-kpi-mode">All teams</span>
-
-                    <h2 id="calibrationDue">0</h2>
-
-                    <p>Calibration Schedule</p>
-
-                </div>
-
-            </div>
-
-            <div class="asset-card warranty-card">
-
-                <div class="asset-card-icon">
-
-                    <i data-lucide="shield"></i>
-
-                </div>
-
-                <div class="asset-card-content">
-
-                    <h4>Warranty</h4>
-
-                    <span class="asset-kpi-mode">All teams</span>
-
-                    <h2 id="warrantyDue">0</h2>
-
-                    <p>Expiring Soon</p>
-
-                </div>
-
-            </div>
-
-            <div class="asset-card critical-card">
-
-                <div class="asset-card-icon">
-
-                    <i data-lucide="heart-pulse"></i>
-
-                </div>
-
-                <div class="asset-card-content">
-
-                    <h4>Critical Assets</h4>
-
-                    <span class="asset-kpi-mode">All teams</span>
-
-                    <h2 id="criticalAssets">0</h2>
-
-                    <p>Life Support</p>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <!-- ==========================================
-             FILTER BAR
-        =========================================== -->
-
-        <div class="asset-toolbar">
-
-            <input
-                id="assetSearch"
-                type="text"
-                placeholder="🔍 Search equipment..."
-                class="asset-search"
-            >
-
-            <select id="assetDepartmentFilter">
-
-                <option>All Departments</option>
-
-            </select>
-
-            <select id="assetStatusFilter">
-
-                <option>All Status</option>
-
-            </select>
-
-            <select id="assetCategoryFilter">
-
-                <option>All Categories</option>
-
-            </select>
-
-        </div>
-
-        ${isAssetAdministrator() ? `
-            <section class="asset-bulk-toolbar" aria-label="Bulk asset actions">
-                <div class="asset-bulk-summary">
-                    <span class="asset-bulk-icon"><i data-lucide="list-checks"></i></span>
-                    <span><strong id="assetSelectionCount">0 selected</strong><small>Select rows, find duplicate records, or remove several assets together.</small></span>
-                </div>
-                <div class="asset-bulk-actions">
-                    <button type="button" id="assetSelectFilteredBtn" class="asset-bulk-secondary"><i data-lucide="check-check"></i> Select all</button>
-                    <button type="button" id="assetClearSelectionBtn" class="asset-bulk-secondary" disabled><i data-lucide="x"></i> Deselect all</button>
-                    <button type="button" id="assetFindDuplicatesBtn" class="asset-bulk-secondary"><i data-lucide="copy-check"></i> Find duplicates</button>
-                    <button type="button" id="assetDeleteSelectedBtn" class="asset-bulk-danger" disabled><i data-lucide="trash-2"></i> Delete selected</button>
-                </div>
+            ${isAssetAdministrator() ? `
+                <section class="asset-mode-switcher" aria-label="Asset service-team mode">
+                    <div>
+                        <span>Service team scope</span>
+                        <strong id="assetModeTitle">All engineering assets</strong>
+                    </div>
+                    <div class="asset-mode-options" role="tablist" aria-label="Filter assets by service team">
+                        <button type="button" class="is-active" data-asset-team="" role="tab" aria-selected="true"><i data-lucide="layers-3"></i>All assets</button>
+                        <button type="button" data-asset-team="Biomedical" role="tab" aria-selected="false"><i data-lucide="heart-pulse"></i>Biomedical</button>
+                        <button type="button" data-asset-team="Electrical" role="tab" aria-selected="false"><i data-lucide="zap"></i>Electrical</button>
+                        <button type="button" data-asset-team="IT" role="tab" aria-selected="false"><i data-lucide="server"></i>IT</button>
+                    </div>
+                </section>
+            ` : ""}
+
+            <section class="asset-kpis" aria-label="Asset overview">
+                <article class="asset-card total-card">
+                    <div class="asset-card-top"><div class="asset-card-icon"><i data-lucide="package-open"></i></div><span class="asset-kpi-mode">All teams</span></div>
+                    <div class="asset-card-content"><h4>Total assets</h4><h2 id="totalAssets">0</h2><p>Registered inventory</p></div>
+                </article>
+                <article class="asset-card active-card">
+                    <div class="asset-card-top"><div class="asset-card-icon"><i data-lucide="circle-check-big"></i></div><span class="asset-kpi-mode">All teams</span></div>
+                    <div class="asset-card-content"><h4>Active assets</h4><h2 id="activeAssets">0</h2><p>Ready for service</p></div>
+                </article>
+                <article class="asset-card pm-card">
+                    <div class="asset-card-top"><div class="asset-card-icon"><i data-lucide="calendar-clock"></i></div><span class="asset-kpi-mode">All teams</span></div>
+                    <div class="asset-card-content"><h4>PM due</h4><h2 id="pmDue">0</h2><p>Needs scheduling</p></div>
+                </article>
+                <article class="asset-card calibration-card">
+                    <div class="asset-card-top"><div class="asset-card-icon"><i data-lucide="flask-conical"></i></div><span class="asset-kpi-mode">All teams</span></div>
+                    <div class="asset-card-content"><h4>Calibration due</h4><h2 id="calibrationDue">0</h2><p>Quality checks due</p></div>
+                </article>
+                <article class="asset-card warranty-card">
+                    <div class="asset-card-top"><div class="asset-card-icon"><i data-lucide="shield-alert"></i></div><span class="asset-kpi-mode">All teams</span></div>
+                    <div class="asset-card-content"><h4>Warranty</h4><h2 id="warrantyDue">0</h2><p>Expiring soon</p></div>
+                </article>
+                <article class="asset-card critical-card">
+                    <div class="asset-card-top"><div class="asset-card-icon"><i data-lucide="siren"></i></div><span class="asset-kpi-mode">All teams</span></div>
+                    <div class="asset-card-content"><h4>Critical assets</h4><h2 id="criticalAssets">0</h2><p>Life-support equipment</p></div>
+                </article>
             </section>
-        ` : ""}
 
+            <section class="asset-registry-panel" aria-labelledby="assetRegistryTitle">
+                <header class="asset-registry-header">
+                    <div>
+                        <span class="asset-section-kicker">Equipment registry</span>
+                        <h2 id="assetRegistryTitle">Hospital asset directory</h2>
+                        <p>Search, filter and open the complete equipment record.</p>
+                    </div>
+                    <div class="asset-result-count" aria-live="polite">
+                        <span></span><strong id="assetResultCount">0</strong><small>matching records</small>
+                    </div>
+                </header>
 
-        <!-- ==========================================
-             TABLE
-        =========================================== -->
+                <div class="asset-toolbar">
+                    <label class="asset-search-wrap" for="assetSearch">
+                        <i data-lucide="search"></i>
+                        <span class="sr-only">Search equipment</span>
+                        <input id="assetSearch" type="search" placeholder="Search by equipment, code, model or maker" class="asset-search" autocomplete="off">
+                    </label>
+                    <div class="asset-filter-group">
+                        <label><span>Department</span><select id="assetDepartmentFilter"><option>All Departments</option></select></label>
+                        <label><span>Status</span><select id="assetStatusFilter"><option>All Status</option></select></label>
+                        <label><span>Category</span><select id="assetCategoryFilter"><option>All Categories</option></select></label>
+                    </div>
+                </div>
 
-        <div class="asset-table-container">
+                ${isAssetAdministrator() ? `
+                    <section class="asset-bulk-toolbar" aria-label="Bulk asset actions">
+                        <div class="asset-bulk-summary">
+                            <span class="asset-bulk-icon"><i data-lucide="list-checks"></i></span>
+                            <span><strong id="assetSelectionCount">0 selected</strong><small>Use bulk tools to review or clean the registry.</small></span>
+                        </div>
+                        <div class="asset-bulk-actions">
+                            <button type="button" id="assetSelectFilteredBtn" class="asset-bulk-secondary"><i data-lucide="check-check"></i> Select all</button>
+                            <button type="button" id="assetClearSelectionBtn" class="asset-bulk-secondary" disabled><i data-lucide="x"></i> Deselect all</button>
+                            <button type="button" id="assetFindDuplicatesBtn" class="asset-bulk-secondary"><i data-lucide="copy-check"></i> Find duplicates</button>
+                            <button type="button" id="assetDeleteSelectedBtn" class="asset-bulk-danger" disabled><i data-lucide="trash-2"></i> Delete selected</button>
+                        </div>
+                    </section>
+                ` : ""}
 
-            <table class="asset-table">
-
-                <thead>
-
-                    <tr>
-
-                        ${isAssetAdministrator() ? '<th class="asset-select-column"><input id="assetSelectPage" type="checkbox" aria-label="Select all assets on this page"></th>' : ""}
-
-                        <th>Equipment No</th>
-
-                        <th>Equipment Name</th>
-
-                        <th>Department</th>
-
-                        <th>Service Team</th>
-
-                        <th>Manufacturer</th>
-
-                        <th>Model</th>
-
-                        <th>Status</th>
-
-                        <th>QR</th>
-
-                        <th>Action</th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody id="assetTableBody">
-
-                    <tr>
-
-                        <td colspan="${isAssetAdministrator() ? 10 : 9}" class="empty-table">
-
-                            No assets found.
-
-                            <br><br>
-
-                            Import an Excel sheet to begin.
-
-                        </td>
-
-                    </tr>
-
-                </tbody>
-
-            </table>
-
+                <div class="asset-table-container">
+                    <table class="asset-table">
+                        <thead><tr>
+                            ${isAssetAdministrator() ? '<th class="asset-select-column"><input id="assetSelectPage" type="checkbox" aria-label="Select all assets on this page"></th>' : ""}
+                            <th>Asset code</th><th>Equipment</th><th>Department</th><th>Service team</th>
+                            <th>Manufacturer</th><th>Model</th><th>Status</th><th>QR record</th><th><span class="sr-only">Action</span></th>
+                        </tr></thead>
+                        <tbody id="assetTableBody">
+                            <tr><td colspan="${isAssetAdministrator() ? 10 : 9}" class="empty-table">
+                                <span class="empty-table-icon"><i data-lucide="package-search"></i></span>
+                                <strong>No assets found</strong><small>Import an Excel sheet or add an asset to begin.</small>
+                            </td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="assetsPagination" class="table-pagination"></div>
+            </section>
         </div>
-
-        <div id="assetsPagination" class="table-pagination"></div>
-
-    </div>
-
     `;
     initializeAssetImport();
     initializeAddAsset();
@@ -4347,7 +4422,8 @@ function initializeAssetImport() {
         finally {
 
             importButton.disabled = false;
-            importButton.innerHTML = "📄 Import Excel";
+            importButton.innerHTML = '<i data-lucide="file-up"></i><span>Import</span>';
+            if (window.lucide) lucide.createIcons();
 
             excelInput.value = "";
 
@@ -4542,15 +4618,19 @@ function applyAssetFilters() {
 function populateAssetTable(assets) {
 
     const table = document.getElementById("assetTableBody");
+    const resultCount = document.getElementById("assetResultCount");
 
     if (!table) return;
+    if (resultCount) resultCount.textContent = String(assets.length);
 
     if (assets.length === 0) {
 
         table.innerHTML = `
             <tr>
                 <td colspan="${isAssetAdministrator() ? 10 : 9}" class="empty-table">
-                    No assets found.
+                    <span class="empty-table-icon"><i data-lucide="search-x"></i></span>
+                    <strong>No matching assets</strong>
+                    <small>Try adjusting the search or filters above.</small>
                 </td>
             </tr>
         `;
@@ -4564,6 +4644,7 @@ function populateAssetTable(assets) {
         );
 
         updateAssetBulkControls();
+        if (window.lucide) lucide.createIcons();
 
         return;
 
@@ -4575,24 +4656,33 @@ function populateAssetTable(assets) {
 
     pageItems.forEach(asset => {
 
+        const statusValue = String(asset.status || "Unknown");
+        const statusTone = /active|operational|working|available/i.test(statusValue)
+            ? "is-active"
+            : /repair|breakdown|inactive|out of service/i.test(statusValue)
+                ? "is-alert"
+                : /maintenance|service|due|pending/i.test(statusValue)
+                    ? "is-warning"
+                    : "is-neutral";
+
         table.innerHTML += `
-            <tr>
+            <tr class="asset-data-row">
 
                 ${isAssetAdministrator() ? `<td class="asset-select-column"><input type="checkbox" ${selectedAssetIds.has(Number(asset.id)) ? "checked" : ""} onchange="toggleAssetSelection(${Number(asset.id)}, this.checked)" aria-label="Select ${escapeHTML(asset.equipment_name || asset.asset_code || "asset")}"></td>` : ""}
 
-                <td>${escapeHTML(asset.equipment_no ?? "")}</td>
+                <td><span class="asset-code">${escapeHTML(asset.equipment_no ?? "—")}</span></td>
 
-                <td>${escapeHTML(asset.equipment_name ?? "")}</td>
+                <td><div class="asset-name-cell"><span class="asset-name-icon"><i data-lucide="monitor-cog"></i></span><span><strong>${escapeHTML(asset.equipment_name || "Unnamed equipment")}</strong><small>${escapeHTML(asset.classification || asset.category || "General equipment")}</small></span></div></td>
 
-                <td>${escapeHTML(asset.department ?? "")}</td>
+                <td><span class="asset-department-cell"><i data-lucide="map-pin"></i>${escapeHTML(asset.department || "Unassigned")}</span></td>
 
                 <td><span class="asset-team-badge is-${String(asset.service_team || "Biomedical").toLowerCase()}">${escapeHTML(asset.service_team || "Biomedical")}</span></td>
 
-                <td>${escapeHTML(asset.manufacturer ?? "")}</td>
+                <td>${escapeHTML(asset.manufacturer || "—")}</td>
 
-                <td>${escapeHTML(asset.model ?? "")}</td>
+                <td>${escapeHTML(asset.model || "—")}</td>
 
-                <td>${escapeHTML(asset.status ?? "")}</td>
+                <td><span class="asset-status-badge ${statusTone}"><span></span>${escapeHTML(statusValue)}</span></td>
 
                 <td>${asset.qr_generated || canManageAssetQR() ? `<button type="button" class="asset-qr-table-button ${asset.qr_generated ? "is-ready" : ""}" onclick="openAssetQRGenerator(${Number(asset.id)})"><i data-lucide="qr-code"></i><span>${asset.qr_generated ? "View QR" : "Generate"}</span></button>` : '<span class="asset-qr-unavailable">Not generated</span>'}</td>
 
@@ -4600,10 +4690,9 @@ function populateAssetTable(assets) {
 
                     <button
                         class="btn-open-asset"
+                        aria-label="Open ${escapeHTML(asset.equipment_name || asset.equipment_no || "asset")}"
                         onclick="openAssetPage(${Number(asset.id)})">
-
-                        👁 View Asset
-
+                        <i data-lucide="arrow-up-right"></i><span>Open</span>
                     </button>
 
                 </td>
@@ -4940,7 +5029,6 @@ function updateAssetKPIs(assets) {
     document.getElementById("warrantyDue").textContent = 0;
 
 }
-
 ;
 /* source: dashboard_v2/views/assetFormView.js */
 // ==========================================
@@ -5479,7 +5567,7 @@ function saveBasicInformation() {
     return true;
 
 }
- 
+
 // ==========================================
 // PURCHASE INFORMATION
 // ==========================================
@@ -5997,9 +6085,9 @@ function renderDocumentsSection() {
 
     restoreFormValues();
 
- 
 
-    
+
+
 
 }
 // ==========================================
@@ -6337,8 +6425,7 @@ function restoreFormValues() {
 
     });
 
-}   
-
+}
 ;
 /* source: dashboard_v2/views/assetProfileView.js */
 // ==========================================
@@ -7190,10 +7277,102 @@ function renderPMHistory(asset){
 
 function renderAssetTabs(asset){
 
-    document.getElementById("assetTabs").innerHTML = "";
+    document.getElementById("assetTabs").innerHTML = `
+        <section class="asset-section asset-documents-section">
+            <div class="asset-section-header">
+                <div>
+                    <h2>Manuals & documents</h2>
+                    <p>Equipment manuals, certificates, invoices, service reports, photos and calibration evidence.</p>
+                </div>
+                <span class="asset-document-compression"><i data-lucide="minimize-2"></i> Auto-compressed below 900 KB</span>
+            </div>
+            <form id="assetDocumentForm" class="asset-document-form">
+                <select id="assetDocumentType" aria-label="Document type">
+                    <option>Manual</option><option>Invoice</option><option>Certificate</option>
+                    <option>Service Report</option><option>Photo</option><option>Calibration Document</option>
+                </select>
+                <label><i data-lucide="paperclip"></i><span id="assetDocumentFileName">Choose PDF or image</span><input id="assetDocumentFile" type="file" accept="application/pdf,image/jpeg,image/png" required></label>
+                <button type="submit"><i data-lucide="cloud-upload"></i> Compress & upload</button>
+            </form>
+            <p id="assetDocumentProgress" class="asset-document-progress" role="status"></p>
+            <div id="assetDocumentList" class="asset-document-list"><p>Loading asset documents…</p></div>
+        </section>`;
+    document.getElementById("assetDocumentForm")?.addEventListener("submit", uploadAssetDocument);
+    document.getElementById("assetDocumentFile")?.addEventListener("change", event => {
+        document.getElementById("assetDocumentFileName").textContent = event.target.files?.[0]?.name || "Choose PDF or image";
+    });
+    if (window.lucide) window.lucide.createIcons();
+    loadAssetDocuments(asset.id);
 
 }
 
+function assetDocumentSize(bytes) {
+    const value = Number(bytes || 0);
+    if (value < 1024) return `${value} B`;
+    return `${(value / 1024).toFixed(value < 10240 ? 1 : 0)} KB`;
+}
+
+async function loadAssetDocuments(assetId = currentAssetId) {
+    const container = document.getElementById("assetDocumentList");
+    if (!container) return;
+    try {
+        const response = await fetch(`/api/assets/${Number(assetId)}/documents`, { cache: "no-store" });
+        const documents = await response.json().catch(() => []);
+        if (!response.ok) throw new Error(documents.detail || "Unable to load asset documents.");
+        container.innerHTML = documents.length ? documents.map(document => `
+            <article class="asset-document-item">
+                <span class="asset-document-icon"><i data-lucide="${document.content_type === "application/pdf" ? "file-text" : "image"}"></i></span>
+                <div><strong>${escapeHTML(document.document_name)}</strong><small>${escapeHTML(document.document_type)} · ${assetDocumentSize(document.stored_size_bytes)}${document.original_size_bytes > document.stored_size_bytes ? ` · compressed from ${assetDocumentSize(document.original_size_bytes)}` : ""}</small></div>
+                <a href="${document.download_url}" download><i data-lucide="download"></i><span>Download</span></a>
+                <button type="button" onclick="deleteAssetDocument(${Number(document.id)})" aria-label="Delete ${escapeHTML(document.document_name)}"><i data-lucide="trash-2"></i></button>
+            </article>`).join("") : '<div class="asset-document-empty"><i data-lucide="folder-open"></i><strong>No documents uploaded</strong><p>Add the first manual, certificate or service document for this equipment.</p></div>';
+    } catch (error) {
+        container.innerHTML = `<div class="asset-document-empty is-error"><i data-lucide="circle-alert"></i><strong>Documents unavailable</strong><p>${escapeHTML(error.message)}</p></div>`;
+    }
+    if (window.lucide) window.lucide.createIcons();
+}
+
+async function uploadAssetDocument(event) {
+    event.preventDefault();
+    const input = document.getElementById("assetDocumentFile");
+    const progress = document.getElementById("assetDocumentProgress");
+    const button = event.currentTarget.querySelector('button[type="submit"]');
+    const file = input?.files?.[0];
+    if (!file) return;
+    button.disabled = true;
+    progress.textContent = "Compressing and storing the document…";
+    try {
+        const formData = new FormData();
+        formData.append("document_type", document.getElementById("assetDocumentType").value);
+        formData.append("file", file);
+        const response = await fetch(`/api/assets/${Number(currentAssetId)}/documents`, { method: "POST", body: formData });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to upload this asset document.");
+        progress.textContent = `Stored at ${assetDocumentSize(result.document.stored_size_bytes)}${result.document.original_size_bytes > result.document.stored_size_bytes ? ` (from ${assetDocumentSize(result.document.original_size_bytes)})` : ""}.`;
+        event.currentTarget.reset();
+        document.getElementById("assetDocumentFileName").textContent = "Choose PDF or image";
+        BioTrackToast.success("Document uploaded", "The optimized file is attached to this asset.");
+        await loadAssetDocuments();
+    } catch (error) {
+        progress.textContent = error.message || "Upload failed.";
+        BioTrackToast.error("Document not uploaded", progress.textContent);
+    } finally {
+        button.disabled = false;
+    }
+}
+
+async function deleteAssetDocument(documentId) {
+    if (!window.confirm("Delete this asset document?")) return;
+    try {
+        const response = await fetch(`/api/assets/documents/${Number(documentId)}`, { method: "DELETE" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || "Unable to delete this asset document.");
+        BioTrackToast.success("Document deleted", "The asset document was removed.");
+        await loadAssetDocuments();
+    } catch (error) {
+        BioTrackToast.error("Document not deleted", error.message);
+    }
+}
 ;
 /* source: dashboard_v2/views/maintenanceModuleView.js */
 // ==========================================
@@ -7220,692 +7399,400 @@ function renderMaintenanceModule() {
 ;
 /* source: dashboard_v2/views/inventoryView.js */
 // ==========================================
-// INVENTORY MODULE
+// DEPARTMENT INVENTORY MODULE
 // ==========================================
 
 const INVENTORY_API = "/api/inventory";
+const INVENTORY_TEAMS = ["Biomedical", "Electrical", "IT"];
+const INVENTORY_TEAM_META = {
+    Biomedical: { icon: "stethoscope", className: "biomedical", description: "Clinical equipment parts" },
+    Electrical: { icon: "plug-zap", className: "electrical", description: "Power and electrical spares" },
+    IT: { icon: "server-cog", className: "it", description: "Network and computer parts" },
+};
 
 let inventoryData = [];
-
 let filteredInventory = [];
-
 let currentInventoryId = null;
-
+let activeInventoryTeam = "all";
 const inventoryPagination = { page: 1, pageSize: 25 };
 
+function inventoryRole() {
+    return typeof normalizeDashboardRole === "function"
+        ? normalizeDashboardRole(localStorage.getItem("role"))
+        : String(localStorage.getItem("role") || "").trim().toLowerCase();
+}
+
+function isInventoryManager() {
+    return inventoryRole() === "admin";
+}
+
+function inventoryTeamForRole() {
+    const role = inventoryRole();
+    if (role === "electrical") return "Electrical";
+    if (role === "it") return "IT";
+    if (role === "engineer") return "Biomedical";
+    return null;
+}
+
+function inventoryTeamMeta(team) {
+    return INVENTORY_TEAM_META[team] || INVENTORY_TEAM_META.Biomedical;
+}
+
+function inventoryNumber(value, fallback = 0) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+}
+
+function inventoryCurrency(value) {
+    return new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: "INR",
+        maximumFractionDigits: 0,
+    }).format(inventoryNumber(value));
+}
+
+function inventoryStatus(item) {
+    const stock = inventoryNumber(item.available_stock ?? item.current_stock);
+    const minimum = inventoryNumber(item.minimum_stock);
+    if (stock <= 0) return { key: "out", label: "Out of stock", className: "stock-out" };
+    if (stock <= minimum) return { key: "low", label: "Low stock", className: "stock-low" };
+    return { key: "available", label: "Available", className: "stock-ok" };
+}
+
+function inventoryTeamItems(team = activeInventoryTeam) {
+    if (!isInventoryManager()) return [...inventoryData];
+    if (!team || team === "all") return [...inventoryData];
+    return inventoryData.filter(item => item.service_team === team);
+}
 
 // ==========================================
-// RENDER INVENTORY PAGE
+// RENDER
 // ==========================================
 
 async function renderInventory() {
+    activeInventoryTeam = isInventoryManager() ? "all" : (inventoryTeamForRole() || "Biomedical");
+    const team = inventoryTeamForRole();
+    const title = isInventoryManager() ? "Engineering inventory hub" : `${team} inventory`;
+    const subtitle = isInventoryManager()
+        ? "Separate stock rooms for Biomedical, Electrical and IT engineering."
+        : `Manage parts and consumables assigned only to the ${team} team.`;
 
     pageContent.innerHTML = `
+        <div class="inventory-page">
+            <section class="inventory-hero">
+                <div class="inventory-hero-copy">
+                    <span class="inventory-eyebrow"><i data-lucide="warehouse"></i> Engineering stores</span>
+                    <h1>${escapeHTML(title)}</h1>
+                    <p>${escapeHTML(subtitle)}</p>
+                </div>
+                <div class="inventory-hero-actions">
+                    <button class="inventory-button inventory-button-secondary" id="importInventoryBtn" type="button">
+                        <i data-lucide="file-up"></i><span>Import Excel</span>
+                    </button>
+                    <button class="inventory-button inventory-button-secondary" id="exportInventoryBtn" type="button">
+                        <i data-lucide="download"></i><span>Export CSV</span>
+                    </button>
+                    <button class="inventory-button inventory-button-primary" id="addInventoryBtn" type="button">
+                        <i data-lucide="plus"></i><span>Add item</span>
+                    </button>
+                </div>
+            </section>
 
-    <div class="inventory-page">
+            <section id="inventoryTeamSwitcher" class="inventory-team-switcher" aria-label="Engineering inventory departments"></section>
 
-        <div class="page-header">
+            <section class="inventory-kpis" aria-label="Inventory summary">
+                <article class="inventory-kpi inventory-kpi-total">
+                    <div class="inventory-kpi-icon"><i data-lucide="package-open"></i></div>
+                    <div><span>Stock lines</span><strong id="inventoryTotalItems">0</strong><small id="inventoryTotalHint">in this inventory</small></div>
+                </article>
+                <article class="inventory-kpi inventory-kpi-units">
+                    <div class="inventory-kpi-icon"><i data-lucide="boxes"></i></div>
+                    <div><span>Units on hand</span><strong id="inventoryTotalUnits">0</strong><small>across all stock lines</small></div>
+                </article>
+                <article class="inventory-kpi inventory-kpi-low">
+                    <div class="inventory-kpi-icon"><i data-lucide="triangle-alert"></i></div>
+                    <div><span>Needs attention</span><strong id="inventoryLowStock">0</strong><small id="inventoryAlertHint">low or out of stock</small></div>
+                </article>
+                <article class="inventory-kpi inventory-kpi-value">
+                    <div class="inventory-kpi-icon"><i data-lucide="indian-rupee"></i></div>
+                    <div><span>Stock value</span><strong id="inventoryValue">₹0</strong><small>current quantity value</small></div>
+                </article>
+            </section>
 
-            <div>
+            <section class="inventory-registry">
+                <header class="inventory-registry-header">
+                    <div>
+                        <span class="inventory-section-label">Stock register</span>
+                        <h2 id="inventoryRegistryTitle">All engineering inventory</h2>
+                    </div>
+                    <div class="inventory-result-count"><strong id="inventoryResultCount">0</strong><span>items shown</span></div>
+                </header>
 
-                <h1>Inventory Management</h1>
+                <div class="inventory-toolbar">
+                    <label class="inventory-search" for="inventorySearch">
+                        <i data-lucide="search"></i>
+                        <input id="inventorySearch" type="search" placeholder="Search BPK, item, category or manufacturer" autocomplete="off">
+                    </label>
+                    <label class="inventory-select-wrap" for="inventoryFilter">
+                        <span>Status</span>
+                        <select id="inventoryFilter">
+                            <option value="all">All statuses</option>
+                            <option value="available">Available</option>
+                            <option value="low">Low stock</option>
+                            <option value="out">Out of stock</option>
+                        </select>
+                    </label>
+                    <label class="inventory-select-wrap" for="inventoryCategoryFilter">
+                        <span>Category</span>
+                        <select id="inventoryCategoryFilter"><option value="all">All categories</option></select>
+                    </label>
+                </div>
 
-                <p>
-
-                    Manage biomedical spare parts and consumables.
-
-                </p>
-
-            </div>
-
-            <div class="page-actions">
-
-                <button id="importInventoryBtn">
-
-                    <i data-lucide="upload"></i>
-
-                    Import Excel
-
-                </button>
-
-                <button id="exportInventoryBtn">
-
-                    <i data-lucide="download"></i>
-
-                    Export
-
-                </button>
-
-                <button id="addInventoryBtn">
-
-                    <i data-lucide="plus"></i>
-
-                    Add Item
-
-                </button>
-
-            </div>
-
+                <div class="inventory-table-wrap">
+                    <table class="inventory-table">
+                        <thead>
+                            <tr>
+                                <th>Part / BPK</th>
+                                <th>Item</th>
+                                <th>Department</th>
+                                <th>Category</th>
+                                <th class="inventory-number-cell">On hand</th>
+                                <th class="inventory-number-cell">Minimum</th>
+                                <th>Status</th>
+                                <th>Store location</th>
+                                <th class="inventory-actions-heading">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody"></tbody>
+                    </table>
+                </div>
+                <div id="inventoryPagination" class="table-pagination"></div>
+            </section>
         </div>
-
-
-        <!-- KPI -->
-
-        <div class="inventory-kpis">
-
-            <div class="kpi-card">
-
-                <div class="kpi-info">
-
-                    <span>Total Items</span>
-
-                    <h2 id="inventoryTotalItems">0</h2>
-
-                </div>
-
-                <div class="kpi-icon">
-
-                    <i data-lucide="boxes"></i>
-
-                </div>
-
-            </div>
-
-            <div class="kpi-card">
-
-                <div class="kpi-info">
-
-                    <span>Low Stock</span>
-
-                    <h2 id="inventoryLowStock">0</h2>
-
-                </div>
-
-                <div class="kpi-icon">
-
-                    <i data-lucide="triangle-alert"></i>
-
-                </div>
-
-            </div>
-
-            <div class="kpi-card">
-
-                <div class="kpi-info">
-
-                    <span>Out Of Stock</span>
-
-                    <h2 id="inventoryOutStock">0</h2>
-
-                </div>
-
-                <div class="kpi-icon">
-
-                    <i data-lucide="circle-x"></i>
-
-                </div>
-
-            </div>
-
-            <div class="kpi-card">
-
-                <div class="kpi-info">
-
-                    <span>Total Value</span>
-
-                    <h2 id="inventoryValue">₹0</h2>
-
-                </div>
-
-                <div class="kpi-icon">
-
-                    <i data-lucide="indian-rupee"></i>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <!-- Toolbar -->
-
-        <div class="inventory-toolbar">
-
-            <input
-
-                id="inventorySearch"
-
-                type="text"
-
-                placeholder="Search BPK, Item Name, Category..."
-
-            >
-
-            <select id="inventoryFilter">
-
-                <option value="all">
-
-                    All Items
-
-                </option>
-
-                <option value="available">
-
-                    Available
-
-                </option>
-
-                <option value="low">
-
-                    Low Stock
-
-                </option>
-
-                <option value="out">
-
-                    Out Of Stock
-
-                </option>
-
-            </select>
-
-        </div>
-
-
-        <!-- Table -->
-
-        <div class="table-container">
-
-            <table class="inventory-table">
-
-                <thead>
-
-                    <tr>
-
-                        <th>BPK No.</th>
-
-                        <th>Item</th>
-
-                        <th>Category</th>
-
-                        <th>Manufacturer</th>
-
-                        <th>Stock</th>
-
-                        <th>Minimum</th>
-
-                        <th>Status</th>
-
-                        <th>Location</th>
-
-                        <th>Actions</th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody id="inventoryTableBody">
-
-                </tbody>
-
-            </table>
-
-        </div>
-
-        <div id="inventoryPagination" class="table-pagination"></div>
-
-    </div>
-
     `;
 
-
-    // Load data
-
+    bindInventoryEvents();
+    renderInventoryTeamSwitcher();
     await loadInventory();
+    if (window.lucide) lucide.createIcons();
+}
 
+function bindInventoryEvents() {
+    document.getElementById("inventorySearch")?.addEventListener("input", applyInventoryFilters);
+    document.getElementById("inventoryFilter")?.addEventListener("change", applyInventoryFilters);
+    document.getElementById("inventoryCategoryFilter")?.addEventListener("change", applyInventoryFilters);
+    document.getElementById("importInventoryBtn")?.addEventListener("click", importInventoryExcel);
+    document.getElementById("exportInventoryBtn")?.addEventListener("click", exportInventoryExcel);
+    document.getElementById("addInventoryBtn")?.addEventListener("click", () => openInventoryModal());
+}
 
-    // Events
+function renderInventoryTeamSwitcher() {
+    const switcher = document.getElementById("inventoryTeamSwitcher");
+    if (!switcher) return;
 
-    document
-        .getElementById("inventorySearch")
-        .addEventListener("input", applyInventoryFilters);
-
-    document
-        .getElementById("inventoryFilter")
-        .addEventListener("change", applyInventoryFilters);
-
-    document
-        .getElementById("importInventoryBtn")
-        .addEventListener("click", importInventoryExcel);
-
-    document
-        .getElementById("exportInventoryBtn")
-        .addEventListener("click", exportInventoryExcel);
-
-    document
-    .getElementById("addInventoryBtn")
-    .addEventListener("click", () => {
-
-        currentInventoryId = null;
-        openInventoryModal();
-
-    });
-
-
-    if (window.lucide) {
-
-        lucide.createIcons();
-
+    if (!isInventoryManager()) {
+        const team = inventoryTeamForRole() || "Biomedical";
+        const meta = inventoryTeamMeta(team);
+        switcher.innerHTML = `
+            <div class="inventory-team-lock ${meta.className}">
+                <span class="inventory-team-icon"><i data-lucide="${meta.icon}"></i></span>
+                <div><strong>${team} store</strong><small>${meta.description}</small></div>
+                <span class="inventory-private-label"><i data-lucide="lock-keyhole"></i> Team inventory</span>
+            </div>`;
+        if (window.lucide) lucide.createIcons();
+        return;
     }
 
+    const tabs = [
+        { team: "all", label: "All departments", icon: "layout-grid", description: "Combined manager view" },
+        ...INVENTORY_TEAMS.map(team => ({
+            team,
+            label: team,
+            icon: inventoryTeamMeta(team).icon,
+            description: inventoryTeamMeta(team).description,
+        })),
+    ];
+
+    switcher.innerHTML = tabs.map(tab => {
+        const items = tab.team === "all" ? inventoryData : inventoryData.filter(item => item.service_team === tab.team);
+        const alerts = items.filter(item => inventoryStatus(item).key !== "available").length;
+        const active = tab.team === activeInventoryTeam;
+        return `
+            <button class="inventory-team-tab ${active ? "active" : ""}" type="button" data-inventory-team="${tab.team}" aria-pressed="${active}">
+                <span class="inventory-team-icon"><i data-lucide="${tab.icon}"></i></span>
+                <span class="inventory-team-copy"><strong>${tab.label}</strong><small>${tab.description}</small></span>
+                <span class="inventory-team-metrics"><b>${items.length}</b><small>${alerts ? `${alerts} alert${alerts === 1 ? "" : "s"}` : "Stock healthy"}</small></span>
+            </button>`;
+    }).join("");
+
+    switcher.querySelectorAll("[data-inventory-team]").forEach(button => {
+        button.addEventListener("click", () => selectInventoryTeam(button.dataset.inventoryTeam));
+    });
+    if (window.lucide) lucide.createIcons();
 }
+
+function selectInventoryTeam(team) {
+    if (!isInventoryManager() || !["all", ...INVENTORY_TEAMS].includes(team)) return;
+    activeInventoryTeam = team;
+    inventoryPagination.page = 1;
+    renderInventoryTeamSwitcher();
+    refreshInventoryCategoryOptions();
+    applyInventoryFilters();
+}
+
 // ==========================================
-// LOAD INVENTORY
+// DATA AND FILTERING
 // ==========================================
 
 async function loadInventory() {
-
+    setInventoryLoading(true);
     try {
-
-        const response = await fetch(INVENTORY_API);
-
-        if (!response.ok) {
-
-            throw new Error("Failed to load inventory.");
-
-        }
-
-        inventoryData = await response.json();
-
-        filteredInventory = [...inventoryData];
-
-        updateInventoryKPIs();
-
-        renderInventoryTable(filteredInventory);
-
-    }
-
-    catch (error) {
-
+        const response = await fetch(`${INVENTORY_API}/`);
+        const result = await response.json().catch(() => []);
+        if (!response.ok) throw new Error(result.detail || "Failed to load inventory.");
+        inventoryData = Array.isArray(result) ? result : [];
+        renderInventoryTeamSwitcher();
+        refreshInventoryCategoryOptions();
+        applyInventoryFilters();
+    } catch (error) {
         console.error(error);
-
-        BioTrackToast.error("Inventory unavailable", error.message || "Unable to load inventory items.");
-
         inventoryData = [];
-
         filteredInventory = [];
-
         updateInventoryKPIs();
-
         renderInventoryTable([]);
-
+        BioTrackToast.error("Inventory unavailable", error.message || "Unable to load inventory items.");
+    } finally {
+        setInventoryLoading(false);
     }
-
 }
 
-
-// ==========================================
-// UPDATE KPI CARDS
-// ==========================================
-
-function updateInventoryKPIs() {
-
-    const totalItems = inventoryData.length;
-
-    const lowStock = inventoryData.filter(item =>
-
-        item.current_stock > 0 &&
-
-        item.current_stock <= item.minimum_stock
-
-    ).length;
-
-    const outOfStock = inventoryData.filter(item =>
-
-        item.current_stock <= 0
-
-    ).length;
-
-    const totalValue = inventoryData.reduce((sum, item) => {
-
-        return sum + ((item.current_stock || 0) * (item.purchase_price || 0));
-
-    }, 0);
-
-    document.getElementById("inventoryTotalItems").textContent = totalItems;
-
-    document.getElementById("inventoryLowStock").textContent = lowStock;
-
-    document.getElementById("inventoryOutStock").textContent = outOfStock;
-
-    document.getElementById("inventoryValue").textContent =
-        "₹" + totalValue.toLocaleString();
-
+function setInventoryLoading(loading) {
+    const table = document.querySelector(".inventory-registry");
+    if (table) table.classList.toggle("is-loading", loading);
+    document.querySelectorAll("#importInventoryBtn, #exportInventoryBtn, #addInventoryBtn")
+        .forEach(button => { button.disabled = loading; });
 }
 
-
-// ==========================================
-// RENDER INVENTORY TABLE
-// ==========================================
-
-function renderInventoryTable(data) {
-
-    const tbody = document.getElementById("inventoryTableBody");
-
-    tbody.innerHTML = "";
-
-    if (data.length === 0) {
-
-        tbody.innerHTML = `
-
-        <tr>
-
-            <td colspan="9" class="table-empty">
-
-                No inventory items found.
-
-            </td>
-
-        </tr>
-
-        `;
-
-        TablePagination.render(
-            document.getElementById("inventoryPagination"),
-            inventoryPagination,
-            0,
-            () => renderInventoryTable(filteredInventory),
-            "inventory items"
-        );
-        return;
-
-    }
-
-    const pageItems = TablePagination.pageItems(data, inventoryPagination);
-
-    pageItems.forEach(item => {
-
-        let statusClass = "stock-ok";
-
-        let statusText = "Available";
-
-        let stockClass = "stock-green";
-
-        if (item.current_stock <= 0) {
-
-            statusClass = "stock-out";
-
-            statusText = "Out of Stock";
-
-            stockClass = "stock-red";
-
-        }
-
-        else if (item.current_stock <= item.minimum_stock) {
-
-            statusClass = "stock-low";
-
-            statusText = "Low Stock";
-
-            stockClass = "stock-orange";
-
-        }
-
-        tbody.innerHTML += `
-
-        <tr>
-
-            <td>
-
-                ${escapeHTML(item.bpk_number || "-")}
-
-            </td>
-
-            <td>
-
-                <strong>
-
-                    ${escapeHTML(item.item_name || "-")}
-
-                </strong>
-
-            </td>
-
-            <td>
-
-                ${escapeHTML(item.category || "-")}
-
-            </td>
-
-            <td>
-
-                ${escapeHTML(item.manufacturer || "-")}
-
-            </td>
-
-            <td class="${stockClass}">
-
-                ${item.current_stock ?? 0}
-
-            </td>
-
-            <td>
-
-                ${item.minimum_stock ?? 0}
-
-            </td>
-
-            <td>
-
-                <span class="stock-badge ${statusClass}">
-
-                    ${statusText}
-
-                </span>
-
-            </td>
-
-            <td>
-
-                ${escapeHTML(item.location || "-")}
-
-            </td>
-
-            <td>
-
-                <div class="action-buttons">
-
-                    <button
-
-                        class="table-btn edit-btn"
-
-                        onclick="editInventory(${Number(item.id)})"
-
-                        type="button"
-
-                        aria-label="Edit ${escapeHTML(item.item_name || item.bpk_number || "inventory item")}"
-
-                        title="Edit item"
-
-                    >
-
-                        <i data-lucide="square-pen"></i>
-
-                    </button>
-
-                    <button
-
-                        class="table-btn delete-btn"
-
-                        onclick="deleteInventory(${Number(item.id)})"
-
-                        type="button"
-
-                        aria-label="Delete ${escapeHTML(item.item_name || item.bpk_number || "inventory item")}"
-
-                        title="Delete item"
-
-                    >
-
-                        <i data-lucide="trash-2"></i>
-
-                    </button>
-
-                </div>
-
-            </td>
-
-        </tr>
-
-        `;
-
-    });
-
-    if (window.lucide) {
-
-        lucide.createIcons();
-
-    }
-
-    TablePagination.render(
-        document.getElementById("inventoryPagination"),
-        inventoryPagination,
-        data.length,
-        () => renderInventoryTable(filteredInventory),
-        "inventory items"
-    );
-
+function refreshInventoryCategoryOptions() {
+    const select = document.getElementById("inventoryCategoryFilter");
+    if (!select) return;
+    const previous = select.value;
+    const categories = [...new Set(inventoryTeamItems()
+        .map(item => String(item.category || "").trim())
+        .filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b));
+    select.innerHTML = '<option value="all">All categories</option>' + categories
+        .map(category => `<option value="${escapeHTML(category)}">${escapeHTML(category)}</option>`)
+        .join("");
+    select.value = categories.includes(previous) ? previous : "all";
 }
-// ==========================================
-// APPLY SEARCH & FILTER
-// ==========================================
 
 function applyInventoryFilters() {
+    const search = String(document.getElementById("inventorySearch")?.value || "").trim().toLowerCase();
+    const statusFilter = document.getElementById("inventoryFilter")?.value || "all";
+    const categoryFilter = document.getElementById("inventoryCategoryFilter")?.value || "all";
 
-    const search = document
-        .getElementById("inventorySearch")
-        .value
-        .trim()
-        .toLowerCase();
-
-    const filter = document
-        .getElementById("inventoryFilter")
-        .value;
-
-    filteredInventory = inventoryData.filter(item => {
-
-        const matchesSearch =
-
-            (item.bpk_number || "")
-                .toLowerCase()
-                .includes(search)
-
-            ||
-
-            (item.item_name || "")
-                .toLowerCase()
-                .includes(search)
-
-            ||
-
-            (item.category || "")
-                .toLowerCase()
-                .includes(search)
-
-            ||
-
-            (item.manufacturer || "")
-                .toLowerCase()
-                .includes(search);
-
-        if (!matchesSearch) {
-
-            return false;
-
-        }
-
-        switch (filter) {
-
-            case "available":
-
-                return item.current_stock >
-                    item.minimum_stock;
-
-            case "low":
-
-                return item.current_stock > 0 &&
-                    item.current_stock <= item.minimum_stock;
-
-            case "out":
-
-                return item.current_stock <= 0;
-
-            default:
-
-                return true;
-
-        }
-
+    filteredInventory = inventoryTeamItems().filter(item => {
+        const haystack = [item.bpk_number, item.item_name, item.category, item.manufacturer, item.location, item.rack]
+            .map(value => String(value || "").toLowerCase())
+            .join(" ");
+        const matchesSearch = !search || haystack.includes(search);
+        const matchesStatus = statusFilter === "all" || inventoryStatus(item).key === statusFilter;
+        const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+        return matchesSearch && matchesStatus && matchesCategory;
     });
 
     inventoryPagination.page = 1;
+    updateInventoryKPIs();
+    updateInventoryRegistryHeader();
     renderInventoryTable(filteredInventory);
-
 }
 
+function updateInventoryKPIs() {
+    const items = inventoryTeamItems();
+    const totalUnits = items.reduce((sum, item) => sum + inventoryNumber(item.available_stock ?? item.current_stock), 0);
+    const lowStock = items.filter(item => inventoryStatus(item).key === "low").length;
+    const outOfStock = items.filter(item => inventoryStatus(item).key === "out").length;
+    const totalValue = items.reduce((sum, item) => sum + (inventoryNumber(item.current_stock) * inventoryNumber(item.purchase_price)), 0);
+
+    document.getElementById("inventoryTotalItems").textContent = items.length.toLocaleString("en-IN");
+    document.getElementById("inventoryTotalUnits").textContent = totalUnits.toLocaleString("en-IN");
+    document.getElementById("inventoryLowStock").textContent = (lowStock + outOfStock).toLocaleString("en-IN");
+    document.getElementById("inventoryAlertHint").textContent = `${lowStock} low · ${outOfStock} out`;
+    document.getElementById("inventoryValue").textContent = inventoryCurrency(totalValue);
+    document.getElementById("inventoryTotalHint").textContent = activeInventoryTeam === "all" ? "across 3 departments" : `in ${activeInventoryTeam}`;
+}
+
+function updateInventoryRegistryHeader() {
+    const title = document.getElementById("inventoryRegistryTitle");
+    const count = document.getElementById("inventoryResultCount");
+    if (title) title.textContent = activeInventoryTeam === "all" ? "All engineering inventory" : `${activeInventoryTeam} stock register`;
+    if (count) count.textContent = filteredInventory.length.toLocaleString("en-IN");
+}
+
+function renderInventoryTable(data) {
+    const tbody = document.getElementById("inventoryTableBody");
+    if (!tbody) return;
+
+    if (!data.length) {
+        tbody.innerHTML = `
+            <tr><td colspan="9" class="inventory-empty">
+                <span><i data-lucide="package-search"></i></span>
+                <strong>No inventory items found</strong>
+                <small>Try another department or clear the current filters.</small>
+            </td></tr>`;
+        TablePagination.render(document.getElementById("inventoryPagination"), inventoryPagination, 0, () => renderInventoryTable(filteredInventory), "inventory items");
+        if (window.lucide) lucide.createIcons();
+        return;
+    }
+
+    tbody.innerHTML = TablePagination.pageItems(data, inventoryPagination).map(item => {
+        const status = inventoryStatus(item);
+        const meta = inventoryTeamMeta(item.service_team);
+        return `
+            <tr>
+                <td data-label="Part / BPK"><span class="inventory-part-code">${escapeHTML(item.bpk_number || "-")}</span></td>
+                <td data-label="Item"><div class="inventory-item-name"><strong>${escapeHTML(item.item_name || "-")}</strong><small>${escapeHTML(item.manufacturer || "Manufacturer not set")}</small></div></td>
+                <td data-label="Department"><span class="inventory-team-badge ${meta.className}"><i data-lucide="${meta.icon}"></i>${escapeHTML(item.service_team || "Biomedical")}</span></td>
+                <td data-label="Category">${escapeHTML(item.category || "Uncategorised")}</td>
+                <td data-label="On hand" class="inventory-number-cell"><strong class="inventory-stock-number ${status.className}">${inventoryNumber(item.available_stock ?? item.current_stock)}</strong><small>${inventoryNumber(item.reserved_stock) ? `${inventoryNumber(item.reserved_stock)} reserved` : escapeHTML(item.unit || "units")}</small></td>
+                <td data-label="Minimum" class="inventory-number-cell">${inventoryNumber(item.minimum_stock)}</td>
+                <td data-label="Status"><span class="stock-badge ${status.className}"><i></i>${status.label}</span></td>
+                <td data-label="Store location"><div class="inventory-location"><strong>${escapeHTML(item.location || "Not assigned")}</strong>${item.rack ? `<small>Rack ${escapeHTML(item.rack)}</small>` : ""}</div></td>
+                <td data-label="Actions"><div class="action-buttons">
+                    <button class="table-btn edit-btn" onclick="editInventory(${Number(item.id)})" type="button" aria-label="Edit ${escapeHTML(item.item_name || item.bpk_number || "inventory item")}" title="Edit item"><i data-lucide="square-pen"></i></button>
+                    <button class="table-btn delete-btn" onclick="deleteInventory(${Number(item.id)})" type="button" aria-label="Delete ${escapeHTML(item.item_name || item.bpk_number || "inventory item")}" title="Delete item"><i data-lucide="trash-2"></i></button>
+                </div></td>
+            </tr>`;
+    }).join("");
+
+    TablePagination.render(document.getElementById("inventoryPagination"), inventoryPagination, data.length, () => renderInventoryTable(filteredInventory), "inventory items");
+    if (window.lucide) lucide.createIcons();
+}
 
 // ==========================================
-// EDIT INVENTORY
+// ADD / EDIT DIALOG
 // ==========================================
 
 function editInventory(id) {
-
-    const item = inventoryData.find(
-
-        x => x.id === id
-
-    );
-
-    if (!item) {
-
-        return;
-
-    }
-
-    currentInventoryId = id;
-
-    openInventoryModal(item);
-
+    const item = inventoryData.find(entry => Number(entry.id) === Number(id));
+    if (item) openInventoryModal(item);
 }
-
-
-// ==========================================
-// ADD / EDIT INVENTORY MODAL
-// ==========================================
 
 function inventoryFieldValue(value) {
     return escapeHTML(value ?? "");
 }
 
 function inventoryTeamOptions(selectedTeam = "Biomedical") {
-    return ["Biomedical", "Electrical", "IT"]
-        .map(team => `<option value="${team}" ${team === selectedTeam ? "selected" : ""}>${team}</option>`)
-        .join("");
+    return INVENTORY_TEAMS.map(team => `<option value="${team}" ${team === selectedTeam ? "selected" : ""}>${team}</option>`).join("");
 }
 
 function openInventoryModal(item = null) {
     closeInventoryModal();
-
     const editing = Boolean(item);
     currentInventoryId = editing ? Number(item.id) : null;
-    const role = typeof normalizeDashboardRole === "function"
-        ? normalizeDashboardRole(localStorage.getItem("role"))
-        : String(localStorage.getItem("role") || "").toLowerCase();
-    const canSelectTeam = role === "admin";
-    const selectedTeam = item?.service_team || (
-        role === "electrical" ? "Electrical" : role === "it" ? "IT" : "Biomedical"
-    );
+    const canSelectTeam = isInventoryManager();
+    const selectedTeam = item?.service_team || (activeInventoryTeam !== "all" ? activeInventoryTeam : inventoryTeamForRole()) || "Biomedical";
 
     const overlay = document.createElement("div");
     overlay.id = "inventoryModalOverlay";
@@ -7915,95 +7802,55 @@ function openInventoryModal(item = null) {
         <section class="inventory-modal" role="dialog" aria-modal="true" aria-labelledby="inventoryModalTitle">
             <form id="inventoryItemForm">
                 <header class="modal-header">
+                    <div class="modal-header-icon"><i data-lucide="${editing ? "square-pen" : "package-plus"}"></i></div>
                     <div class="modal-header-copy">
+                        <span>${editing ? "Update stock record" : "New stock record"}</span>
                         <h2 id="inventoryModalTitle">${editing ? "Edit inventory item" : "Add inventory item"}</h2>
-                        <p>${editing ? "Update stock, supplier and storage details." : "Register a spare part or consumable."}</p>
+                        <p>Every item belongs to one engineering department inventory.</p>
                     </div>
-                    <button class="modal-close" type="button" aria-label="Close inventory form">
-                        <i data-lucide="x"></i>
-                    </button>
+                    <button class="modal-close" type="button" aria-label="Close inventory form"><i data-lucide="x"></i></button>
                 </header>
                 <div class="modal-body">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="inv_bpk">BPK number <span aria-hidden="true">*</span></label>
-                            <input id="inv_bpk" required maxlength="160" value="${inventoryFieldValue(item?.bpk_number)}">
+                    <fieldset class="inventory-form-section inventory-form-identity">
+                        <legend>Item identity</legend>
+                        <div class="form-grid">
+                            <div class="form-group"><label for="inv_bpk">BPK number <span>*</span></label><input id="inv_bpk" required maxlength="160" value="${inventoryFieldValue(item?.bpk_number)}" placeholder="e.g. IT-CAT6-001"></div>
+                            <div class="form-group"><label for="inv_name">Item name <span>*</span></label><input id="inv_name" required maxlength="240" value="${inventoryFieldValue(item?.item_name)}" placeholder="e.g. CAT6 patch cable"></div>
+                            <div class="form-group"><label for="inv_team">Engineering department <span>*</span></label><select id="inv_team" ${canSelectTeam ? "" : "disabled"}>${inventoryTeamOptions(selectedTeam)}</select><small>${canSelectTeam ? "Choose the inventory that owns this stock." : "Your login determines this inventory."}</small></div>
+                            <div class="form-group"><label for="inv_category">Category</label><input id="inv_category" maxlength="160" value="${inventoryFieldValue(item?.category)}" placeholder="e.g. Network spare"></div>
+                            <div class="form-group"><label for="inv_manufacturer">Manufacturer</label><input id="inv_manufacturer" maxlength="200" value="${inventoryFieldValue(item?.manufacturer)}"></div>
+                            <div class="form-group"><label for="inv_supplier">Supplier</label><input id="inv_supplier" maxlength="200" value="${inventoryFieldValue(item?.supplier)}"></div>
                         </div>
-                        <div class="form-group">
-                            <label for="inv_name">Item name <span aria-hidden="true">*</span></label>
-                            <input id="inv_name" required maxlength="240" value="${inventoryFieldValue(item?.item_name)}">
+                    </fieldset>
+                    <fieldset class="inventory-form-section">
+                        <legend>Stock levels</legend>
+                        <div class="form-grid inventory-form-grid-three">
+                            <div class="form-group"><label for="inv_stock">Current stock <span>*</span></label><input id="inv_stock" type="number" min="0" step="1" required value="${inventoryFieldValue(item?.current_stock ?? 0)}"></div>
+                            <div class="form-group"><label for="inv_min">Reorder level <span>*</span></label><input id="inv_min" type="number" min="0" step="1" required value="${inventoryFieldValue(item?.minimum_stock ?? 5)}"></div>
+                            <div class="form-group"><label for="inv_max">Target stock <span>*</span></label><input id="inv_max" type="number" min="0" step="1" required value="${inventoryFieldValue(item?.maximum_stock ?? 100)}"></div>
+                            <div class="form-group"><label for="inv_unit">Unit</label><input id="inv_unit" maxlength="80" placeholder="pieces, boxes, metres" value="${inventoryFieldValue(item?.unit)}"></div>
+                            <div class="form-group"><label for="inv_price">Unit price (₹)</label><input id="inv_price" type="number" min="0" step="0.01" value="${inventoryFieldValue(item?.purchase_price ?? 0)}"></div>
+                            <div class="form-group"><label for="inv_batch">Batch / lot number</label><input id="inv_batch" maxlength="160" value="${inventoryFieldValue(item?.batch_number)}"></div>
                         </div>
-                        <div class="form-group">
-                            <label for="inv_category">Category</label>
-                            <input id="inv_category" maxlength="160" value="${inventoryFieldValue(item?.category)}">
+                    </fieldset>
+                    <fieldset class="inventory-form-section">
+                        <legend>Storage</legend>
+                        <div class="form-grid">
+                            <div class="form-group"><label for="inv_location">Store location</label><input id="inv_location" maxlength="200" value="${inventoryFieldValue(item?.location)}" placeholder="e.g. IT Store"></div>
+                            <div class="form-group"><label for="inv_rack">Rack / bin</label><input id="inv_rack" maxlength="120" value="${inventoryFieldValue(item?.rack)}" placeholder="e.g. Rack B-04"></div>
+                            <div class="form-group full-width"><label for="inv_remarks">Remarks</label><textarea id="inv_remarks" rows="3" maxlength="1000" placeholder="Optional notes about compatibility or storage">${inventoryFieldValue(item?.remarks)}</textarea></div>
                         </div>
-                        <div class="form-group">
-                            <label for="inv_team">Service team</label>
-                            <select id="inv_team" ${canSelectTeam ? "" : "disabled"}>
-                                ${inventoryTeamOptions(selectedTeam)}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="inv_manufacturer">Manufacturer</label>
-                            <input id="inv_manufacturer" maxlength="200" value="${inventoryFieldValue(item?.manufacturer)}">
-                        </div>
-                        <div class="form-group">
-                            <label for="inv_supplier">Supplier</label>
-                            <input id="inv_supplier" maxlength="200" value="${inventoryFieldValue(item?.supplier)}">
-                        </div>
-                        <div class="form-group">
-                            <label for="inv_unit">Unit</label>
-                            <input id="inv_unit" maxlength="80" placeholder="e.g. pieces" value="${inventoryFieldValue(item?.unit)}">
-                        </div>
-                        <div class="form-group">
-                            <label for="inv_batch">Batch number</label>
-                            <input id="inv_batch" maxlength="160" value="${inventoryFieldValue(item?.batch_number)}">
-                        </div>
-                        <div class="form-group">
-                            <label for="inv_stock">Current stock</label>
-                            <input id="inv_stock" type="number" min="0" step="1" required value="${inventoryFieldValue(item?.current_stock ?? 0)}">
-                        </div>
-                        <div class="form-group">
-                            <label for="inv_min">Minimum stock</label>
-                            <input id="inv_min" type="number" min="0" step="1" required value="${inventoryFieldValue(item?.minimum_stock ?? 5)}">
-                        </div>
-                        <div class="form-group">
-                            <label for="inv_max">Maximum stock</label>
-                            <input id="inv_max" type="number" min="0" step="1" required value="${inventoryFieldValue(item?.maximum_stock ?? 100)}">
-                        </div>
-                        <div class="form-group">
-                            <label for="inv_price">Purchase price</label>
-                            <input id="inv_price" type="number" min="0" step="0.01" value="${inventoryFieldValue(item?.purchase_price ?? 0)}">
-                        </div>
-                        <div class="form-group">
-                            <label for="inv_location">Location</label>
-                            <input id="inv_location" maxlength="200" value="${inventoryFieldValue(item?.location)}">
-                        </div>
-                        <div class="form-group">
-                            <label for="inv_rack">Rack</label>
-                            <input id="inv_rack" maxlength="120" value="${inventoryFieldValue(item?.rack)}">
-                        </div>
-                        <div class="form-group full-width">
-                            <label for="inv_remarks">Remarks</label>
-                            <textarea id="inv_remarks" rows="3" maxlength="1000">${inventoryFieldValue(item?.remarks)}</textarea>
-                        </div>
-                    </div>
+                    </fieldset>
                 </div>
                 <footer class="modal-footer">
                     <button class="secondary-btn" type="button" id="cancelInventoryModal">Cancel</button>
-                    <button class="success-btn" type="submit" id="saveInventoryButton">
-                        <i data-lucide="save"></i>
-                        <span>${editing ? "Save changes" : "Add item"}</span>
-                    </button>
+                    <button class="success-btn" type="submit" id="saveInventoryButton"><i data-lucide="save"></i><span>${editing ? "Save changes" : "Add item"}</span></button>
                 </footer>
             </form>
-        </section>
-    `;
+        </section>`;
 
     document.body.appendChild(overlay);
-    overlay.addEventListener("click", event => {
-        if (event.target === overlay) closeInventoryModal();
-    });
+    overlay.addEventListener("click", event => { if (event.target === overlay) closeInventoryModal(); });
     overlay.querySelector(".modal-close").addEventListener("click", closeInventoryModal);
     overlay.querySelector("#cancelInventoryModal").addEventListener("click", closeInventoryModal);
     overlay.querySelector("#inventoryItemForm").addEventListener("submit", event => {
@@ -8011,7 +7858,6 @@ function openInventoryModal(item = null) {
         void saveInventoryItem(currentInventoryId);
     });
     document.addEventListener("keydown", closeInventoryModalOnEscape);
-
     if (window.lucide) lucide.createIcons();
     window.setTimeout(() => overlay.querySelector("#inv_bpk")?.focus(), 0);
 }
@@ -8025,9 +7871,55 @@ function closeInventoryModal() {
     document.removeEventListener("keydown", closeInventoryModalOnEscape);
 }
 
+async function saveInventoryItem(id = null) {
+    const minimum = Number(document.getElementById("inv_min").value);
+    const maximum = Number(document.getElementById("inv_max").value);
+    if (maximum < minimum) {
+        BioTrackToast.error("Check stock levels", "Target stock must be greater than or equal to the reorder level.");
+        document.getElementById("inv_max").focus();
+        return;
+    }
+
+    const payload = {
+        bpk_number: document.getElementById("inv_bpk").value.trim(),
+        item_name: document.getElementById("inv_name").value.trim(),
+        service_team: document.getElementById("inv_team").value,
+        category: document.getElementById("inv_category").value.trim(),
+        manufacturer: document.getElementById("inv_manufacturer").value.trim(),
+        supplier: document.getElementById("inv_supplier").value.trim(),
+        unit: document.getElementById("inv_unit").value.trim(),
+        current_stock: Number(document.getElementById("inv_stock").value),
+        minimum_stock: minimum,
+        maximum_stock: maximum,
+        purchase_price: Number(document.getElementById("inv_price").value),
+        location: document.getElementById("inv_location").value.trim(),
+        rack: document.getElementById("inv_rack").value.trim(),
+        remarks: document.getElementById("inv_remarks").value.trim(),
+        batch_number: document.getElementById("inv_batch").value.trim(),
+    };
+
+    const url = id ? `${INVENTORY_API}/${id}` : `${INVENTORY_API}/`;
+    const method = id ? "PUT" : "POST";
+    const saveButton = document.getElementById("saveInventoryButton");
+    try {
+        saveButton.disabled = true;
+        saveButton.querySelector("span").textContent = id ? "Saving…" : "Adding…";
+        const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) throw new Error(result.detail || "Unable to save this inventory item.");
+        closeInventoryModal();
+        if (isInventoryManager()) activeInventoryTeam = payload.service_team;
+        showInventoryToast(id ? "Inventory item updated." : `Item added to ${payload.service_team} inventory.`);
+        await loadInventory();
+    } catch (error) {
+        BioTrackToast.error("Inventory item not saved", error.message || "Unable to save this inventory item.");
+        saveButton.disabled = false;
+        saveButton.querySelector("span").textContent = id ? "Save changes" : "Add item";
+    }
+}
 
 // ==========================================
-// DELETE INVENTORY
+// DELETE DIALOG
 // ==========================================
 
 function deleteInventory(id) {
@@ -8036,7 +7928,6 @@ function deleteInventory(id) {
         BioTrackToast.error("Inventory item not found", "Refresh the inventory and try again.");
         return;
     }
-
     closeInventoryDeleteDialog();
     const overlay = document.createElement("div");
     overlay.id = "inventoryDeleteOverlay";
@@ -8045,18 +7936,16 @@ function deleteInventory(id) {
     overlay.innerHTML = `
         <section class="inventory-modal inventory-delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="inventoryDeleteTitle" aria-describedby="inventoryDeleteDescription">
             <div class="inventory-delete-icon" aria-hidden="true"><i data-lucide="trash-2"></i></div>
+            <span class="inventory-delete-team">${escapeHTML(item.service_team || "Biomedical")} inventory</span>
             <h2 id="inventoryDeleteTitle">Delete inventory item?</h2>
-            <p id="inventoryDeleteDescription"><strong>${escapeHTML(item.item_name || item.bpk_number)}</strong> will be permanently removed from inventory.</p>
+            <p id="inventoryDeleteDescription"><strong>${escapeHTML(item.item_name || item.bpk_number)}</strong> will be permanently removed from this department's inventory.</p>
             <div class="inventory-delete-actions">
                 <button class="secondary-btn" type="button" id="cancelInventoryDelete">Keep item</button>
                 <button class="danger-btn" type="button" id="confirmInventoryDelete"><i data-lucide="trash-2"></i> Delete item</button>
             </div>
-        </section>
-    `;
+        </section>`;
     document.body.appendChild(overlay);
-    overlay.addEventListener("click", event => {
-        if (event.target === overlay) closeInventoryDeleteDialog();
-    });
+    overlay.addEventListener("click", event => { if (event.target === overlay) closeInventoryDeleteDialog(); });
     overlay.querySelector("#cancelInventoryDelete").addEventListener("click", closeInventoryDeleteDialog);
     overlay.querySelector("#confirmInventoryDelete").addEventListener("click", () => confirmDeleteInventory(id));
     document.addEventListener("keydown", closeInventoryDeleteOnEscape);
@@ -8075,404 +7964,493 @@ function closeInventoryDeleteDialog() {
 
 async function confirmDeleteInventory(id) {
     const button = document.getElementById("confirmInventoryDelete");
-    if (button) {
+    try {
         button.disabled = true;
         button.textContent = "Deleting…";
-    }
-
-    try {
         const response = await fetch(`${INVENTORY_API}/${id}`, { method: "DELETE" });
         const result = await response.json().catch(() => ({}));
-        if (!response.ok || !result.success) {
-            throw new Error(result.detail || "Unable to delete this inventory item.");
-        }
+        if (!response.ok || !result.success) throw new Error(result.detail || "Unable to delete this inventory item.");
         closeInventoryDeleteDialog();
         showInventoryToast("Inventory item deleted.");
         await loadInventory();
     } catch (error) {
         BioTrackToast.error("Inventory item not deleted", error.message || "Unable to delete this inventory item.");
-        if (button) {
-            button.disabled = false;
-            button.innerHTML = '<i data-lucide="trash-2"></i> Delete item';
-            if (window.lucide) lucide.createIcons();
-        }
+        button.disabled = false;
+        button.innerHTML = '<i data-lucide="trash-2"></i> Delete item';
+        if (window.lucide) lucide.createIcons();
     }
-
 }
 
-
 // ==========================================
-// SAVE INVENTORY
+// IMPORT / EXPORT
 // ==========================================
 
-async function saveInventoryItem(id = null) {
-
-    const payload = {
-
-        bpk_number:
-            document.getElementById("inv_bpk").value,
-
-        item_name:
-            document.getElementById("inv_name").value,
-
-        category:
-            document.getElementById("inv_category").value,
-
-        manufacturer:
-            document.getElementById("inv_manufacturer").value,
-
-        supplier:
-            document.getElementById("inv_supplier").value,
-
-        unit:
-            document.getElementById("inv_unit").value,
-
-        current_stock:
-            Number(document.getElementById("inv_stock").value),
-
-        minimum_stock:
-            Number(document.getElementById("inv_min").value),
-
-        maximum_stock:
-            Number(document.getElementById("inv_max").value),
-
-        purchase_price:
-            Number(document.getElementById("inv_price").value),
-
-        location:
-            document.getElementById("inv_location").value,
-
-        rack:
-            document.getElementById("inv_rack").value,
-
-        remarks:
-            document.getElementById("inv_remarks").value,
-
-        batch_number:
-            document.getElementById("inv_batch").value,
-
-        service_team:
-            document.getElementById("inv_team").value
-
-    };
-
-    const url = id
-
-        ? `${INVENTORY_API}/${id}`
-
-        : INVENTORY_API;
-
-    const method = id
-
-        ? "PUT"
-
-        : "POST";
-
-    try {
-        const saveButton = document.getElementById("saveInventoryButton");
-        if (saveButton) {
-            saveButton.disabled = true;
-            saveButton.querySelector("span").textContent = id ? "Saving…" : "Adding…";
-        }
-        const response = await fetch(url, {
-            method,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok || !result.success) {
-            throw new Error(result.detail || "Unable to save this inventory item.");
-        }
-        closeInventoryModal();
-        showInventoryToast(id ? "Inventory item updated." : "Inventory item added.");
-        await loadInventory();
-    } catch (error) {
-        BioTrackToast.error("Inventory item not saved", error.message || "Unable to save this inventory item.");
-        const saveButton = document.getElementById("saveInventoryButton");
-        if (saveButton) {
-            saveButton.disabled = false;
-            saveButton.querySelector("span").textContent = id ? "Save changes" : "Add item";
-        }
+async function importInventoryExcel() {
+    const team = isInventoryManager() ? activeInventoryTeam : inventoryTeamForRole();
+    if (!team || team === "all") {
+        BioTrackToast.info("Choose a department", "Select Biomedical, Electrical or IT before importing a workbook.");
+        document.getElementById("inventoryTeamSwitcher")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
     }
-
-}
-
-
-// ==========================================
-// IMPORT INVENTORY
-// ==========================================
-
-function importInventoryExcel(){
 
     const input = document.createElement("input");
-
     input.type = "file";
-
     input.accept = ".xlsx,.xls";
-
     input.onchange = async () => {
-
-        if(!input.files.length){
-
-            return;
-
-        }
-
+        if (!input.files.length) return;
+        showInventoryLoading(`Importing ${team} inventory…`);
         const formData = new FormData();
-
-        formData.append(
-
-            "file",
-
-            input.files[0]
-
-        );
-
-        const response = await fetch(
-
-            `${INVENTORY_API}/upload`,
-
-            {
-
-                method:"POST",
-
-                body:formData
-
-            }
-
-        );
-
-        const result = await response.json();
-
-        if(result.success){
-
-            BioTrackToast.success(
-                "Inventory import complete",
-                `${result.added} added · ${result.updated} updated`,
-                { duration: 7000 },
-            );
-
+        formData.append("file", input.files[0]);
+        try {
+            const response = await fetch(`${INVENTORY_API}/upload?service_team=${encodeURIComponent(team)}`, { method: "POST", body: formData });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) throw new Error(result.detail || result.message || "The spreadsheet could not be imported.");
+            showInventoryToast(`${team} inventory imported: ${result.added} added, ${result.updated} updated.`);
             await loadInventory();
-
+        } catch (error) {
+            BioTrackToast.error("Inventory import failed", error.message || "The server could not process the spreadsheet.");
+        } finally {
+            hideInventoryLoading();
         }
-
-        else{
-
-            BioTrackToast.error("Inventory import failed", result.detail || result.message || "The spreadsheet could not be imported.");
-
-        }
-
     };
-
     input.click();
-
 }
 
-
-// ==========================================
-// EXPORT INVENTORY
-// ==========================================
-
-function exportInventoryExcel(){
-
-    BioTrackToast.info("Inventory export", "The export module is not available yet.");
-
-}
-// ==========================================
-// LOADING OVERLAY
-// ==========================================
-
-function showInventoryLoading(message = "Loading...") {
-
-    const old = document.getElementById("inventoryLoading");
-
-    if (old) old.remove();
-
-    const div = document.createElement("div");
-
-    div.id = "inventoryLoading";
-
-    div.className = "loading-overlay";
-
-    div.innerHTML = `
-
-        <div class="loading-card">
-
-            <div class="loading-spinner"></div>
-
-            <h3>${escapeHTML(message)}</h3>
-
-        </div>
-
-    `;
-
-    document.body.appendChild(div);
-
+function inventoryCsvCell(value) {
+    return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
-function hideInventoryLoading(){
-
-    const loading = document.getElementById("inventoryLoading");
-
-    if(loading){
-
-        loading.remove();
-
+function exportInventoryExcel() {
+    if (!filteredInventory.length) {
+        BioTrackToast.info("Nothing to export", "No items match the current inventory filters.");
+        return;
     }
-
+    const rows = [["Department", "BPK Number", "Item Name", "Category", "Manufacturer", "Stock", "Unit", "Minimum Stock", "Location", "Rack", "Unit Price"]];
+    filteredInventory.forEach(item => rows.push([
+        item.service_team, item.bpk_number, item.item_name, item.category, item.manufacturer,
+        item.current_stock, item.unit, item.minimum_stock, item.location, item.rack, item.purchase_price,
+    ]));
+    const csv = rows.map(row => row.map(inventoryCsvCell).join(",")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const teamName = activeInventoryTeam === "all" ? "All-Engineering" : activeInventoryTeam;
+    anchor.href = url;
+    anchor.download = `BioTrack-${teamName}-Inventory-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    showInventoryToast(`${filteredInventory.length} inventory items exported.`);
 }
 
+function showInventoryLoading(message = "Loading…") {
+    hideInventoryLoading();
+    const overlay = document.createElement("div");
+    overlay.id = "inventoryLoading";
+    overlay.className = "loading-overlay";
+    overlay.innerHTML = `<div class="loading-card"><div class="loading-spinner"></div><h3>${escapeHTML(message)}</h3><p>Please keep this window open.</p></div>`;
+    document.body.appendChild(overlay);
+}
 
-// ==========================================
-// SUCCESS MESSAGE
-// ==========================================
+function hideInventoryLoading() {
+    document.getElementById("inventoryLoading")?.remove();
+}
 
-function showInventoryToast(message){
+function showInventoryToast(message) {
     BioTrackToast.success("Inventory updated", message);
 }
+;
+/* source: dashboard_v2/views/centralStoreView.js */
+let centralStoreData = { summary: {}, requests: [], low_stock: [], out_of_stock: [], catalogue: [] };
+let centralStoreTab = "requests";
 
-
-// ==========================================
-// IMPROVED IMPORT
-// ==========================================
-
-async function importInventoryExcel(){
-
-    const input=document.createElement("input");
-
-    input.type="file";
-
-    input.accept=".xlsx,.xls";
-
-    input.onchange=async()=>{
-
-        if(!input.files.length){
-
-            return;
-
-        }
-
-        showInventoryLoading("Importing Inventory...");
-
-        const formData=new FormData();
-
-        formData.append(
-
-            "file",
-
-            input.files[0]
-
-        );
-
-        try{
-
-            const response=await fetch(
-
-                `${INVENTORY_API}/upload`,
-
-                {
-
-                    method:"POST",
-
-                    body:formData
-
-                }
-
-            );
-
-            const result=await response.json();
-
-            hideInventoryLoading();
-
-            if(result.success){
-
-                showInventoryToast(
-
-                    `Inventory Imported Successfully (${result.added} Added, ${result.updated} Updated)`
-
-                );
-
-                await loadInventory();
-
-            }
-
-            else{
-
-                BioTrackToast.error("Inventory import failed", result.detail || result.message || "The spreadsheet could not be imported.");
-
-            }
-
-        }
-
-        catch(error){
-
-            hideInventoryLoading();
-
-            console.error(error);
-
-            BioTrackToast.error("Inventory import failed", error.message || "The server could not process the spreadsheet.");
-
-        }
-
-    };
-
-    input.click();
-
+function storeEscape(value) {
+    const node = document.createElement("div");
+    node.textContent = String(value ?? "");
+    return node.innerHTML;
 }
 
+function renderCentralStore() {
+    pageContent.innerHTML = `
+        <main class="central-store-page">
+            <section class="store-hero">
+                <div><span class="store-eyebrow"><i data-lucide="warehouse"></i> Hospital-wide supply hub</span><h1>Central Store</h1><p>Review engineering requests, prepare stock and coordinate delivery from one queue.</p></div>
+                <button type="button" class="store-primary" onclick="openCatalogueEditor()"><i data-lucide="package-plus"></i>Add catalogue item</button>
+            </section>
+            <section class="store-kpis" aria-label="Central Store summary">
+                <article><span class="is-blue"><i data-lucide="inbox"></i></span><div><small>New requests</small><strong id="storeKpiNew">—</strong></div></article>
+                <article><span class="is-violet"><i data-lucide="activity"></i></span><div><small>Active requests</small><strong id="storeKpiActive">—</strong></div></article>
+                <article><span class="is-amber"><i data-lucide="triangle-alert"></i></span><div><small>Low stock</small><strong id="storeKpiLow">—</strong></div></article>
+                <article><span class="is-red"><i data-lucide="package-x"></i></span><div><small>Out of stock</small><strong id="storeKpiOut">—</strong></div></article>
+            </section>
+            <section class="store-workspace">
+                <header class="store-tabs">
+                    <button class="is-active" data-store-tab="requests" onclick="setCentralStoreTab('requests',this)"><i data-lucide="clipboard-list"></i>Engineer requests <b id="storeRequestCount">0</b></button>
+                    <button data-store-tab="low" onclick="setCentralStoreTab('low',this)"><i data-lucide="chart-no-axes-column-decreasing"></i>Low stock</button>
+                    <button data-store-tab="out" onclick="setCentralStoreTab('out',this)"><i data-lucide="package-x"></i>Out of stock</button>
+                    <button data-store-tab="catalogue" onclick="setCentralStoreTab('catalogue',this)"><i data-lucide="library-big"></i>Master catalogue</button>
+                    <button class="store-refresh" type="button" onclick="loadCentralStore(true)" aria-label="Refresh"><i data-lucide="refresh-cw"></i></button>
+                </header>
+                <div id="centralStorePanel" class="store-panel"><div class="store-loading"><i data-lucide="loader-circle"></i>Loading Central Store…</div></div>
+            </section>
+        </main>`;
+    if (window.lucide) lucide.createIcons();
+    loadCentralStore();
+}
 
-// ==========================================
-// EXPORT CSV
-// ==========================================
-
-function exportInventoryExcel(){
-
-    if(inventoryData.length===0){
-
-        showInventoryToast("Nothing to export.");
-
-        return;
-
+async function loadCentralStore(showToast = false) {
+    try {
+        const response = await fetch("/api/central-store/dashboard", { cache: "no-store" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || "Unable to load Central Store.");
+        centralStoreData = data;
+        const summary = data.summary || {};
+        [["storeKpiNew", summary.new_requests], ["storeKpiActive", summary.active_requests], ["storeKpiLow", summary.low_stock], ["storeKpiOut", summary.out_of_stock], ["storeRequestCount", (data.requests || []).length]].forEach(([id, value]) => {
+            const element = document.getElementById(id); if (element) element.textContent = value ?? 0;
+        });
+        renderCentralStorePanel();
+        if (showToast) BioTrackToast.success("Store refreshed", "The request and stock queues are up to date.");
+    } catch (error) {
+        const panel = document.getElementById("centralStorePanel");
+        if (panel) panel.innerHTML = `<div class="store-empty"><i data-lucide="wifi-off"></i><h3>Central Store is unavailable</h3><p>${storeEscape(error.message)}</p></div>`;
+        BioTrackToast.error("Unable to load store", error.message);
+        if (window.lucide) lucide.createIcons();
     }
-
-    let csv=
-
-`BPK Number,Item Name,Category,Manufacturer,Stock,Minimum Stock,Location\n`;
-
-    inventoryData.forEach(item=>{
-
-        csv+=`"${item.bpk_number}","${item.item_name}","${item.category}","${item.manufacturer}",${item.current_stock},${item.minimum_stock},"${item.location}"\n`;
-
-    });
-
-    const blob=new Blob(
-
-        [csv],
-
-        {
-
-            type:"text/csv"
-
-        }
-
-    );
-
-    const url=URL.createObjectURL(blob);
-
-    const a=document.createElement("a");
-
-    a.href=url;
-
-    a.download="Inventory.csv";
-
-    a.click();
-
-    URL.revokeObjectURL(url);
-
-    showInventoryToast("Inventory Exported");
-
 }
 
+function setCentralStoreTab(tab, button) {
+    centralStoreTab = tab;
+    document.querySelectorAll("[data-store-tab]").forEach(item => item.classList.toggle("is-active", item === button));
+    renderCentralStorePanel();
+}
+
+function storeStatusClass(value) { return String(value || "").toLowerCase().replaceAll(" ", "-"); }
+
+function centralStoreRequestActions(request) {
+    const id = Number(request.id);
+    if (request.status === "Submitted") return `<button onclick="processStoreRequest(${id},'Approve')"><i data-lucide="check"></i>Approve</button><button class="is-danger" onclick="processStoreRequest(${id},'Reject')">Reject</button>`;
+    if (request.status === "Awaiting Procurement") return `<button onclick="processStoreRequest(${id},'MarkReady')"><i data-lucide="package-check"></i>Mark sourced & ready</button><button class="is-danger" onclick="processStoreRequest(${id},'Reject')">Reject</button>`;
+    if (request.status === "Ready") return `<button onclick="processStoreRequest(${id},'DispatchWardBoy')"><i data-lucide="truck"></i>Call Ward Boy</button><button class="is-secondary" onclick="processStoreRequest(${id},'ReadyForPickup')"><i data-lucide="hand"></i>Engineer pickup</button>`;
+    if (request.status === "Dispatched") return `<span class="store-action-note"><i data-lucide="truck"></i>${request.delivery_task?.status === "Accepted" ? `With ${storeEscape(request.delivery_task.assigned_to || "Ward Boy")}` : "Waiting for Ward Boy"}</span>`;
+    if (request.status === "Awaiting Engineer Confirmation") return '<span class="store-action-note"><i data-lucide="badge-check"></i>Delivered · awaiting engineer</span>';
+    return `<span class="store-action-note"><i data-lucide="${request.status === "Completed" ? "circle-check-big" : "circle-x"}"></i>${storeEscape(request.status)}</span>`;
+}
+
+function renderCentralStorePanel() {
+    const panel = document.getElementById("centralStorePanel");
+    if (!panel) return;
+    if (centralStoreTab === "requests") {
+        const requests = centralStoreData.requests || [];
+        panel.innerHTML = requests.length ? `<div class="store-request-grid">${requests.map(request => `
+            <article class="store-request-card">
+                <header><div><small>${storeEscape(request.request_number)} · ${storeEscape(request.service_team)}</small><h3>${storeEscape(request.item_name)}</h3></div><span class="store-status is-${storeStatusClass(request.status)}">${storeEscape(request.status)}</span></header>
+                <div class="store-request-facts"><span><b>${Number(request.quantity)} ${storeEscape(request.unit)}</b> requested</span><span>${storeEscape(request.request_type)} item</span><span>${storeEscape(request.priority)} priority</span><span>${storeEscape(request.request_reason)}</span></div>
+                <p class="store-requester"><i data-lucide="user-round"></i><b>${storeEscape(request.requested_by_name)}</b> · ${storeEscape(request.delivery_location)}</p>
+                ${request.specification ? `<p class="store-spec">${storeEscape(request.specification)}</p>` : ""}
+                <footer>${centralStoreRequestActions(request)}</footer>
+            </article>`).join("")}</div>` : '<div class="store-empty"><i data-lucide="inbox"></i><h3>No engineer requests</h3><p>New internal and external spare-part requests will appear here.</p></div>';
+    } else if (["low", "out"].includes(centralStoreTab)) {
+        const rows = centralStoreTab === "low" ? centralStoreData.low_stock || [] : centralStoreData.out_of_stock || [];
+        panel.innerHTML = storeStockTable(rows, centralStoreTab === "low" ? "No low-stock engineering items" : "No out-of-stock engineering items");
+    } else {
+        panel.innerHTML = storeCatalogueTable(centralStoreData.catalogue || []);
+    }
+    if (window.lucide) lucide.createIcons();
+}
+
+function storeStockTable(rows, emptyText) {
+    if (!rows.length) return `<div class="store-empty"><i data-lucide="badge-check"></i><h3>${emptyText}</h3><p>All engineering teams are currently above this threshold.</p></div>`;
+    return `<div class="store-table-wrap"><table><thead><tr><th>Team</th><th>Code</th><th>Spare part</th><th>Available</th><th>Minimum</th><th>Location</th></tr></thead><tbody>${rows.map(item => `<tr><td><span class="store-team">${storeEscape(item.service_team)}</span></td><td>${storeEscape(item.bpk_number)}</td><td><b>${storeEscape(item.item_name)}</b></td><td>${Number(item.available_stock)} ${storeEscape(item.unit)}</td><td>${Number(item.minimum_stock)}</td><td>${storeEscape(item.location)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function storeCatalogueTable(rows) {
+    if (!rows.length) return '<div class="store-empty"><i data-lucide="library-big"></i><h3>The catalogue is empty</h3><p>Add the first hospital-wide spare part.</p></div>';
+    return `<div class="store-table-wrap"><table><thead><tr><th>Code</th><th>Spare part</th><th>Stock</th><th>Min / Max</th><th>Bin</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(item => `<tr><td>${storeEscape(item.item_code)}</td><td><b>${storeEscape(item.item_name)}</b><small>${storeEscape(item.category || "Uncategorised")}</small></td><td><b>${Number(item.current_stock)}</b> ${storeEscape(item.unit)}</td><td>${Number(item.minimum_stock)} / ${Number(item.maximum_stock)}</td><td>${storeEscape(item.location)}${item.rack ? ` · ${storeEscape(item.rack)}` : ""}</td><td><span class="store-stock-state is-${storeStatusClass(item.stock_state)}">${storeEscape(item.stock_state)}</span></td><td><button class="store-icon-btn" onclick="openCatalogueEditor(${Number(item.id)})" aria-label="Edit ${storeEscape(item.item_name)}"><i data-lucide="pencil"></i></button></td></tr>`).join("")}</tbody></table></div>`;
+}
+
+async function processStoreRequest(requestId, action) {
+    const labels = { Approve: "Approve this request?", MarkReady: "Confirm the item is sourced and ready?", DispatchWardBoy: "Send this delivery to the Ward Boy queue?", ReadyForPickup: "Mark this order ready for engineer pickup?", Reject: "Reject this request?" };
+    if (!window.confirm(labels[action] || "Continue?")) return;
+    try {
+        const response = await fetch(`/api/central-store/requests/${requestId}/action`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, notes: "" }) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || "Unable to update request.");
+        BioTrackToast.success("Request updated", `Status changed to ${data.request.status}.`);
+        await loadCentralStore();
+    } catch (error) { BioTrackToast.error("Request not updated", error.message); }
+}
+
+function openCatalogueEditor(itemId = null) {
+    const item = itemId ? (centralStoreData.catalogue || []).find(entry => entry.id === itemId) : null;
+    const modal = document.createElement("div");
+    modal.id = "catalogueEditor";
+    modal.className = "store-modal-backdrop";
+    modal.innerHTML = `<section class="store-modal" role="dialog" aria-modal="true" aria-labelledby="catalogueTitle"><header><div><span>${item ? "Update stock record" : "New master item"}</span><h2 id="catalogueTitle">${item ? "Edit catalogue item" : "Add catalogue item"}</h2></div><button onclick="closeCatalogueEditor()" aria-label="Close"><i data-lucide="x"></i></button></header><form id="catalogueForm" onsubmit="saveCatalogueItem(event,${item ? Number(item.id) : "null"})"><div class="store-form-grid">${storeCatalogueField("item_code", "Item code", item?.item_code, true)}${storeCatalogueField("item_name", "Spare-part name", item?.item_name, true)}${storeCatalogueField("category", "Category", item?.category)}${storeCatalogueField("manufacturer", "Manufacturer", item?.manufacturer)}${storeCatalogueField("supplier", "Supplier", item?.supplier)}${storeCatalogueField("unit", "Unit", item?.unit || "pieces", true)}${storeCatalogueField("current_stock", "Current stock", item?.current_stock ?? 0, true, "number", "0")}${storeCatalogueField("minimum_stock", "Minimum stock", item?.minimum_stock ?? 5, true, "number", "0")}${storeCatalogueField("maximum_stock", "Maximum stock", item?.maximum_stock ?? 100, true, "number", "0")}${storeCatalogueField("purchase_price", "Unit price (₹)", item?.purchase_price ?? 0, true, "number", "0", "0.01")}${storeCatalogueField("location", "Store location", item?.location || "Central Store", true)}${storeCatalogueField("rack", "Rack / bin", item?.rack)}</div><footer><button type="button" class="is-ghost" onclick="closeCatalogueEditor()">Cancel</button><button class="store-primary" type="submit"><i data-lucide="save"></i>Save item</button></footer></form></section>`;
+    modal.addEventListener("click", event => { if (event.target === modal) closeCatalogueEditor(); });
+    document.body.appendChild(modal);
+    if (window.lucide) lucide.createIcons();
+}
+
+function storeCatalogueField(name, label, value = "", required = false, type = "text", min = "", step = "") {
+    return `<label><span>${label}${required ? " *" : ""}</span><input name="${name}" type="${type}" value="${storeEscape(value)}" ${required ? "required" : ""} ${min !== "" ? `min="${min}"` : ""} ${step ? `step="${step}"` : ""}></label>`;
+}
+
+function closeCatalogueEditor() { document.getElementById("catalogueEditor")?.remove(); }
+
+async function saveCatalogueItem(event, itemId) {
+    event.preventDefault();
+    const values = Object.fromEntries(new FormData(event.currentTarget));
+    ["current_stock", "minimum_stock", "maximum_stock"].forEach(key => values[key] = Number(values[key]));
+    values.purchase_price = Number(values.purchase_price); values.active = true;
+    try {
+        const response = await fetch(itemId ? `/api/central-store/catalog/${itemId}` : "/api/central-store/catalog", { method: itemId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || "Unable to save catalogue item.");
+        closeCatalogueEditor(); BioTrackToast.success("Catalogue saved", "The master stock record is now available."); await loadCentralStore();
+    } catch (error) { BioTrackToast.error("Item not saved", error.message); }
+}
+;
+/* source: dashboard_v2/views/storeRequestsView.js */
+let engineerStoreData = { catalogue: [], calls: [], requests: [] };
+let engineerStoreMode = "Internal";
+
+function renderStoreRequests() {
+    pageContent.innerHTML = `<main class="central-store-page engineer-store-page">
+        <section class="store-hero is-engineer"><div><span class="store-eyebrow"><i data-lucide="package-plus"></i> Engineering supplies</span><h1>Spare-part requests</h1><p>Request an item already held by Central Store, or submit a new external requirement.</p></div><button class="store-primary" onclick="openSpareRequestEditor()"><i data-lucide="plus"></i>New request</button></section>
+        <section class="store-kpis"><article><span class="is-blue"><i data-lucide="send"></i></span><div><small>Submitted</small><strong id="engStoreSubmitted">—</strong></div></article><article><span class="is-violet"><i data-lucide="package-search"></i></span><div><small>In progress</small><strong id="engStoreActive">—</strong></div></article><article><span class="is-amber"><i data-lucide="badge-check"></i></span><div><small>Awaiting confirmation</small><strong id="engStoreConfirm">—</strong></div></article><article><span class="is-green"><i data-lucide="circle-check-big"></i></span><div><small>Completed</small><strong id="engStoreDone">—</strong></div></article></section>
+        <section class="store-workspace"><header class="engineer-store-header"><div><span>My team’s queue</span><h2>Requests and deliveries</h2></div><button class="store-refresh" onclick="loadEngineerStore(true)" aria-label="Refresh"><i data-lucide="refresh-cw"></i></button></header><div id="engineerStoreList" class="store-panel"><div class="store-loading"><i data-lucide="loader-circle"></i>Loading requests…</div></div></section>
+    </main>`;
+    if (window.lucide) lucide.createIcons();
+    loadEngineerStore();
+}
+
+async function loadEngineerStore(showToast = false) {
+    try {
+        const [catalogueResponse, callsResponse, requestsResponse] = await Promise.all([fetch("/api/central-store/catalog", { cache: "no-store" }), fetch("/api/central-store/engineer-calls", { cache: "no-store" }), fetch("/api/central-store/my-requests", { cache: "no-store" })]);
+        const [catalogue, calls, requests] = await Promise.all([catalogueResponse.json(), callsResponse.json(), requestsResponse.json()]);
+        if (!catalogueResponse.ok || !callsResponse.ok || !requestsResponse.ok) throw new Error(catalogue.detail || calls.detail || requests.detail || "Unable to load requests.");
+        engineerStoreData = { catalogue, calls, requests };
+        const active = new Set(["Awaiting Procurement", "Ready", "Dispatched"]);
+        const counters = { engStoreSubmitted: requests.filter(row => row.status === "Submitted").length, engStoreActive: requests.filter(row => active.has(row.status)).length, engStoreConfirm: requests.filter(row => row.status === "Awaiting Engineer Confirmation").length, engStoreDone: requests.filter(row => row.status === "Completed").length };
+        Object.entries(counters).forEach(([id, value]) => { const element = document.getElementById(id); if (element) element.textContent = value; });
+        renderEngineerStoreList();
+        if (showToast) BioTrackToast.success("Requests refreshed", "Your engineering supply queue is up to date.");
+    } catch (error) { const list = document.getElementById("engineerStoreList"); if (list) list.innerHTML = `<div class="store-empty"><i data-lucide="wifi-off"></i><h3>Requests unavailable</h3><p>${storeEscape(error.message)}</p></div>`; BioTrackToast.error("Unable to load requests", error.message); if (window.lucide) lucide.createIcons(); }
+}
+
+function renderEngineerStoreList() {
+    const list = document.getElementById("engineerStoreList"); if (!list) return;
+    const rows = engineerStoreData.requests || [];
+    list.innerHTML = rows.length ? `<div class="engineer-request-list">${rows.map(request => `<article><span class="engineer-request-icon"><i data-lucide="${request.request_type === "External" ? "shopping-cart" : "package"}"></i></span><div class="engineer-request-main"><small>${storeEscape(request.request_number)} · ${storeEscape(request.request_type)}</small><h3>${storeEscape(request.item_name)}</h3><p>${Number(request.quantity)} ${storeEscape(request.unit)} · ${storeEscape(request.delivery_location)}</p></div><div class="engineer-request-progress"><span class="store-status is-${storeStatusClass(request.status)}">${storeEscape(request.status)}</span>${request.status === "Dispatched" ? `<small>${request.delivery_task?.status === "Accepted" ? "Ward Boy is delivering" : "Waiting for Ward Boy"}</small>` : ""}</div>${request.status === "Awaiting Engineer Confirmation" ? `<button class="store-primary" onclick="confirmSpareReceipt(${Number(request.id)})"><i data-lucide="badge-check"></i>Confirm received</button>` : ""}</article>`).join("")}</div>` : '<div class="store-empty"><i data-lucide="package-plus"></i><h3>No spare-part requests yet</h3><p>Create an internal or external request for Central Store.</p><button class="store-primary" onclick="openSpareRequestEditor()">Create request</button></div>';
+    if (window.lucide) lucide.createIcons();
+}
+
+function openSpareRequestEditor() {
+    engineerStoreMode = "Internal";
+    const modal = document.createElement("div"); modal.id = "spareRequestEditor"; modal.className = "store-modal-backdrop";
+    modal.innerHTML = `<section class="store-modal spare-request-modal" role="dialog" aria-modal="true" aria-labelledby="requestSpareTitle"><header><div><span>Send to Central Store</span><h2 id="requestSpareTitle">Request spare parts</h2></div><button onclick="closeSpareRequestEditor()" aria-label="Close"><i data-lucide="x"></i></button></header><div class="request-mode-switch"><button class="is-active" type="button" onclick="setSpareRequestMode('Internal',this)"><i data-lucide="warehouse"></i><b>Internal stock</b><small>Choose from Central Store</small></button><button type="button" onclick="setSpareRequestMode('External',this)"><i data-lucide="shopping-cart"></i><b>External item</b><small>Describe a new requirement</small></button></div><form id="spareRequestForm" onsubmit="submitSpareRequest(event)"><div id="spareRequestFields"></div><footer><button type="button" class="is-ghost" onclick="closeSpareRequestEditor()">Cancel</button><button class="store-primary" type="submit"><i data-lucide="send"></i>Send request</button></footer></form></section>`;
+    modal.addEventListener("click", event => { if (event.target === modal) closeSpareRequestEditor(); }); document.body.appendChild(modal); renderSpareRequestFields(); if (window.lucide) lucide.createIcons();
+}
+
+function closeSpareRequestEditor() { document.getElementById("spareRequestEditor")?.remove(); }
+
+function setSpareRequestMode(mode, button) { engineerStoreMode = mode; document.querySelectorAll(".request-mode-switch button").forEach(item => item.classList.toggle("is-active", item === button)); renderSpareRequestFields(); }
+
+function renderSpareRequestFields() {
+    const container = document.getElementById("spareRequestFields"); if (!container) return;
+    const internal = engineerStoreMode === "Internal";
+    const catalogueOptions = (engineerStoreData.catalogue || []).map(item => `<option value="${Number(item.id)}">${storeEscape(item.item_name)} — ${Number(item.current_stock)} ${storeEscape(item.unit)} (${storeEscape(item.stock_state)})</option>`).join("");
+    const callOptions = (engineerStoreData.calls || []).map(call => `<option value="${Number(call.id)}">${storeEscape(call.ticket)} — ${storeEscape(call.equipment)}</option>`).join("");
+    container.innerHTML = `<div class="store-form-grid">${internal ? `<label class="is-wide"><span>Central Store item *</span><select name="central_store_item_id" required><option value="">Select a spare part</option>${catalogueOptions}</select></label><label><span>Request reason *</span><select name="request_reason" required><option>General</option><option>Low Stock</option><option>Out of Stock</option></select></label>` : `<label><span>Spare-part name *</span><input name="item_name" required maxlength="240"></label><label><span>Preferred item code</span><input name="item_code" maxlength="80"></label><label><span>Category</span><input name="category" maxlength="120"></label><label><span>Manufacturer</span><input name="manufacturer" maxlength="160"></label><label class="is-wide"><span>Specification *</span><textarea name="specification" required maxlength="500" placeholder="Model, dimensions, compatibility and technical details"></textarea></label><input type="hidden" name="request_reason" value="External Item">`}<label><span>Quantity *</span><input type="number" name="quantity" min="1" value="1" required></label><label><span>Unit *</span><input name="unit" value="pieces" required></label><label><span>Priority *</span><select name="priority"><option>Low</option><option selected>Medium</option><option>High</option><option>Critical</option></select></label><label><span>Delivery location</span><input name="delivery_location" placeholder="Defaults to your engineering room"></label><label class="is-wide"><span>Related maintenance call</span><select name="linked_request_id"><option value="">No linked call</option>${callOptions}</select></label><label class="is-wide"><span>Notes / purpose</span><textarea name="notes" maxlength="1000" placeholder="Why this item is required"></textarea></label></div>`;
+}
+
+async function submitSpareRequest(event) {
+    event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget));
+    const payload = { request_type: engineerStoreMode, central_store_item_id: values.central_store_item_id ? Number(values.central_store_item_id) : null, item_name: values.item_name || "", item_code: values.item_code || "", category: values.category || "", manufacturer: values.manufacturer || "", specification: values.specification || "", quantity: Number(values.quantity), unit: values.unit, request_reason: values.request_reason, priority: values.priority, linked_request_id: values.linked_request_id ? Number(values.linked_request_id) : null, delivery_location: values.delivery_location || "", notes: values.notes || "" };
+    try { const response = await fetch("/api/central-store/requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.detail || "Unable to send request."); closeSpareRequestEditor(); BioTrackToast.success("Request sent", `${data.request.request_number} is now with Central Store.`); await loadEngineerStore(); } catch (error) { BioTrackToast.error("Request not sent", error.message); }
+}
+
+async function confirmSpareReceipt(requestId) {
+    if (!window.confirm("Confirm that you received these spare parts?")) return;
+    try { const response = await fetch(`/api/central-store/requests/${requestId}/confirm-receipt`, { method: "PATCH" }); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.detail || "Unable to confirm receipt."); BioTrackToast.success("Receipt confirmed", "The spare-part request is now complete."); await loadEngineerStore(); } catch (error) { BioTrackToast.error("Receipt not confirmed", error.message); }
+}
+;
+/* source: dashboard_v2/views/vendorsView.js */
+const VENDOR_API = "/api/vendors";
+let vendorContracts = [];
+
+function vendorRoleTeam() {
+    const role = normalizeDashboardRole(localStorage.getItem("role"));
+    return role === "engineer" ? "Biomedical" : role === "electrical" ? "Electrical" : role === "it" ? "IT" : null;
+}
+
+function vendorIsAdmin() {
+    return normalizeDashboardRole(localStorage.getItem("role")) === "admin";
+}
+
+function renderVendors() {
+    pageContent.innerHTML = `
+        <div class="vendors-page">
+            <section class="vendors-hero">
+                <div><span><i data-lucide="handshake"></i> Service partners</span><h1>Vendors & contracts</h1><p>Track AMC and CMC coverage, response commitments, renewals, contacts and service visits.</p></div>
+                <button id="addVendorContract" type="button"><i data-lucide="file-plus-2"></i> Add contract</button>
+            </section>
+            <section class="vendor-kpis">
+                <article><i data-lucide="files"></i><div><span>Total contracts</span><strong id="vendorTotal">0</strong></div></article>
+                <article><i data-lucide="badge-check"></i><div><span>Active</span><strong id="vendorActive">0</strong></div></article>
+                <article><i data-lucide="calendar-clock"></i><div><span>Renewal due</span><strong id="vendorRenewal">0</strong></div></article>
+                <article><i data-lucide="history"></i><div><span>Service visits</span><strong id="vendorVisits">0</strong></div></article>
+            </section>
+            <section class="vendor-register">
+                <header><div><span>Contract register</span><h2>Engineering service coverage</h2></div><label><i data-lucide="search"></i><input id="vendorSearch" type="search" placeholder="Search vendor, contract or contact"></label></header>
+                <div class="vendor-table-wrap"><table class="vendor-table"><thead><tr><th>Vendor</th><th>Department</th><th>Contract</th><th>Response SLA</th><th>Renewal</th><th>Status</th><th>Actions</th></tr></thead><tbody id="vendorTableBody"><tr><td colspan="7">Loading contracts…</td></tr></tbody></table></div>
+            </section>
+        </div>`;
+    document.getElementById("addVendorContract").addEventListener("click", () => openVendorContractModal());
+    document.getElementById("vendorSearch").addEventListener("input", renderVendorTable);
+    window.lucide?.createIcons();
+    loadVendorContracts();
+}
+
+async function loadVendorContracts() {
+    try {
+        const response = await fetch(VENDOR_API);
+        const data = await response.json().catch(() => []);
+        if (!response.ok) throw new Error(data.detail || "Unable to load vendor contracts.");
+        vendorContracts = Array.isArray(data) ? data : [];
+        updateVendorMetrics();
+        renderVendorTable();
+    } catch (error) {
+        document.getElementById("vendorTableBody").innerHTML = `<tr><td colspan="7" class="vendor-empty">${escapeHTML(error.message)}</td></tr>`;
+    }
+}
+
+function updateVendorMetrics() {
+    document.getElementById("vendorTotal").textContent = vendorContracts.length;
+    document.getElementById("vendorActive").textContent = vendorContracts.filter(item => item.renewal_state === "Active").length;
+    document.getElementById("vendorRenewal").textContent = vendorContracts.filter(item => ["Renewal due", "Expired"].includes(item.renewal_state)).length;
+    document.getElementById("vendorVisits").textContent = vendorContracts.reduce((sum, item) => sum + item.service_history.length, 0);
+}
+
+function renderVendorTable() {
+    const tbody = document.getElementById("vendorTableBody");
+    if (!tbody) return;
+    const search = (document.getElementById("vendorSearch")?.value || "").trim().toLowerCase();
+    const items = vendorContracts.filter(item => [item.vendor_name, item.contract_number, item.contact_person, item.service_team].join(" ").toLowerCase().includes(search));
+    if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="vendor-empty"><strong>No contracts found</strong><small>Add the first AMC or CMC agreement for this engineering team.</small></td></tr>';
+        return;
+    }
+    tbody.innerHTML = items.map(item => `
+        <tr>
+            <td><div class="vendor-identity"><span>${escapeHTML(item.vendor_name.slice(0, 1).toUpperCase())}</span><div><strong>${escapeHTML(item.vendor_name)}</strong><small>${escapeHTML(item.contact_person || "No contact")} · ${escapeHTML(item.phone || item.email || "No details")}</small></div></div></td>
+            <td><span class="vendor-team is-${item.service_team.toLowerCase()}">${escapeHTML(item.service_team)}</span></td>
+            <td><div class="vendor-contract-cell"><strong>${escapeHTML(item.contract_type)}</strong><small>${escapeHTML(item.contract_number || "Number not set")}</small></div></td>
+            <td><strong>${Number(item.response_sla_hours)} hours</strong></td>
+            <td><div class="vendor-renewal"><strong>${new Date(`${item.end_date}T00:00:00`).toLocaleDateString()}</strong><small>${escapeHTML(item.renewal_state)}</small></div></td>
+            <td><span class="vendor-state is-${item.renewal_state.toLowerCase().replaceAll(" ", "-")}">${escapeHTML(item.renewal_state)}</span></td>
+            <td><div class="vendor-actions"><button type="button" onclick="openVendorHistory(${item.id})"><i data-lucide="history"></i> History</button><button type="button" onclick="openVendorContractModal(${item.id})"><i data-lucide="square-pen"></i> Edit</button></div></td>
+        </tr>`).join("");
+    window.lucide?.createIcons();
+}
+
+function vendorTeamOptions(selected) {
+    return ["Biomedical", "Electrical", "IT"].map(team => `<option value="${team}" ${team === selected ? "selected" : ""}>${team}</option>`).join("");
+}
+
+function openVendorContractModal(id = null) {
+    closeVendorModal();
+    const item = vendorContracts.find(contract => contract.id === Number(id));
+    const selectedTeam = item?.service_team || vendorRoleTeam() || "Biomedical";
+    const modal = document.createElement("div");
+    modal.id = "vendorModal";
+    modal.className = "vendor-modal-backdrop";
+    modal.innerHTML = `<section class="vendor-modal" role="dialog" aria-modal="true" aria-labelledby="vendorModalTitle"><form id="vendorContractForm">
+        <header><div><span>${item ? "Update agreement" : "New agreement"}</span><h2 id="vendorModalTitle">${item ? "Edit vendor contract" : "Add vendor contract"}</h2><p>Capture coverage, contacts, response SLA and renewal dates.</p></div><button type="button" class="vendor-modal-close" aria-label="Close"><i data-lucide="x"></i></button></header>
+        <div class="vendor-form-grid">
+            <label><span>Vendor name *</span><input id="vendorName" required maxlength="200" value="${escapeHTML(item?.vendor_name || "")}"></label>
+            <label><span>Engineering department *</span><select id="vendorTeam" ${vendorIsAdmin() ? "" : "disabled"}>${vendorTeamOptions(selectedTeam)}</select></label>
+            <label><span>Contract type *</span><select id="vendorType"><option ${item?.contract_type === "AMC" ? "selected" : ""}>AMC</option><option ${item?.contract_type === "CMC" ? "selected" : ""}>CMC</option></select></label>
+            <label><span>Contract number</span><input id="vendorNumber" maxlength="120" value="${escapeHTML(item?.contract_number || "")}"></label>
+            <label><span>Contact person</span><input id="vendorContact" maxlength="160" value="${escapeHTML(item?.contact_person || "")}"></label>
+            <label><span>Phone</span><input id="vendorPhone" maxlength="40" value="${escapeHTML(item?.phone || "")}"></label>
+            <label><span>Email</span><input id="vendorEmail" type="email" value="${escapeHTML(item?.email || "")}"></label>
+            <label><span>Response SLA (hours) *</span><input id="vendorSla" type="number" min="1" max="720" required value="${Number(item?.response_sla_hours || 24)}"></label>
+            <label><span>Start date *</span><input id="vendorStart" type="date" required value="${item?.start_date || ""}"></label>
+            <label><span>Renewal / end date *</span><input id="vendorEnd" type="date" required value="${item?.end_date || ""}"></label>
+            <label><span>Contract status</span><select id="vendorStatus"><option ${item?.status === "Active" ? "selected" : ""}>Active</option><option ${item?.status === "On Hold" ? "selected" : ""}>On Hold</option><option ${item?.status === "Cancelled" ? "selected" : ""}>Cancelled</option></select></label>
+            <label class="full"><span>Coverage details</span><textarea id="vendorCoverage" rows="3" maxlength="4000">${escapeHTML(item?.coverage || "")}</textarea></label>
+        </div>
+        <footer><button type="button" class="vendor-cancel">Cancel</button><button type="submit" class="vendor-save"><i data-lucide="save"></i> ${item ? "Save changes" : "Add contract"}</button></footer>
+    </form></section>`;
+    document.body.appendChild(modal);
+    modal.querySelector(".vendor-modal-close").onclick = closeVendorModal;
+    modal.querySelector(".vendor-cancel").onclick = closeVendorModal;
+    modal.addEventListener("click", event => { if (event.target === modal) closeVendorModal(); });
+    modal.querySelector("form").addEventListener("submit", event => saveVendorContract(event, item?.id));
+    window.lucide?.createIcons();
+}
+
+function closeVendorModal() { document.getElementById("vendorModal")?.remove(); }
+
+async function saveVendorContract(event, id) {
+    event.preventDefault();
+    const button = event.currentTarget.querySelector(".vendor-save");
+    const payload = {
+        vendor_name: document.getElementById("vendorName").value,
+        service_team: document.getElementById("vendorTeam").value,
+        contract_type: document.getElementById("vendorType").value,
+        contract_number: document.getElementById("vendorNumber").value,
+        contact_person: document.getElementById("vendorContact").value,
+        phone: document.getElementById("vendorPhone").value,
+        email: document.getElementById("vendorEmail").value || null,
+        response_sla_hours: Number(document.getElementById("vendorSla").value),
+        start_date: document.getElementById("vendorStart").value,
+        end_date: document.getElementById("vendorEnd").value,
+        status: document.getElementById("vendorStatus").value,
+        coverage: document.getElementById("vendorCoverage").value,
+    };
+    button.disabled = true;
+    try {
+        const response = await fetch(id ? `${VENDOR_API}/${id}` : VENDOR_API, { method: id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || "Unable to save the contract.");
+        closeVendorModal();
+        BioTrackToast.success("Contract saved", `${payload.vendor_name} is now in the service register.`);
+        await loadVendorContracts();
+    } catch (error) { BioTrackToast.error("Contract not saved", error.message); button.disabled = false; }
+}
+
+function openVendorHistory(id) {
+    closeVendorModal();
+    const item = vendorContracts.find(contract => contract.id === Number(id));
+    if (!item) return;
+    const modal = document.createElement("div");
+    modal.id = "vendorModal";
+    modal.className = "vendor-modal-backdrop";
+    modal.innerHTML = `<section class="vendor-modal vendor-history-modal" role="dialog" aria-modal="true"><header><div><span>Service history</span><h2>${escapeHTML(item.vendor_name)}</h2><p>${escapeHTML(item.contract_type)} · ${escapeHTML(item.contract_number || "No contract number")}</p></div><button type="button" class="vendor-modal-close" aria-label="Close"><i data-lucide="x"></i></button></header>
+        <div class="vendor-history-list">${item.service_history.map(history => `<article><span><i data-lucide="wrench"></i></span><div><strong>${escapeHTML(history.summary)}</strong><small>${new Date(`${history.service_date}T00:00:00`).toLocaleDateString()} · ${escapeHTML(history.technician_name || "Technician not recorded")}${history.reference_number ? ` · ${escapeHTML(history.reference_number)}` : ""}</small></div><b>${new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(history.cost || 0)}</b></article>`).join("") || '<p class="vendor-empty">No service visits recorded yet.</p>'}</div>
+        <form id="vendorHistoryForm" class="vendor-history-form"><h3>Add service visit</h3><div><label><span>Date *</span><input id="historyDate" type="date" required></label><label><span>Reference</span><input id="historyReference"></label><label><span>Vendor technician</span><input id="historyTechnician"></label><label><span>Cost (₹)</span><input id="historyCost" type="number" min="0" step="0.01" value="0"></label><label class="full"><span>Service summary *</span><textarea id="historySummary" required rows="3"></textarea></label></div><button type="submit"><i data-lucide="plus"></i> Add visit</button></form>
+    </section>`;
+    document.body.appendChild(modal);
+    modal.querySelector(".vendor-modal-close").onclick = closeVendorModal;
+    modal.addEventListener("click", event => { if (event.target === modal) closeVendorModal(); });
+    modal.querySelector("form").addEventListener("submit", event => saveVendorHistory(event, id));
+    window.lucide?.createIcons();
+}
+
+async function saveVendorHistory(event, contractId) {
+    event.preventDefault();
+    const payload = { service_date: document.getElementById("historyDate").value, reference_number: document.getElementById("historyReference").value, technician_name: document.getElementById("historyTechnician").value, summary: document.getElementById("historySummary").value, cost: Number(document.getElementById("historyCost").value) };
+    try {
+        const response = await fetch(`${VENDOR_API}/${contractId}/history`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || "Unable to add service history.");
+        closeVendorModal(); await loadVendorContracts(); openVendorHistory(contractId);
+    } catch (error) { BioTrackToast.error("Service visit not saved", error.message); }
+}
+
+window.openVendorContractModal = openVendorContractModal;
+window.openVendorHistory = openVendorHistory;
 ;
 /* source: dashboard_v2/js/settings.js */
 /* ==========================================================
@@ -8767,7 +8745,7 @@ function createRipple(event) {
     }, 600);
 
 }
- 
+
 
 /* ==========================================================
    NOTIFICATION SWITCHES
@@ -9266,7 +9244,6 @@ console.log("Version : 1.0.0");
 
 console.log("Status  : Ready");
 
- 
 
 ;
 /* source: dashboard_v2/views/pmView.js */
@@ -9648,7 +9625,6 @@ function renderPM() {
     loadEngineeringPMSchedules();
 
 }
-
 ;
 /* source: dashboard_v2/js/pmCalendar.js */
 // ==========================================
@@ -10368,7 +10344,6 @@ window.getCurrentPMMonth =
 
 window.getSelectedPMDate =
     getSelectedPMDate;
-
 ;
 /* source: dashboard_v2/js/pmDrawer.js */
 // PM scheduling drawer: one API-driven form, no fragmented dropdown calls.
@@ -10537,7 +10512,6 @@ function pmDrawerEscape(value) {
 window.openPMDrawer = openPMDrawer;
 window.closePMDrawer = closePMDrawer;
 window.getSelectedPMDate = getSelectedPMDate;
-
 ;
 /* source: dashboard_v2/js/pmScheduleOverview.js */
 // Live PM schedule overview for biomedical engineers and administrators.
@@ -10623,7 +10597,6 @@ function pmOverviewClass(value) {
 function pmOverviewEscape(value) {
     return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
-
 ;
 /* source: dashboard_v2/views/reportsView.js */
 
@@ -11465,7 +11438,6 @@ function renderReports() {
 
 window.reportsView = reportsView;
 window.renderReports = renderReports;
-
 ;
 /* source: dashboard_v2/js/reports.js */
 /* ==========================================================
@@ -12644,7 +12616,6 @@ console.log(
 );
 window.startReports = startReports;
 window.initializeReports = initializeReports;
-
 ;
 /* source: dashboard_v2/views/usersView.js */
 let usersCache = [];
@@ -12659,6 +12630,7 @@ const USER_ROLE_LABELS = {
     IT: "IT Department",
     User: "Department User",
     WardBoy: "Ward Boy",
+    CentralStore: "Central Store",
 };
 
 function renderUsers() {
@@ -12842,7 +12814,7 @@ function showRegisterUser() {
                         <label><span>Full name</span><input id="newName" maxlength="120" autocomplete="name" placeholder="e.g. Anjali Thomas" required></label>
                         <label><span>Username</span><input id="newUsername" minlength="3" maxlength="80" autocomplete="username" placeholder="e.g. anjali.thomas" required></label>
                         <label><span>Department</span><select id="newDept" required>${renderHospitalDepartmentOptions(currentUser?.department)}</select></label>
-                        <label><span>Access role</span><select id="newRole" required><option value="">Select a role</option><option value="Manager">Administrator</option><option value="BME">Biomedical Engineer</option><option value="Electrical">Electrical Engineer</option><option value="IT">IT Department</option><option value="User">Department User</option><option value="WardBoy">Ward Boy</option></select></label>
+                        <label><span>Access role</span><select id="newRole" required><option value="">Select a role</option><option value="Manager">Administrator</option><option value="BME">Biomedical Engineer</option><option value="Electrical">Electrical Engineer</option><option value="IT">IT Department</option><option value="User">Department User</option><option value="WardBoy">Ward Boy</option><option value="CentralStore">Central Store</option></select></label>
                         <label><span>Email address</span><input id="newEmail" type="email" autocomplete="email" placeholder="name@hospital.org" required></label>
                         <label><span>Phone number</span><input id="newPhone" type="tel" autocomplete="tel" placeholder="10-digit mobile number" required></label>
                         <label class="user-password-field"><span>${currentUser ? "New password" : "Password"}</span><div><input id="newPassword" type="password" minlength="12" maxlength="72" autocomplete="new-password" placeholder="${currentUser ? "Leave blank to keep current" : "At least 12 characters"}" ${currentUser ? "" : "required"}><button type="button" onclick="toggleUserPassword()" aria-label="Show password"><i data-lucide="eye"></i></button></div><small>${currentUser ? "Only enter a password if it needs to change." : "Use 12–72 characters."}</small></label>
@@ -12860,22 +12832,25 @@ function showRegisterUser() {
     }
     const roleSelect = document.getElementById("newRole");
     const departmentSelect = document.getElementById("newDept");
-    if (departmentSelect) departmentSelect.dataset.previousDepartment = currentUser?.role === "WardBoy" ? "" : (currentUser?.department || "");
-    roleSelect?.addEventListener("change", syncWardBoyDepartment);
-    syncWardBoyDepartment();
+    if (departmentSelect) departmentSelect.dataset.previousDepartment = ["WardBoy", "CentralStore"].includes(currentUser?.role) ? "" : (currentUser?.department || "");
+    roleSelect?.addEventListener("change", syncServiceRoleDepartment);
+    syncServiceRoleDepartment();
     document.body.classList.add("user-modal-open");
     if (window.lucide) lucide.createIcons();
     requestAnimationFrame(() => document.getElementById("newName")?.focus());
 }
 
-function syncWardBoyDepartment() {
+function syncServiceRoleDepartment() {
     const roleSelect = document.getElementById("newRole");
     const departmentSelect = document.getElementById("newDept");
     if (!roleSelect || !departmentSelect) return;
-    if (roleSelect.value === "WardBoy") {
+    const lockedDepartment = roleSelect.value === "WardBoy"
+        ? "Hospital Support Services"
+        : roleSelect.value === "CentralStore" ? "Central Store" : "";
+    if (lockedDepartment) {
         if (!departmentSelect.disabled) departmentSelect.dataset.previousDepartment = departmentSelect.value || "";
-        departmentSelect.innerHTML = '<option value="Hospital Support Services">Hospital Support Services</option>';
-        departmentSelect.value = "Hospital Support Services";
+        departmentSelect.innerHTML = `<option value="${lockedDepartment}">${lockedDepartment}</option>`;
+        departmentSelect.value = lockedDepartment;
         departmentSelect.disabled = true;
         departmentSelect.closest("label")?.classList.add("is-role-locked");
         return;
@@ -12966,13 +12941,12 @@ function userInitials(value) {
 }
 
 function userRoleClass(role) {
-    return ({ Manager: "admin", BME: "biomedical", Electrical: "electrical", IT: "it", User: "user", WardBoy: "ward-boy" })[role] || "user";
+    return ({ Manager: "admin", BME: "biomedical", Electrical: "electrical", IT: "it", User: "user", WardBoy: "ward-boy", CentralStore: "central-store" })[role] || "user";
 }
 
 function userRoleIcon(role) {
-    return ({ Manager: "shield-check", BME: "heart-pulse", Electrical: "zap", IT: "monitor-cog", User: "user-round", WardBoy: "truck" })[role] || "user-round";
+    return ({ Manager: "shield-check", BME: "heart-pulse", Electrical: "zap", IT: "monitor-cog", User: "user-round", WardBoy: "truck", CentralStore: "warehouse" })[role] || "user-round";
 }
-
 ;
 /* source: dashboard_v2/views/qrScannerView.js */
 function renderQRScannerModule() {
@@ -13020,7 +12994,6 @@ function renderQRScannerModule() {
 }
 
 window.renderQRScannerModule = renderQRScannerModule;
-
 ;
 /* source: dashboard_v2/views/qrAssetProfileView.js */
 let currentQRProfile = null;
@@ -13257,7 +13230,6 @@ window.renderQRAssetProfile = renderQRAssetProfile;
 window.startQRMaintenanceCall = startQRMaintenanceCall;
 window.openQRPMConfirmation = openQRPMConfirmation;
 window.confirmQRPMCompletion = confirmQRPMCompletion;
-
 ;
 /* source: dashboard_v2/js/requestDetails.js */
 // ==========================================
@@ -13549,7 +13521,6 @@ function buildSpareParts(request) {
 
 window.initializeRequestDetails =
     initializeRequestDetails;
-
 ;
 /* source: dashboard_v2/views/requestDetailsView.js */
 // ==========================================
@@ -13849,7 +13820,6 @@ if (window.lucide) {
     lucide.createIcons();
 }
 }
-
 ;
 /* source: dashboard_v2/js/successModal.js */
 /* ==========================================================
@@ -13871,7 +13841,7 @@ if (window.lucide) {
     let messageElement = null;
 
     let buttonElement = null;
-    
+
     let closeCallback = null;
 
     // ==========================================================
@@ -13978,7 +13948,7 @@ if (window.lucide) {
         buttonElement.focus();
 
     }
-        
+
 
     // ==========================================================
     // HIDE
@@ -14011,7 +13981,6 @@ if (window.lucide) {
     window.hideSuccess = hideSuccess;
 
     })();
-
 ;
 /* source: dashboard_v2/views/myRequestsView.js */
 // Department-user maintenance request centre.
@@ -14304,7 +14273,6 @@ function openRequest(ticket) {
     localStorage.setItem("selectedRequest", ticket);
     navigate("requestDetails");
 }
-
 ;
 /* source: dashboard_v2/views/settingsView.js */
 /* ==========================================
@@ -15190,7 +15158,6 @@ function renderSettings() {
     }
 
 }
-
 ;
 /* source: dashboard_v2/views/aiView.js */
 // ==========================================
@@ -15559,7 +15526,6 @@ async function saveAssetEdits(event, assetId, originalServiceTeam) {
         submitButton.querySelector("span").textContent = "Save Changes";
     }
 }
-
 ;
 /* source: js/biomedical_dashboard.js */
 /* ==========================================================
@@ -16041,7 +16007,6 @@ window.startEngineerDashboard =
 window.renderElectricalDashboard = renderElectricalDashboard;
 window.renderITDashboard = renderITDashboard;
 window.navigateToEngineerHome = navigateToEngineerHome;
-
 ;
 /* source: dashboard_v2/js/router.js */
 // ==========================================
@@ -16064,15 +16029,17 @@ const ROLE_HOME_PAGES = {
     it: "itDashboard",
     user: "userDashboard",
     wardboy: "wardBoyDashboard",
+    centralstore: "centralStore",
 };
 
 const ROLE_PAGE_ACCESS = {
-    admin: new Set(["dashboard", "ticket", "callManagement", "callAssignment", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "pm", "reports", "users", "qr", "qrAssetProfile", "settings"]),
-    engineer: new Set(["engineerDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "pm", "reports", "qr", "qrAssetProfile", "settings"]),
-    electrical: new Set(["electricalDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "qrAssetProfile", "settings"]),
-    it: new Set(["itDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "qr", "qrAssetProfile", "settings"]),
+    admin: new Set(["dashboard", "ticket", "callManagement", "callAssignment", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "centralStore", "storeRequests", "vendors", "pm", "reports", "users", "qr", "qrAssetProfile", "settings"]),
+    engineer: new Set(["engineerDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "storeRequests", "vendors", "pm", "reports", "qr", "qrAssetProfile", "settings"]),
+    electrical: new Set(["electricalDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "storeRequests", "vendors", "qr", "qrAssetProfile", "settings"]),
+    it: new Set(["itDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "storeRequests", "vendors", "qr", "qrAssetProfile", "settings"]),
     user: new Set(["userDashboard", "newRequest", "myRequests", "myAssets", "assetDetails", "departmentPMSchedule", "requestDetails", "qr", "qrAssetProfile", "settings"]),
     wardboy: new Set(["wardBoyDashboard", "settings"]),
+    centralstore: new Set(["centralStore", "settings"]),
 };
 // ==========================================
 // CURRENT SELECTED ASSET
@@ -16090,7 +16057,7 @@ const Pages = {
     // Administrator
     dashboard: renderDashboard,
     ticket: renderTicket,
-    
+
     // Department User
     // Department User
     userDashboard: renderUserDashboard,
@@ -16100,7 +16067,7 @@ const Pages = {
     myAssets: renderMyAssets,
     departmentPMSchedule: renderDepartmentPMSchedule,
     requestDetails: renderRequestDetails,
-    
+
     // Biomedical Engineer
     engineerDashboard: renderEngineerDashboard,
     electricalDashboard: renderElectricalDashboard,
@@ -16114,6 +16081,9 @@ const Pages = {
     assetForm: renderAssetForm,
     assetDetails: renderAssetDetails,
     inventory: renderInventory,
+    centralStore: renderCentralStore,
+    storeRequests: renderStoreRequests,
+    vendors: typeof renderVendors === "function" ? renderVendors : () => {},
     pm: renderPM,
     reports: renderReports,
     ai: renderAI,
@@ -16270,7 +16240,6 @@ function openQRAssetProfile(assetId) {
     currentQRAssetId = Number(assetId);
     navigate("qrAssetProfile");
 }
-
 ;
 /* source: dashboard_v2/js/new_request.js */
 // ==========================================
@@ -16737,7 +16706,7 @@ async function submitRequest() {
 
         });
 
-        
+
 
     }
 
@@ -16784,7 +16753,6 @@ function showRequestToast(message, type = "success") {
     const title = type === "success" ? "Request updated" : "Request needs attention";
     BioTrackToast.show({ title, message, type });
 }
-
 ;
 /* source: dashboard_v2/js/clock.js */
 // ==========================================
@@ -16891,7 +16859,6 @@ function formatTime(dateString) {
 }
 
 document.addEventListener("biotrack:preferences-changed", updateClock);
-
 ;
 /* source: dashboard_v2/js/assets_details.js */
 // ==========================================
@@ -17137,7 +17104,7 @@ function openAssetDrawer(asset) {
         `
 
     );
-    
+
 
     const overlay = document.getElementById("assetDrawerOverlay");
     const drawer = document.getElementById("assetDrawer");
@@ -17350,4 +17317,3 @@ window.addEventListener("pagehide", () => {
 window.openQRScanner = openQRScanner;
 window.closeQRScanner = closeQRScanner;
 window.isQRScannerActive = isQRScannerActive;
-

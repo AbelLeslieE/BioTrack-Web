@@ -273,3 +273,27 @@
     background:rgba(255,255,255,.35);
 
 }
+
+/* Clinical operations navigation */
+.sidebar{
+    padding:22px 16px;
+    border-right:1px solid rgba(255,255,255,.07);
+    background:
+        radial-gradient(circle at 20% 2%,rgba(45,212,191,.13),transparent 26%),
+        linear-gradient(180deg,#07182d 0%,#091528 56%,#071321 100%);
+}
+.sidebar-logo{gap:11px;margin-bottom:25px;padding:0 7px}
+.logo-icon{width:40px;height:40px;border:1px solid rgba(94,234,212,.26);border-radius:10px;color:#99f6e4;background:rgba(15,118,110,.34)}
+.logo-icon svg{width:21px;height:21px}
+.logo-text h2{font-size:21px;font-weight:780;letter-spacing:-.03em}
+.logo-text p{margin-top:2px;color:#7f91a8;font-size:10px;letter-spacing:.03em}
+.sidebar-nav{gap:4px}
+.nav-item{gap:12px;padding:11px 12px;border:1px solid transparent;border-radius:9px;color:#98a9bd;font-size:13px;font-weight:600}
+.nav-item svg{width:18px;height:18px}
+.nav-item:hover{color:#e7f3f4;background:rgba(255,255,255,.055)}
+.nav-item.active{border-color:rgba(94,234,212,.18);color:#d7fffa;background:linear-gradient(90deg,rgba(15,118,110,.55),rgba(15,118,110,.25));box-shadow:inset 3px 0 #2dd4bf}
+.profile-card{gap:10px;margin:18px 0 9px;padding:10px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(255,255,255,.035)}
+.profile-card .profile-avatar{width:34px;height:34px;color:#06201f;background:#5eead4;font-size:12px}
+.profile-card strong{display:block;color:#e7eef7;font-size:11px}.profile-card small{display:block;margin-top:2px;color:#65d6c5;font-size:9px}
+.logout-btn{justify-content:flex-start;padding:10px 12px;border:1px solid rgba(248,113,113,.15);border-radius:9px;color:#fda4af;background:rgba(190,24,93,.08);font-size:12px}
+.logout-btn:hover{color:#fff;background:rgba(190,24,93,.22)}
