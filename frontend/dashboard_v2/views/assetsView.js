@@ -3,6 +3,7 @@ let assetsCache = [];
 let filteredAssets = [];
 let selectedAssetServiceTeam = "";
 let selectedAssetIds = new Set();
+let pendingAssetImportTeam = "";
 const assetsPagination = { page: 1, pageSize: 25 };
 
 function canManageAssetQR() {
@@ -69,17 +70,6 @@ function renderAssets() {
                                 <i data-lucide="download"></i><span>Export</span>
                             </button>
                         </div>
-                        ${isAssetAdministrator() ? `
-                            <label class="asset-import-team-label" for="assetImportTeam">
-                                <span>Excel import team</span>
-                                <select id="assetImportTeam">
-                                    <option value="">Choose team before importing</option>
-                                    <option value="Biomedical">Biomedical</option>
-                                    <option value="Electrical">Electrical</option>
-                                    <option value="IT">IT</option>
-                                </select>
-                            </label>
-                        ` : ""}
                         <input id="excelFileInput" type="file" accept=".xlsx,.xls" hidden>
                     </div>
                 </div>
@@ -210,6 +200,45 @@ function initializeAssetRelocations() {
 // INITIALIZE IMPORT BUTTON
 // ==========================================
 
+function openAssetImportDialog(excelInput) {
+    closeAssetManagementDialog();
+    const overlay = document.createElement("div");
+    overlay.id = "assetManagementOverlay";
+    overlay.className = "asset-management-overlay";
+    overlay.innerHTML = `
+        <section class="asset-management-dialog asset-import-dialog" role="dialog" aria-modal="true" aria-labelledby="assetImportTitle" aria-describedby="assetImportDescription">
+            <header><span><i data-lucide="file-spreadsheet"></i></span><div><h2 id="assetImportTitle">Import assets</h2><p id="assetImportDescription">Select the engineering team that will own every asset in this spreadsheet.</p></div><button type="button" class="asset-management-close" aria-label="Close"><i data-lucide="x"></i></button></header>
+            <div class="asset-import-form">
+                <label for="assetImportTeam"><span>Import team</span><select id="assetImportTeam"><option value="">Select a team</option><option value="Biomedical">Biomedical</option><option value="Electrical">Electrical</option><option value="IT">IT</option></select></label>
+                <p class="asset-import-help"><i data-lucide="info"></i><span>The selected team is applied to all valid rows in the Excel file.</span></p>
+            </div>
+            <footer><button type="button" class="asset-dialog-secondary" id="cancelAssetImport">Cancel</button><button type="button" class="asset-dialog-primary" id="continueAssetImport" disabled><i data-lucide="file-up"></i> Choose spreadsheet</button></footer>
+        </section>
+    `;
+    document.body.appendChild(overlay);
+    document.body.classList.add("asset-management-dialog-open");
+
+    const teamSelect = overlay.querySelector("#assetImportTeam");
+    const continueButton = overlay.querySelector("#continueAssetImport");
+    const closeDialog = () => {
+        pendingAssetImportTeam = "";
+        closeAssetManagementDialog();
+    };
+
+    overlay.querySelector(".asset-management-close").onclick = closeDialog;
+    overlay.querySelector("#cancelAssetImport").onclick = closeDialog;
+    overlay.addEventListener("click", event => { if (event.target === overlay) closeDialog(); });
+    teamSelect.onchange = () => { continueButton.disabled = !teamSelect.value; };
+    continueButton.onclick = () => {
+        if (!teamSelect.value) return;
+        pendingAssetImportTeam = teamSelect.value;
+        closeAssetManagementDialog();
+        excelInput.click();
+    };
+    if (window.lucide) lucide.createIcons();
+    teamSelect.focus();
+}
+
 function initializeAssetImport() {
 
     const importButton = document.getElementById("importExcelBtn");
@@ -218,17 +247,11 @@ function initializeAssetImport() {
     if (!importButton || !excelInput) return;
 
     importButton.onclick = () => {
-
-        const teamSelect = document.getElementById("assetImportTeam");
-        if (isAssetAdministrator() && !teamSelect?.value) {
-            BioTrackToast.warning(
-                "Select a service team",
-                "Choose Biomedical, Electrical or IT before importing the spreadsheet.",
-            );
-            teamSelect?.focus();
+        pendingAssetImportTeam = "";
+        if (isAssetAdministrator()) {
+            openAssetImportDialog(excelInput);
             return;
         }
-
         excelInput.click();
 
     };
@@ -240,7 +263,7 @@ function initializeAssetImport() {
         const formData = new FormData();
 
         formData.append("file", excelInput.files[0]);
-        const selectedTeam = document.getElementById("assetImportTeam")?.value;
+        const selectedTeam = pendingAssetImportTeam;
         const uploadUrl = selectedTeam
             ? `/api/assets/upload?service_team=${encodeURIComponent(selectedTeam)}`
             : "/api/assets/upload";
@@ -291,6 +314,7 @@ function initializeAssetImport() {
             if (window.lucide) lucide.createIcons();
 
             excelInput.value = "";
+            pendingAssetImportTeam = "";
 
         }
 

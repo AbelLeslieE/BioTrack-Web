@@ -26,6 +26,12 @@ test("asset registration and Excel import require administrator team ownership",
     assert.match(formSource, /option value="IT"/);
     assert.match(assetsSource, /upload\?service_team=/);
     assert.match(assetsSource, /encodeURIComponent\(selectedTeam\)/);
+    assert.match(assetsSource, /function openAssetImportDialog\(excelInput\)/);
+    assert.match(assetsSource, /Import assets/);
+    assert.match(assetsSource, /option value="Biomedical"/);
+    assert.match(assetsSource, /option value="Electrical"/);
+    assert.match(assetsSource, /option value="IT"/);
+    assert.doesNotMatch(assetsSource, /class="asset-import-team-label"/);
 });
 
 test("asset registry uses a compact heading and inline quick actions", () => {

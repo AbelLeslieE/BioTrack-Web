@@ -216,7 +216,6 @@ body{font-size:14px}
     .page-badge,.asset-badge{padding:7px 11px;font-size:11px}
     .asset-actions,.page-actions,.header-actions{flex-direction:column}
     .asset-actions button,.page-actions button,.header-actions button{width:100%}
-    .asset-import-team-label,.asset-import-team-label select{width:100%}
     .users-page-header{flex-direction:column}.users-page-header .add-btn{width:100%}
     .asset-card{align-items:flex-start;gap:13px;padding:16px}
     .asset-card .card-icon,.kpi-icon{width:46px;height:46px}

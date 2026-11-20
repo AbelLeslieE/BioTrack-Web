@@ -251,8 +251,6 @@ body.dark-theme .asset-badge{color:#93c5fd;background:#162e51}
 body.dark-theme .quick-actions-card{background:transparent!important;border-color:transparent!important;box-shadow:none!important}
 body.dark-theme .quick-actions-card :is(h3,p){color:var(--dark-text)}
 body.dark-theme .quick-actions-card p{color:var(--dark-muted)}
-body.dark-theme .asset-import-team-label{color:var(--dark-muted)}
-body.dark-theme .asset-import-team-label select{color:var(--dark-text);background:#132239;border-color:#344862}
 body.dark-theme .asset-bulk-toolbar{background:var(--dark-surface);border-color:var(--dark-border)}
 body.dark-theme .asset-bulk-summary strong{color:var(--dark-text)}
 body.dark-theme .asset-bulk-summary small{color:var(--dark-muted)}
@@ -264,6 +262,9 @@ body.dark-theme .asset-management-dialog h2{color:var(--dark-text)}
 body.dark-theme .asset-management-dialog>header p,body.dark-theme .asset-delete-dialog>p{color:var(--dark-muted)}
 body.dark-theme .asset-management-close{background:#22334c;color:var(--dark-text)}
 body.dark-theme .asset-dialog-secondary{background:#17273e;border-color:var(--dark-border);color:var(--dark-text)}
+body.dark-theme .asset-import-form label{color:var(--dark-text)}
+body.dark-theme .asset-import-form select{color:var(--dark-text);background-color:#132239;border-color:#344862}
+body.dark-theme .asset-import-help{color:#bfdbfe;background:#152c4d}
 body.dark-theme .asset-duplicate-group{background:#101d31;border-color:var(--dark-border)}
 body.dark-theme .asset-duplicate-group-heading{background:#17273e;border-color:var(--dark-border)}
 body.dark-theme .asset-duplicate-row{border-color:var(--dark-border)}

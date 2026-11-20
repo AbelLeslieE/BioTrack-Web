@@ -48,11 +48,12 @@ test("dashboard feature code no longer opens native browser alerts", () => {
     }
 });
 
-test("asset imports report typed success and error toasts", () => {
+test("asset imports use a team-selection dialog and typed result toasts", () => {
     const source = read("frontend/dashboard_v2/views/assetsView.js");
     assert.match(source, /BioTrackToast\.success\(\s*"Asset import complete"/);
     assert.match(source, /BioTrackToast\.error\("Asset import failed"/);
-    assert.match(source, /BioTrackToast\.warning\(\s*"Select a service team"/);
+    assert.match(source, /openAssetImportDialog\(excelInput\)/);
+    assert.match(source, /id="assetImportTeam"/);
 });
 
 test("toast layout supports dark mode and mobile screens", () => {
