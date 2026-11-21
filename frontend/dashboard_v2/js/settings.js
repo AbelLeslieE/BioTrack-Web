@@ -3,6 +3,13 @@
    PART 3A
 ========================================================== */
 let settingsMfaEnabled = false;
+const profilePhotoPattern = /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\r\n]+$/i;
+
+function isSafeProfilePhoto(source) {
+    return typeof source === "string"
+        && source.length <= 2100000
+        && profilePhotoPattern.test(source);
+}
 
 function initSettings() {
     initializeProfilePhoto();
@@ -170,9 +177,11 @@ function initializeProfilePhoto() {
 
     const photoKey = `biotrack-profile-photo:${localStorage.getItem("username") || "user"}`;
     const savedPhoto = localStorage.getItem(photoKey);
-    if (savedPhoto) {
+    if (isSafeProfilePhoto(savedPhoto)) {
         preview.src = savedPhoto;
         applyProfilePhotoToTopbar(savedPhoto);
+    } else if (savedPhoto) {
+        localStorage.removeItem(photoKey);
     }
 
     cameraButton.addEventListener("click", () => {
@@ -187,13 +196,13 @@ function initializeProfilePhoto() {
 
         if (!file) return;
 
-        if (!file.type.startsWith("image/")) {
+        if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
 
             showToast(
 
                 "Invalid File",
 
-                "Please select an image.",
+                "Please select a PNG, JPEG, or WebP image.",
 
                 "fa-circle-exclamation"
 
@@ -212,6 +221,12 @@ function initializeProfilePhoto() {
         const reader = new FileReader();
 
         reader.onload = e => {
+
+            if (!isSafeProfilePhoto(e.target.result)) {
+                showToast("Invalid File", "The selected image could not be validated.", "fa-circle-exclamation");
+                uploadInput.value = "";
+                return;
+            }
 
             preview.src = e.target.result;
 
@@ -242,6 +257,7 @@ function initializeProfilePhoto() {
 }
 
 function applyProfilePhotoToTopbar(source) {
+    if (!isSafeProfilePhoto(source)) return;
     const avatar = document.getElementById("topAvatar");
     const sidebarAvatar = document.getElementById("sidebarAvatar");
     [avatar, sidebarAvatar].forEach(element => {

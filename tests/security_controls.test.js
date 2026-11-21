@@ -9,6 +9,9 @@ const main = fs.readFileSync("backend/main.py", "utf8");
 const authRoutes = fs.readFileSync("backend/routes/auth_routes.py", "utf8");
 const logRoutes = fs.readFileSync("backend/routes/log_routes.py", "utf8");
 const settings = fs.readFileSync("frontend/dashboard_v2/js/settings.js", "utf8");
+const preferences = fs.readFileSync("frontend/dashboard_v2/js/preferences.js", "utf8");
+const devices = fs.readFileSync("frontend/devices.html", "utf8");
+const myAssets = fs.readFileSync("frontend/dashboard_v2/views/myAssetsView.js", "utf8");
 
 test("unsafe same-origin requests receive the CSRF header", () => {
     assert.match(csrf, /unsafeMethods = new Set\(\["POST", "PUT", "PATCH", "DELETE"\]\)/);
@@ -38,4 +41,18 @@ test("dashboard documents are authenticated before being served", () => {
 test("runtime log queries use SQLAlchemy ORM instead of raw SQL", () => {
     assert.match(logRoutes, /db\.query\(Log\)/);
     assert.doesNotMatch(logRoutes, /text\(|SELECT \*/);
+});
+
+test("legacy device and asset errors are rendered as text, not executable HTML", () => {
+    assert.match(devices, /cell\.textContent=value\|\|'-'/);
+    assert.match(devices, /rows\.replaceChildren/);
+    assert.doesNotMatch(devices, /<td>\$\{d\.device_name\}/);
+    assert.match(myAssets, /cell\.textContent = error instanceof Error/);
+    assert.doesNotMatch(myAssets, /\$\{error\.message\}<\/td>/);
+});
+
+test("stored profile photos accept only validated image data URLs", () => {
+    assert.match(settings, /\["image\/png", "image\/jpeg", "image\/webp"\]/);
+    assert.match(settings, /if \(!isSafeProfilePhoto\(source\)\) return/);
+    assert.match(preferences, /profilePhotoPattern\.test\(source\)/);
 });

@@ -65,7 +65,14 @@ async function loadMyAssets() {
         applyMyAssetsFilters(false);
     } catch (error) {
         console.error(error);
-        if (body) body.innerHTML = `<tr><td colspan="7">${error.message}</td></tr>`;
+        if (body) {
+            const row = document.createElement("tr");
+            const cell = document.createElement("td");
+            cell.colSpan = 7;
+            cell.textContent = error instanceof Error ? error.message : "Unable to load assets.";
+            row.appendChild(cell);
+            body.replaceChildren(row);
+        }
     }
 }
 

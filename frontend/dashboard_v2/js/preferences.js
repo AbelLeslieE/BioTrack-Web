@@ -2,6 +2,13 @@
     "use strict";
 
     const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
+    const profilePhotoPattern = /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\r\n]+$/i;
+
+    function isSafeProfilePhoto(source) {
+        return typeof source === "string"
+            && source.length <= 2100000
+            && profilePhotoPattern.test(source);
+    }
 
     function applyBioTrackPreferences() {
         const selectedTheme = localStorage.getItem("biotrack-theme") || "light";
@@ -15,7 +22,7 @@
 
     function applySavedProfilePhoto() {
         const source = localStorage.getItem(`biotrack-profile-photo:${localStorage.getItem("username") || "user"}`);
-        if (!source) return;
+        if (!isSafeProfilePhoto(source)) return;
         [document.getElementById("topAvatar"), document.getElementById("sidebarAvatar")].forEach(element => {
             if (!element) return;
             element.style.backgroundImage = `url("${source}")`;

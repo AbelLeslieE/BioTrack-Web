@@ -28,13 +28,45 @@ img{width:100px}
 </div>
 <script src="/static/js/csrf.js"></script><script>
 let data=[];
-async function load(){data=await (await fetch('/api/devices')).json();draw()}
+async function load(){
+ const response=await fetch('/api/devices');
+ if(!response.ok) throw new Error('Unable to load devices.');
+ const result=await response.json();
+ data=Array.isArray(result)?result:[];
+ draw();
+}
 function draw(){
- rows.innerHTML=data.filter(d=>(d.device_name+d.serial_number+d.device_type).toLowerCase().includes(s.value.toLowerCase()))
-.map(d=>`<tr><td>${d.device_name}</td><td>${d.device_type}</td><td>${d.serial_number}</td>
-<td><img src="/api/devices/${d.id}/qr"></td>
-<td><button onclick="edit(${d.id})">Edit</button>
-<button onclick="del(${d.id})">Delete</button></td></tr>`).join('')
+ const query=s.value.toLowerCase();
+ const fragment=document.createDocumentFragment();
+ data.filter(d=>[d.device_name,d.serial_number,d.device_type].join(' ').toLowerCase().includes(query)).forEach(d=>{
+  const id=Number(d.id);
+  if(!Number.isInteger(id)||id<1) return;
+  const row=document.createElement('tr');
+  [d.device_name,d.device_type,d.serial_number].forEach(value=>{
+   const cell=document.createElement('td');
+   cell.textContent=value||'-';
+   row.appendChild(cell);
+  });
+  const qrCell=document.createElement('td');
+  const qr=document.createElement('img');
+  qr.src=`/api/devices/${id}/qr`;
+  qr.alt=`QR code for ${d.device_name||'device'}`;
+  qrCell.appendChild(qr);
+  row.appendChild(qrCell);
+  const actions=document.createElement('td');
+  const editButton=document.createElement('button');
+  editButton.type='button';
+  editButton.textContent='Edit';
+  editButton.addEventListener('click',()=>edit(id));
+  const deleteButton=document.createElement('button');
+  deleteButton.type='button';
+  deleteButton.textContent='Delete';
+  deleteButton.addEventListener('click',()=>del(id));
+  actions.append(editButton,deleteButton);
+  row.appendChild(actions);
+  fragment.appendChild(row);
+ });
+ rows.replaceChildren(fragment);
 }
 s.oninput=draw;
 async function del(id){await fetch('/api/devices/'+id,{method:'DELETE'});load()}
@@ -43,5 +75,12 @@ async function edit(id){
  let n=prompt("Device name",d.device_name);
  if(n){await fetch('/api/devices/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...d,device_name:n})});load()}
 }
-load();
+load().catch(error=>{
+ const row=document.createElement('tr');
+ const cell=document.createElement('td');
+ cell.colSpan=5;
+ cell.textContent=error.message;
+ row.appendChild(cell);
+ rows.replaceChildren(row);
+});
 </script><script src="/static/js/pwa.js" defer></script></body></html>
