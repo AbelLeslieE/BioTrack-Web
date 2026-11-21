@@ -48,6 +48,7 @@ CSS_FILES = [
     "dashboard_v2/css/pmDrawer.css",
     "dashboard_v2/css/department_modules.css",
     "dashboard_v2/css/responsive_overrides.css",
+    "dashboard_v2/css/pm_compact.css",
     "dashboard_v2/css/dark_theme.css",
     "css/toast.css",
     "dashboard_v2/css/users.css",

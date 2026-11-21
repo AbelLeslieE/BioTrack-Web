@@ -1,0 +1,154 @@
+/* Compact preventive-maintenance layout shared by department portals. */
+
+.department-pm-page{
+    --department-pm-day-height:clamp(50px,5.5vh,58px);
+    gap:10px;
+    max-width:1800px;
+}
+
+.department-pm-header{
+    align-items:center;
+    gap:16px;
+    padding:13px 18px;
+    border-radius:18px;
+}
+
+.department-pm-header h1{
+    margin:4px 0 2px;
+    font-size:28px;
+}
+
+.department-pm-header p{
+    overflow:hidden;
+    max-width:1000px;
+    margin:0;
+    font-size:12px;
+    line-height:1.4;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.department-pm-page .department-module-kicker{font-size:10px}
+.department-pm-page .department-action-button{
+    min-height:34px;
+    padding:7px 11px;
+    border-radius:9px;
+    font-size:12px;
+}
+
+.department-pm-summary{gap:9px}
+.department-pm-summary article{
+    flex-direction:row;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    min-height:46px;
+    padding:8px 13px;
+    border-left-width:4px;
+    border-radius:11px;
+}
+
+.department-pm-summary span{font-size:11px}
+.department-pm-summary strong{font-size:22px}
+.department-pm-workspace{
+    grid-template-columns:minmax(0,1.85fr) minmax(290px,.7fr);
+    gap:12px;
+    align-items:stretch;
+}
+
+.department-pm-calendar-card,.department-pm-detail{border-radius:15px}
+.department-pm-calendar-card{padding:11px}
+.department-pm-calendar-toolbar{
+    gap:8px;
+    min-height:32px;
+    margin-bottom:7px;
+}
+
+.department-pm-navigation{gap:7px}
+.department-pm-navigation h2{min-width:155px;font-size:18px}
+.department-pm-navigation button,.department-pm-today{
+    width:30px;
+    height:30px;
+    border-radius:8px;
+}
+
+.department-pm-navigation i{width:15px;height:15px}
+.department-pm-today{
+    width:auto;
+    padding:5px 10px;
+    font-size:11px;
+}
+
+.department-pm-calendar{gap:4px}
+.department-pm-weekday{
+    padding:3px 0;
+    font-size:9px;
+}
+
+.department-pm-day{
+    min-height:var(--department-pm-day-height);
+    padding:5px;
+    border-radius:8px;
+    overflow:hidden;
+}
+
+.department-pm-day time{
+    margin-bottom:3px;
+    font-size:10px;
+}
+
+.department-pm-day-events{gap:2px}
+.department-pm-event{
+    min-height:17px;
+    padding:2px 4px;
+    border-left-width:2px;
+    border-radius:4px;
+    font-size:8px;
+}
+
+.department-pm-response-dot{width:5px;height:5px}
+.department-pm-more{font-size:8px}
+.department-pm-detail{
+    min-height:0;
+    max-height:min(490px,calc(100vh - 245px));
+    padding:15px;
+    overflow:auto;
+}
+
+.department-pm-detail-empty{min-height:300px}
+.department-pm-detail h2{margin:10px 0 5px;font-size:20px}
+.department-pm-location{font-size:12px}
+.department-pm-facts{gap:7px;margin:12px 0}
+.department-pm-facts div,.department-pm-remarks,.department-pm-response-card{padding:9px;border-radius:9px}
+.department-pm-response-card{margin:9px 0}
+.department-pm-response-actions{gap:6px}
+.department-pm-response-actions p{font-size:11px}
+.department-pm-approve,.department-pm-deny,.department-pm-confirm,.department-pm-cancel{padding:8px;font-size:11px}
+
+@media(max-width:1050px){
+    .department-pm-workspace{grid-template-columns:1fr}
+    .department-pm-detail{max-height:none}
+}
+
+@media(max-width:680px){
+    .department-pm-page{--department-pm-day-height:42px;gap:8px}
+    .department-pm-header{flex-direction:row;padding:11px 12px}
+    .department-pm-header h1{font-size:23px}
+    .department-pm-header p{display:none}
+    .department-pm-page .department-action-button{flex:0 0 auto}
+    .department-pm-summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+    .department-pm-summary article{flex-direction:column;justify-content:center;gap:1px;min-height:44px;padding:5px;text-align:center}
+    .department-pm-summary span{font-size:8px}
+    .department-pm-summary strong{font-size:17px}
+    .department-pm-calendar-card{padding:7px}
+    .department-pm-calendar-toolbar{align-items:center;flex-direction:row}
+    .department-pm-navigation{width:auto;flex:1}
+    .department-pm-navigation h2{min-width:0;flex:1;font-size:15px}
+    .department-pm-today{width:auto}
+    .department-pm-calendar{gap:2px}
+    .department-pm-weekday{font-size:7px}
+    .department-pm-day{padding:3px;border-radius:5px}
+    .department-pm-day time{font-size:9px}
+    .department-pm-event{min-height:5px;padding:0;border:0;font-size:0}
+    .department-pm-event::before{width:5px;height:5px}
+}

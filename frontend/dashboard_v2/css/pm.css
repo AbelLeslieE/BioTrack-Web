@@ -1425,6 +1425,178 @@
 
 
 /* ==========================================
+   COMPACT FULL-MONTH VIEW
+   Keeps all six calendar rows within a desktop viewport.
+========================================== */
+
+.pm-page{
+    --pm-calendar-day-height:clamp(48px,5.8vh,66px);
+    gap:12px;
+    max-width:1800px;
+    margin:0 auto;
+    padding:0 2px 28px;
+}
+
+.pm-header{
+    min-height:88px;
+    gap:20px;
+    padding:14px 22px;
+    border-radius:18px;
+}
+
+.pm-header::before{top:-190px;right:-130px}
+.pm-header-left{max-width:none}
+.pm-header-left h1{
+    margin:0 0 5px;
+    font-size:clamp(26px,2.2vw,32px);
+    letter-spacing:-.5px;
+}
+
+.pm-header-left p{
+    overflow:hidden;
+    margin:0;
+    color:#64748b;
+    font-size:13px;
+    line-height:1.4;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.pm-header-image{width:68px}
+.pm-calendar-card{
+    min-height:0;
+    padding:12px 14px 8px;
+    border-radius:18px;
+}
+
+.pm-calendar-toolbar{
+    gap:10px;
+    min-height:38px;
+    margin-bottom:8px;
+}
+
+.pm-calendar-navigation{gap:8px}
+.pm-calendar-navigation h2{
+    min-width:170px;
+    font-size:21px;
+    text-align:center;
+}
+
+.pm-calendar-navigation button{
+    width:34px;
+    height:34px;
+    border-radius:10px;
+}
+
+.pm-calendar-navigation button i{width:18px;height:18px}
+.pm-today-btn{
+    min-height:34px;
+    padding:7px 14px;
+    border-radius:10px;
+    font-size:13px;
+    box-shadow:0 5px 14px rgba(37,99,235,.18);
+}
+
+.pm-page .pm-google-calendar{gap:6px}
+.pm-page .pm-google-calendar-status{font-size:11px}
+.pm-page .pm-google-calendar-btn,.pm-page .pm-google-calendar-disconnect{
+    padding:7px 10px;
+    font-size:11px;
+}
+
+#pmCalendar{
+    gap:5px;
+    padding:7px;
+    border-radius:13px;
+}
+
+.pm-calendar-grid{gap:5px}
+.pm-weekday{
+    height:24px;
+    font-size:10px;
+    letter-spacing:.06em;
+}
+
+.pm-day{
+    min-height:var(--pm-calendar-day-height);
+    padding:7px;
+    border-radius:11px;
+    transition:border-color .18s,background .18s,box-shadow .18s;
+}
+
+.pm-day:hover{
+    z-index:2;
+    transform:none;
+    box-shadow:0 7px 18px rgba(37,99,235,.12);
+}
+
+.pm-day-number{font-size:13px}
+.pm-status-dot{top:7px;right:7px;width:7px;height:7px}
+.pm-event{
+    overflow:hidden;
+    margin-top:auto;
+    padding:3px 5px;
+    border-radius:6px;
+    font-size:9px;
+    line-height:1.2;
+    text-overflow:ellipsis;
+}
+
+.pm-legend{
+    gap:14px;
+    min-height:26px;
+    padding:5px 4px 0;
+}
+
+.legend-item{gap:6px;font-size:11px}
+.legend-dot{width:8px;height:8px;box-shadow:none}
+
+@media (max-width:1250px){
+    .pm-page .pm-google-calendar-status{display:none}
+}
+
+@media (max-width:992px){
+    .pm-page{--pm-calendar-day-height:56px}
+    .pm-header{flex-direction:row;padding:13px 18px;text-align:left}
+    .pm-header-right{display:none}
+    .pm-calendar-toolbar{flex-direction:row;flex-wrap:wrap;gap:8px}
+    .pm-calendar-navigation{justify-content:flex-start}
+    .pm-google-calendar{width:auto;margin-left:auto}
+}
+
+@media (max-width:768px){
+    .pm-page{--pm-calendar-day-height:52px;gap:9px;padding-bottom:18px}
+    .pm-header{min-height:0;padding:12px 14px}
+    .pm-header-left h1{font-size:24px}
+    .pm-header-left p{font-size:11px;white-space:normal}
+    .pm-calendar-card{padding:9px 8px 7px}
+    .pm-calendar-toolbar{margin-bottom:6px}
+    .pm-calendar-navigation h2{min-width:132px;font-size:18px}
+    .pm-calendar-navigation button{width:30px;height:30px}
+    .pm-today-btn{min-height:30px;padding:5px 10px}
+    .pm-page .pm-google-calendar{display:none}
+    #pmCalendar{padding:4px}
+    .pm-calendar-grid{gap:3px}
+    .pm-weekday{height:20px;font-size:8px}
+    .pm-day{padding:5px;border-radius:8px}
+    .pm-day-number{font-size:11px}
+    .pm-status-dot{top:5px;right:5px;width:6px;height:6px}
+    .pm-event{height:5px;padding:0;font-size:0}
+    .pm-legend{gap:9px}
+    .legend-item{width:auto;font-size:9px}
+}
+
+@media (max-width:480px){
+    .pm-page{--pm-calendar-day-height:46px}
+    .pm-header-left p{display:none}
+    .pm-calendar-navigation{width:100%;justify-content:space-between}
+    .pm-calendar-navigation h2{min-width:0}
+    .pm-today-btn{width:100%}
+    .pm-legend{display:grid;grid-template-columns:repeat(3,max-content);justify-content:center}
+    .legend-item{width:auto;justify-content:flex-start}
+}
+
+/* ==========================================
    END OF FILE
 ========================================== */
 .pm-google-calendar{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-left:auto}.pm-google-calendar-status{color:#64748b;font-size:12px;font-weight:700}.pm-google-calendar-status.is-connected{color:#047857}.pm-google-calendar-btn,.pm-google-calendar-disconnect{border:1px solid #d7e2f2;border-radius:9px;background:#fff;color:#1d4ed8;padding:9px 12px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}.pm-google-calendar-btn:hover,.pm-google-calendar-disconnect:hover{background:#eff6ff}.pm-google-calendar-btn:disabled{opacity:.6;cursor:wait}.pm-google-calendar-disconnect{color:#64748b}

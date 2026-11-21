@@ -9540,11 +9540,7 @@ function renderPM() {
                 </h1>
 
                 <p>
-
-                    Schedule, monitor and manage preventive maintenance
-                    across all biomedical equipment from one centralized
-                    calendar.
-
+                    Plan, monitor and manage equipment maintenance from one live calendar.
                 </p>
 
             </div>
@@ -9571,7 +9567,7 @@ function renderPM() {
 
                 <div class="pm-calendar-navigation">
 
-                    <button id="pmPrevMonth">
+                    <button id="pmPrevMonth" type="button" aria-label="Previous month">
 
                         <i data-lucide="chevron-left"></i>
 
@@ -9583,7 +9579,7 @@ function renderPM() {
 
                     </h2>
 
-                    <button id="pmNextMonth">
+                    <button id="pmNextMonth" type="button" aria-label="Next month">
 
                         <i data-lucide="chevron-right"></i>
 
@@ -9600,7 +9596,7 @@ function renderPM() {
                 </button>
 
                 <div class="pm-google-calendar" id="pmGoogleCalendar">
-                    <span class="pm-google-calendar-status" id="pmGoogleCalendarStatus">Add any visit to Google Calendar directly from its schedule row.</span>
+                    <span class="pm-google-calendar-status" id="pmGoogleCalendarStatus">Add visits from their schedule rows.</span>
                     <a class="pm-google-calendar-btn" href="https://calendar.google.com/calendar/" target="_blank" rel="noopener">Open Google Calendar</a>
                 </div>
 
@@ -9612,53 +9608,13 @@ function renderPM() {
 
             </div>
 
-        </section>
-
-        <!-- ==========================================
-             CALENDAR LEGEND
-        ========================================== -->
-
-        <section class="pm-legend">
-
-            <div class="legend-item">
-
-                <span class="legend-dot scheduled"></span>
-
-                Scheduled
-
-            </div>
-
-            <div class="legend-item">
-
-                <span class="legend-dot due"></span>
-
-                Due Today
-
-            </div>
-
-            <div class="legend-item">
-
-                <span class="legend-dot overdue"></span>
-
-                Overdue
-
-            </div>
-
-            <div class="legend-item">
-
-                <span class="legend-dot completed"></span>
-
-                Completed
-
-            </div>
-
-            <div class="legend-item">
-
-                <span class="legend-dot empty"></span>
-
-                No PM
-
-            </div>
+            <section class="pm-legend" aria-label="Maintenance status legend">
+                <div class="legend-item"><span class="legend-dot scheduled"></span>Scheduled</div>
+                <div class="legend-item"><span class="legend-dot due"></span>Due today</div>
+                <div class="legend-item"><span class="legend-dot overdue"></span>Overdue</div>
+                <div class="legend-item"><span class="legend-dot completed"></span>Completed</div>
+                <div class="legend-item"><span class="legend-dot empty"></span>No PM</div>
+            </section>
 
         </section>
 
