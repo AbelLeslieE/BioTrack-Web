@@ -647,6 +647,68 @@ body.dark-theme .maintenance-empty-state p{color:#9fb0c6!important}
     body.dark-theme .maintenance-table td::before{color:#8295ad}
 }
 
+/* Department-user maintenance complaint form. */
+body.dark-theme .request-progress{border-color:#334760;background:#334760;box-shadow:none}
+body.dark-theme .request-progress>span{background:#152238;color:#9fb0c6}
+body.dark-theme .request-progress b{background:#213149;color:#a9bbd1}
+body.dark-theme .request-progress .is-active b{background:#173a68;color:#bfdbfe}
+body.dark-theme .request-progress .is-complete{color:#86efac}
+body.dark-theme .request-progress .is-complete b{background:#153e36;color:#86efac}
+body.dark-theme .request-section,
+body.dark-theme .request-review-card,
+body.dark-theme .request-help-card,
+body.dark-theme .request-form-actions,
+body.dark-theme .request-load-error{background:#152238!important;border-color:#334760!important;box-shadow:0 15px 38px rgba(0,0,0,.2)!important}
+body.dark-theme .request-section:focus-within{border-color:#4d75a8!important}
+body.dark-theme .request-section-header{border-color:#2b3e57}
+body.dark-theme .request-section-header h2,
+body.dark-theme .request-review-card h2,
+body.dark-theme .request-help-card h3,
+body.dark-theme .request-form-actions strong,
+body.dark-theme .request-load-error h2{color:#edf5ff!important}
+body.dark-theme .request-section-header p,
+body.dark-theme .request-field-help,
+body.dark-theme .request-priority-guidance,
+body.dark-theme .request-form-actions>div:first-child span,
+body.dark-theme .request-load-error p{color:#9fb0c6!important}
+body.dark-theme .request-field label,
+body.dark-theme .request-priority-fieldset legend{color:#dbe8f8!important}
+body.dark-theme .request-input-with-icon,
+body.dark-theme .request-select-wrap,
+body.dark-theme .request-description-field textarea{background:#101c2e!important;border-color:#3a506d!important}
+body.dark-theme .request-input-with-icon input,
+body.dark-theme .request-select-wrap select,
+body.dark-theme .request-description-field textarea{color:#e8f1fc!important}
+body.dark-theme .request-input-with-icon.is-locked{background:#1a293d!important;border-color:#324760!important}
+body.dark-theme .request-input-with-icon.is-locked input{color:#adbed2!important}
+body.dark-theme .request-asset-picker{background:linear-gradient(135deg,#172941,#17243a)!important;border-color:#36506e!important}
+body.dark-theme .request-secondary-button,
+body.dark-theme .new-request-page .clear-btn{background:#1b2b41!important;border-color:#405773!important;color:#dce8f6!important}
+body.dark-theme .request-priority-grid button{background:#132035!important;border-color:#354a65!important;color:#d9e6f5!important}
+body.dark-theme .request-priority-grid button.is-selected{background:#17355d!important;border-color:#60a5fa!important;box-shadow:0 0 0 3px rgba(96,165,250,.12)}
+body.dark-theme .request-priority-grid small,
+body.dark-theme .request-label-row>span{color:#92a6be!important}
+body.dark-theme .request-description-prompts button{background:#1b2a3f!important;border-color:#394e68!important;color:#b8c8da!important}
+body.dark-theme .ward-boy-assistance-card{background:#18273a!important;border-color:#394e68!important}
+body.dark-theme .ward-boy-assistance-card:hover{background:#1a2d46!important;border-color:#4e77a8!important}
+body.dark-theme .ward-boy-assistance-copy strong{color:#e8f1fc!important}
+body.dark-theme .ward-boy-assistance-copy small{color:#9fb0c6!important}
+body.dark-theme .ward-boy-assistance-tag{background:#253850;color:#b7c8db}
+body.dark-theme .request-review-card dl>div{border-color:#2a3c54}
+body.dark-theme .request-review-card dt{color:#8fa4bd!important}
+body.dark-theme .request-review-card dd{color:#dbe8f7!important}
+body.dark-theme .request-review-ready{background:#1b2b40;color:#a8bad0}
+body.dark-theme .request-review-ready.is-ready{background:#153b35;color:#9cf0bd}
+body.dark-theme .request-help-card::after{background:#1b2c45}
+body.dark-theme .request-help-card li>b{background:#203149;color:#a9bad0}
+body.dark-theme .request-help-card li strong{color:#dbe8f7!important}
+body.dark-theme .request-help-card li small{color:#91a5bc!important}
+body.dark-theme .request-emergency-note{background:#3a2028;border-color:#6f3946;color:#fca5a5}
+body.dark-theme .request-emergency-note span{color:#efb1b8}
+body.dark-theme .qr-request-prefill-banner{background:#143a33;border-color:#28705c;color:#a7f3d0}
+body.dark-theme .qr-request-prefill-banner p{color:#91d7be}
+body.dark-theme .qr-request-prefill-banner button{background:#1c493f;border-color:#377c69;color:#bbf7d0}
+
 /* Department-user maintenance request centre. */
 body.dark-theme .myrequest-card,
 body.dark-theme .my-requests-workspace{

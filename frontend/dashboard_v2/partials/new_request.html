@@ -1,286 +1,182 @@
- 
+<section class="new-request-page" aria-labelledby="newRequestTitle">
+    <div class="page-container">
+        <header class="request-hero">
+            <div class="request-hero-copy">
+                <span class="request-kicker"><i data-lucide="messages-square"></i> Department service desk</span>
+                <h1 id="newRequestTitle">Report an equipment problem</h1>
+                <p>Tell the engineering team what needs attention. Most requests take less than two minutes to submit.</p>
+                <div class="request-hero-meta" aria-label="Request information">
+                    <span><i data-lucide="shield-check"></i> Sent securely</span>
+                    <span><i data-lucide="clock-3"></i> Trackable by ticket</span>
+                    <span><i data-lucide="bell-ring"></i> Live status updates</span>
+                </div>
+            </div>
+            <div class="request-hero-actions">
+                <button id="openRequestScanner" class="request-scan-button" type="button">
+                    <i data-lucide="scan-qr-code"></i>
+                    <span><strong>Scan equipment QR</strong><small>Fastest way to identify an asset</small></span>
+                    <i data-lucide="arrow-right"></i>
+                </button>
+                <div class="request-live-status"><span></span> Engineering desk online</div>
+            </div>
+        </header>
 
-<div class="page-container">
+        <nav class="request-progress" aria-label="Complaint form sections">
+            <span class="is-active" data-request-step="location"><b>1</b><span>Your location</span><i data-lucide="check"></i></span>
+            <span data-request-step="equipment"><b>2</b><span>Equipment</span><i data-lucide="check"></i></span>
+            <span data-request-step="problem"><b>3</b><span>Problem details</span><i data-lucide="check"></i></span>
+        </nav>
 
-    <div class="page-header">
+        <div id="qrRequestPrefillMount"></div>
 
-        <div class="header-left">
+        <form id="maintenanceRequestForm" novalidate>
+            <div class="request-layout">
+                <div class="request-form-column">
+                    <section class="request-section" aria-labelledby="requestLocationHeading">
+                        <header class="request-section-header">
+                            <span class="request-section-icon"><i data-lucide="map-pin"></i></span>
+                            <div><small>Step 1</small><h2 id="requestLocationHeading">Where is the equipment?</h2><p>Your account supplies the department and reporter details.</p></div>
+                        </header>
+                        <div class="request-form-grid">
+                            <div class="request-field">
+                                <label for="departmentSearch">Department <span aria-hidden="true">*</span></label>
+                                <div class="request-input-with-icon is-locked"><i data-lucide="building-2"></i><input id="departmentSearch" type="text" autocomplete="organization" readonly required><i data-lucide="lock-keyhole"></i></div>
+                                <small class="request-field-help">Taken from your BioTrack account</small>
+                                <small id="departmentSearchError" class="request-field-error" role="alert"></small>
+                            </div>
+                            <div class="request-field">
+                                <label for="reportedBy">Reported by <span aria-hidden="true">*</span></label>
+                                <div class="request-input-with-icon is-locked"><i data-lucide="user-round"></i><input id="reportedBy" type="text" autocomplete="name" readonly required><i data-lucide="lock-keyhole"></i></div>
+                                <small class="request-field-help">The engineering team can see who raised the request</small>
+                                <small id="reportedByError" class="request-field-error" role="alert"></small>
+                            </div>
+                            <div class="request-field is-wide">
+                                <label for="locationRoom">Exact location / room <span aria-hidden="true">*</span></label>
+                                <div class="request-input-with-icon"><i data-lucide="door-open"></i><input id="locationRoom" type="text" maxlength="200" autocomplete="off" placeholder="For example: ICU Bed 7, Room 201" required></div>
+                                <small class="request-field-help">Include the room, bed, bay, counter, or floor so the team can find it quickly</small>
+                                <small id="locationRoomError" class="request-field-error" role="alert"></small>
+                            </div>
+                        </div>
+                    </section>
 
-            <h1>New Maintenance Request</h1>
+                    <section class="request-section" aria-labelledby="requestEquipmentHeading">
+                        <header class="request-section-header">
+                            <span class="request-section-icon is-violet"><i data-lucide="stethoscope"></i></span>
+                            <div><small>Step 2</small><h2 id="requestEquipmentHeading">Which equipment needs help?</h2><p>Select a registered department asset or enter the label details manually.</p></div>
+                        </header>
 
-            <p>
-                Register equipment breakdowns and service requests
-            </p>
+                        <div class="request-asset-picker">
+                            <div class="request-field">
+                                <label for="departmentAssetPicker">Choose from your registered equipment <span class="optional-label">(recommended)</span></label>
+                                <div class="request-select-wrap"><i data-lucide="search"></i><select id="departmentAssetPicker"><option value="">Loading department equipment…</option></select><i data-lucide="chevron-down"></i></div>
+                                <small id="assetPickerHelp" class="request-field-help">Selecting an asset fills the equipment details automatically.</small>
+                            </div>
+                            <button id="useManualEquipment" class="request-secondary-button" type="button"><i data-lucide="pencil-line"></i> Enter manually</button>
+                        </div>
+                        <div id="selectedAssetStatus" class="request-selected-asset" hidden></div>
 
-        </div>
+                        <div class="request-form-grid">
+                            <div class="request-field">
+                                <label for="equipmentIdentifier">Asset / equipment ID <span aria-hidden="true">*</span></label>
+                                <div class="request-input-with-icon"><i data-lucide="barcode"></i><input id="equipmentIdentifier" type="text" maxlength="120" placeholder="Asset ID, serial no. or barcode" required></div>
+                                <small id="equipmentIdentifierError" class="request-field-error" role="alert"></small>
+                            </div>
+                            <div class="request-field">
+                                <label for="equipmentName">Equipment name <span aria-hidden="true">*</span></label>
+                                <div class="request-input-with-icon"><i data-lucide="activity"></i><input id="equipmentName" type="text" maxlength="200" placeholder="For example: Patient monitor" required></div>
+                                <small id="equipmentNameError" class="request-field-error" role="alert"></small>
+                            </div>
+                            <div class="request-field is-wide">
+                                <label for="makeModel">Manufacturer / model <span class="optional-label">(optional)</span></label>
+                                <div class="request-input-with-icon"><i data-lucide="factory"></i><input id="makeModel" type="text" maxlength="200" placeholder="For example: Philips IntelliVue MX450"></div>
+                            </div>
+                        </div>
+                    </section>
 
-        <div class="header-actions">
+                    <section class="request-section" aria-labelledby="requestProblemHeading">
+                        <header class="request-section-header">
+                            <span class="request-section-icon is-amber"><i data-lucide="triangle-alert"></i></span>
+                            <div><small>Step 3</small><h2 id="requestProblemHeading">What is happening?</h2><p>Choose the best category and urgency. Add a short description if it will help the team prepare.</p></div>
+                        </header>
 
-         
+                        <div class="request-form-grid">
+                            <div class="request-field">
+                                <label for="problemCategory">Problem category <span aria-hidden="true">*</span></label>
+                                <div class="request-select-wrap"><i data-lucide="wrench"></i><select id="problemCategory" required><option value="">Select the type of help</option><option>Breakdown</option><option>Calibration</option><option>Preventive Maintenance</option><option>Installation</option><option>Accessories</option></select><i data-lucide="chevron-down"></i></div>
+                                <small id="problemCategoryError" class="request-field-error" role="alert"></small>
+                            </div>
+                            <div class="request-field">
+                                <label for="serviceTeam">Engineering team <span aria-hidden="true">*</span></label>
+                                <div class="request-select-wrap"><i data-lucide="users-round"></i><select id="serviceTeam" required><option value="Biomedical" selected>Biomedical Engineering</option><option value="Electrical">Electrical Engineering</option><option value="IT">IT Department</option></select><i data-lucide="chevron-down"></i></div>
+                                <small class="request-field-help">Choose the team that normally maintains this equipment</small>
+                                <small id="serviceTeamError" class="request-field-error" role="alert"></small>
+                            </div>
+                        </div>
 
-        <div class="header-badge">
+                        <fieldset class="request-priority-fieldset">
+                            <legend>How urgent is it? <span aria-hidden="true">*</span></legend>
+                            <input id="priority" type="hidden" value="Medium">
+                            <div class="request-priority-grid">
+                                <button type="button" data-request-priority="Low"><span class="request-priority-dot is-low"></span><strong>Low</strong><small>Can wait</small></button>
+                                <button type="button" class="is-selected" data-request-priority="Medium" aria-pressed="true"><span class="request-priority-dot is-medium"></span><strong>Medium</strong><small>Normal response</small></button>
+                                <button type="button" data-request-priority="High"><span class="request-priority-dot is-high"></span><strong>High</strong><small>Care is affected</small></button>
+                                <button type="button" data-request-priority="Critical"><span class="request-priority-dot is-critical"></span><strong>Critical</strong><small>Immediate risk</small></button>
+                            </div>
+                            <small id="priorityGuidance" class="request-priority-guidance"><i data-lucide="info"></i> Use Critical only when patient care or safety is immediately affected.</small>
+                        </fieldset>
 
-            <span class="badge-dot"></span>
+                        <div class="request-field request-description-field">
+                            <div class="request-label-row"><label for="failureDescription">What did you observe? <span class="optional-label">(optional)</span></label><span id="failureDescriptionCount">0 / 4000</span></div>
+                            <textarea id="failureDescription" rows="6" maxlength="4000" placeholder="For example: The monitor powers on, but the display remains blank and an alarm sounds every few seconds."></textarea>
+                            <div class="request-description-prompts" aria-label="Description suggestions">
+                                <button type="button" data-description-prompt="The equipment will not power on.">Won’t power on</button>
+                                <button type="button" data-description-prompt="The equipment is showing an error or alarm.">Error / alarm</button>
+                                <button type="button" data-description-prompt="The reading or output appears incorrect.">Incorrect reading</button>
+                                <button type="button" data-description-prompt="A cable, probe, battery, or accessory is damaged or missing.">Accessory issue</button>
+                            </div>
+                        </div>
 
-            BioTrack Live
+                        <label class="ward-boy-assistance-card" for="wardBoyAssistance">
+                            <input type="checkbox" id="wardBoyAssistance">
+                            <span class="ward-boy-assistance-check" aria-hidden="true"><i data-lucide="check"></i></span>
+                            <span class="ward-boy-assistance-icon"><i data-lucide="truck"></i></span>
+                            <span class="ward-boy-assistance-copy"><strong>Equipment needs pickup assistance</strong><small>Create a Ward Boy transport job for heavy or difficult-to-move equipment.</small></span>
+                            <span class="ward-boy-assistance-tag">Optional</span>
+                        </label>
+                    </section>
+                </div>
 
-        </div>
+                <aside class="request-side-column" aria-label="Request review">
+                    <section class="request-review-card">
+                        <header><span><i data-lucide="clipboard-check"></i></span><div><small>Live review</small><h2>Your request</h2></div></header>
+                        <dl>
+                            <div><dt>Department</dt><dd id="summaryDepartment">Not available</dd></div>
+                            <div><dt>Location</dt><dd id="summaryLocation">Add a location</dd></div>
+                            <div><dt>Equipment</dt><dd id="summaryEquipment">Select equipment</dd></div>
+                            <div><dt>Category</dt><dd id="summaryCategory">Choose a category</dd></div>
+                            <div><dt>Priority</dt><dd><span id="summaryPriority" class="request-summary-priority is-medium">Medium</span></dd></div>
+                            <div><dt>Assigned team</dt><dd id="summaryTeam">Biomedical Engineering</dd></div>
+                        </dl>
+                        <div class="request-review-ready" id="requestReadyState"><i data-lucide="circle-dashed"></i><span><strong>Complete the required fields</strong><small>Your ticket will be created instantly after submission.</small></span></div>
+                    </section>
 
+                    <section class="request-help-card">
+                        <span class="request-help-icon"><i data-lucide="route"></i></span>
+                        <h3>What happens next?</h3>
+                        <ol><li><b>1</b><span><strong>Ticket created</strong><small>You receive a tracking number.</small></span></li><li><b>2</b><span><strong>Engineering review</strong><small>The correct team assesses urgency.</small></span></li><li><b>3</b><span><strong>Status updates</strong><small>Follow progress in My Requests.</small></span></li></ol>
+                    </section>
+
+                    <div class="request-emergency-note"><i data-lucide="siren"></i><p><strong>Immediate patient-safety risk?</strong><span>Submit this request, then call the engineering desk using your hospital emergency process.</span></p></div>
+                </aside>
+            </div>
+
+            <footer class="request-form-actions">
+                <div><strong>Ready to send?</strong><span>Required fields are marked with an asterisk.</span></div>
+                <div class="request-action-buttons">
+                    <button class="clear-btn" type="button"><i data-lucide="rotate-ccw"></i> Reset form</button>
+                    <button id="submitRequestBtn" class="save-btn" type="submit"><span class="request-submit-icon"><i data-lucide="send"></i></span><span class="request-submit-copy"><strong>Submit maintenance request</strong><small>Create a trackable ticket</small></span><i data-lucide="arrow-right"></i></button>
+                </div>
+            </footer>
+        </form>
     </div>
-
-    </div>
-
-    <!-- Call Information -->
-
-    <div class="form-card">
-
-    <h2>🏥 Department Information</h2>
-
-    <div class="form-grid">
-
-        <div class="form-group">
-
-    <label>Department *</label>
-
-    <div class="searchable-dropdown">
-
-        <input
-            type="text"
-            id="departmentSearch"
-            placeholder="🔍 Search Department..."
-            autocomplete="off">
-
-        <div
-            id="departmentList"
-            class="department-list">
-
-            <div class="department-item">ICU</div>
-            <div class="department-item">NICU</div>
-            <div class="department-item">OT</div>
-            <div class="department-item">Radiology</div>
-            <div class="department-item">Cardiology</div>
-            <div class="department-item">Laboratory</div>
-            <div class="department-item">Dialysis</div>
-            <div class="department-item">Emergency</div>
-            <div class="department-item">Ward</div>
-
-        </div>
-
-    </div>
-
-</div>
-
-        <div class="form-group">
-
-            <label>Location / Room</label>
-
-            <input
-                type="text"
-                id="locationRoom"   
-                placeholder="Bed 7 / Room 201">
-
-        </div>
-
-        <div class="form-group">
-
-            <label>Reported By</label>
-
-            <input
-                type="text"
-                id="reportedBy"
-                placeholder="Staff Name">
-
-        </div>
-
-    </div>
-
-</div>
-
-    <!-- Equipment -->
-
-    <!-- Equipment Information -->
-
-<div class="form-card">
-
-    <h2>📦 Equipment Information</h2>
-
-    <div class="form-grid">
-
-        <div class="form-group">
-
-            <label>
-
-                Equipment Identifier
-                <span class="required">*</span>
-
-            </label>
-
-            <input
-                type="text"
-                id="equipmentIdentifier"
-                placeholder="Asset ID, Equipment Number, Serial Number or Barcode">
-
-            
-
-        </div>
-
-        <div class="form-group">
-
-            <label>Equipment Name</label>
-
-            <input
-                type="text"
-                id="equipmentName"
-                placeholder="Equipment Name">
-
-        </div>
-
-        <div class="form-group">
-
-            <label>
-                Make / Model
-            </label>
-
-            <input
-                type="text"
-                id="makeModel"
-                placeholder="Manufacturer / Model">
-
-        </div>
-
-    </div>
-
-</div>  
-
-    <!-- Problem -->
-
-    <!-- Problem Information -->
-
-<div class="form-card">
-
-    <h2>⚠ Problem Information</h2>
-
-    <div class="form-grid">
-
-        <div class="form-group">
-
-            <label>Problem Category *</label>
-
-            <select id="problemCategory">
-
-                <option value="" disabled selected>Select Category</option>
-
-                <option>Breakdown</option>
-
-                <option>Calibration</option>
-
-                <option>Preventive Maintenance</option>
-
-                <option>Installation</option>
-
-                <option>Accessories</option>
-
-            </select>
-
-        </div>
-
-        <div class="form-group">
-
-            <label>Service Department to Call *</label>
-
-            <select id="serviceTeam">
-
-                <option value="Biomedical" selected>Biomedical Engineering</option>
-
-                <option value="Electrical">Electrical Engineering</option>
-
-                <option value="IT">IT Department</option>
-
-            </select>
-
-        </div>
-                
-
-        <div class="form-group">
-
-            <label>Priority *</label>
-
-            <select id="priority">
-
-                <option>Critical</option>
-
-                <option>High</option>
-
-                <option selected>Medium</option>
-
-                <option>Low</option>
-
-            </select>
-
-        </div>
-
-    </div>
-
-    <div class="form-group">
-
-        <label>
-            Failure Description <span class="optional-label">(optional)</span>
-        </label>
-
-        <textarea
-            id="failureDescription"
-            rows="8"
-            placeholder="Describe what happened, if known...">
-        </textarea>
-
-    </div>
-
-    <label class="ward-boy-assistance-card" for="wardBoyAssistance">
-        <input type="checkbox" id="wardBoyAssistance">
-        <span class="ward-boy-assistance-check" aria-hidden="true"><i data-lucide="check"></i></span>
-        <span class="ward-boy-assistance-icon"><i data-lucide="truck"></i></span>
-        <span class="ward-boy-assistance-copy">
-            <strong>Request Ward Boy assistance</strong>
-            <small>Send a pickup job to transport heavy equipment from this ward to the selected engineering workshop.</small>
-        </span>
-    </label>
-
-</div>
-
-
-
-    <!-- Buttons -->
-
-    <!-- Submit -->
-
-<!-- Buttons -->
-
-<div class="button-row">
-
-    <button
-        id="submitRequestBtn"
-        class="save-btn">
-
-        + Submit Maintenance Request
-
-    </button>
-
-    <button class="clear-btn">
-
-        Clear fields
-
-    </button>
-
-</div>
-
-</div>
-
-<!-- Toast Container -->
-
-<div id="toastContainer"></div>
-
-
-
- 
-
- 
+</section>

@@ -28,7 +28,7 @@ test("QR profile renders separate department, engineer and administrator workflo
 
 test("scanned maintenance request is prefilled and failure description is optional", () => {
     const source = read("frontend/dashboard_v2/js/new_request.js");
-    const validationBlock = source.slice(source.indexOf("function validateForm"), source.indexOf("function initializeSubmitButton"));
+    const validationBlock = source.slice(source.indexOf("function validateForm"), source.indexOf("function setRequestFieldError"));
     assert.match(source, /applyQRMaintenancePrefill/);
     assert.match(source, /qrMaintenancePrefill/);
     assert.match(source, /field\.readOnly = Boolean\(suppliedValue\)/);
@@ -36,5 +36,5 @@ test("scanned maintenance request is prefilled and failure description is option
     assert.doesNotMatch(validationBlock, /failureDescription/);
 
     const partial = read("frontend/dashboard_v2/partials/new_request.html");
-    assert.match(partial, /Failure Description <span class="optional-label">\(optional\)<\/span>/);
+    assert.match(partial, /What did you observe\? <span class="optional-label">\(optional\)<\/span>/);
 });
