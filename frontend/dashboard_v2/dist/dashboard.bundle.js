@@ -467,6 +467,31 @@ const API = {
     dashboard: "/api/dashboard/v2"
 
 };
+
+async function fetchPaginatedList(endpoint, options = {}, pageSize = 250) {
+    const items = [];
+    let offset = 0;
+
+    while (true) {
+        const url = new URL(endpoint, window.location.origin);
+        url.searchParams.set("limit", String(pageSize));
+        url.searchParams.set("offset", String(offset));
+        const response = await fetch(`${url.pathname}${url.search}`, options);
+        const page = await response.json().catch(() => ([]));
+        if (!response.ok) {
+            throw new Error(page.detail || `Request failed with status ${response.status}.`);
+        }
+        if (!Array.isArray(page)) {
+            throw new Error("The server returned an invalid paginated response.");
+        }
+        items.push(...page);
+        if (page.length < pageSize) return items;
+        offset += page.length;
+        if (offset >= 100000) {
+            throw new Error("The result set is too large to load safely.");
+        }
+    }
+}
 // ==========================================
 // LOGOUT
 // ==========================================
@@ -4518,9 +4543,7 @@ async function loadAssets() {
 
     try {
 
-        const response = await fetch("/api/assets/");
-
-        const assets = await response.json();
+        const assets = await fetchPaginatedList("/api/assets/");
 
         assetsCache = Array.isArray(assets) ? assets : [];
         const availableIds = new Set(assetsCache.map(asset => Number(asset.id)));
@@ -4976,9 +4999,7 @@ async function openAssetQRGenerator(assetId = null) {
     let assets = assetsCache;
     if (!assets.length) {
         try {
-            const response = await fetch("/api/assets/", { cache: "no-store" });
-            if (!response.ok) throw new Error("Unable to load assets.");
-            assets = await response.json();
+            assets = await fetchPaginatedList("/api/assets/", { cache: "no-store" });
             assetsCache = Array.isArray(assets) ? assets : [];
         } catch (error) {
             BioTrackToast.error("Assets unavailable", error.message || "Unable to load assets.");
@@ -12884,9 +12905,7 @@ async function loadUsers() {
     const refreshButton = document.querySelector(".users-refresh-button");
     refreshButton?.classList.add("is-loading");
     try {
-        const response = await fetch("/api/users", { cache: "no-store" });
-        const data = await response.json().catch(() => []);
-        if (!response.ok) throw new Error(data.detail || "Unable to load users.");
+        const data = await fetchPaginatedList("/api/users", { cache: "no-store" });
         usersCache = Array.isArray(data) ? data : [];
         populateUserFilters(usersCache);
         renderUserStats(usersCache);

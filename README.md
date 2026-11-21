@@ -7,10 +7,10 @@ FastAPI and SQLite application for managing biomedical assets, maintenance reque
 1. Create and activate a Python virtual environment.
 2. Install dependencies with `pip install -r requirements.txt`.
 3. Copy `.env.example` to `.env`, then replace the placeholder secret and bootstrap password. Do not commit `.env`.
-4. For an existing database, run `python -m backend.migrations.add_electrical_engineer_support`, `python -m backend.migrations.separate_engineering_assets_inventory`, `python -m backend.migrations.scope_inventory_bpk_to_service_team`, `python -m backend.migrations.add_spare_parts_stock_consumption`, `python -m backend.migrations.add_service_operations_features`, `python -m backend.migrations.add_central_store_workflow`, and `python -m backend.migrations.add_security_hardening` once. Re-run the first migration after updating to add the IT role.
+4. For an existing database, back it up and run `python -m backend.migrations.run_all`. The ordered runner applies every reviewed migration and safely skips changes that are already present.
 5. Run `npm run audit` for the full database, route, offline-cache, bundle, frontend, and backend readiness audit. GitHub Actions runs the same audit on every push and pull request, once daily, and on manual request.
-5. Start the app from this directory: `uvicorn backend.main:app --reload`.
-6. Open `http://127.0.0.1:8000`.
+6. Start the app from this directory: `uvicorn backend.main:app --reload`.
+7. Open `http://127.0.0.1:8000`.
 
 ## Progressive Web App
 
@@ -40,7 +40,7 @@ All `/api` endpoints except login require the HttpOnly session cookie issued by 
 
 ## Database changes
 
-The application creates missing tables but does not modify existing tables at startup. `database/schema.sql` describes a clean current installation; existing databases must use the reviewed migration scripts. Back up `database/biotrack.db` before applying migrations.
+The application creates missing tables but does not modify existing tables at startup. `database/schema.sql` describes a clean current installation; existing databases must use `python -m backend.migrations.run_all`. Back up `database/biotrack.db` before applying migrations.
 
 ## Persistent data with free Render hosting
 

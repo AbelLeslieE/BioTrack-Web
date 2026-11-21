@@ -55,6 +55,9 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         request.state.request_id = request.headers.get("x-request-id", "")[:64] or uuid4().hex
 
         direct_dashboard_files = {
+            "/static/dashboard.html": "/dashboard",
+            "/static/biomedical_dashboard.html": "/dashboard",
+            "/static/user_dashboard.html": "/dashboard",
             "/static/dashboard_v2/dashboard.html": "/dashboard",
             "/static/dashboard_v2/maintenance.html": "/maintenance",
             "/static/devices.html": "/devices",
@@ -102,7 +105,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; "
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
+            "script-src 'self' 'unsafe-inline'; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com data:; "
             "img-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; "

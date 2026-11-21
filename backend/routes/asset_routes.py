@@ -122,9 +122,19 @@ async def upload_asset_excel(
 def get_assets(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    limit: int = 250,
+    offset: int = 0,
 ):
 
-    assets = _assets_visible_to(db, current_user).order_by(Asset.id.desc()).all()
+    page_size = max(1, min(int(limit), 500))
+    page_offset = max(0, int(offset))
+    assets = (
+        _assets_visible_to(db, current_user)
+        .order_by(Asset.id.desc())
+        .offset(page_offset)
+        .limit(page_size)
+        .all()
+    )
 
     return [
         {

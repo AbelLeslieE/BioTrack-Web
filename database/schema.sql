@@ -157,6 +157,25 @@ CREATE TABLE IF NOT EXISTS asset_spares (
     FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS asset_relocation_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    asset_id INTEGER NOT NULL,
+    requested_by TEXT NOT NULL,
+    requester_department TEXT NOT NULL,
+    service_team TEXT NOT NULL,
+    from_department TEXT,
+    from_location TEXT,
+    target_department TEXT NOT NULL,
+    target_location TEXT,
+    reason TEXT,
+    status TEXT NOT NULL DEFAULT 'Pending',
+    reviewed_by TEXT,
+    review_note TEXT,
+    reviewed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (asset_id) REFERENCES assets(id)
+);
+
 CREATE TABLE IF NOT EXISTS devices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     device_name TEXT,
@@ -431,7 +450,21 @@ CREATE TABLE IF NOT EXISTS logs (
     updated_at TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS report_schedules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_by TEXT NOT NULL,
+    report_format TEXT NOT NULL,
+    frequency TEXT NOT NULL,
+    filters_json TEXT NOT NULL DEFAULT '{}',
+    active BOOLEAN NOT NULL DEFAULT 1,
+    last_run_at TIMESTAMP,
+    next_run_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS ix_assets_service_team ON assets(service_team);
+CREATE INDEX IF NOT EXISTS ix_asset_relocation_requests_asset_id ON asset_relocation_requests(asset_id);
+CREATE INDEX IF NOT EXISTS ix_asset_relocation_requests_status ON asset_relocation_requests(status);
 CREATE INDEX IF NOT EXISTS ix_inventory_service_team ON inventory(service_team);
 CREATE INDEX IF NOT EXISTS ix_requests_created_by ON requests(created_by);
 CREATE INDEX IF NOT EXISTS ix_requests_service_team ON requests(service_team);

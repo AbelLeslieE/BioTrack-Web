@@ -55,8 +55,20 @@ class UserCreate(UserFields):
         return value
 
 @router.get("")
-def get_users(db:Session=Depends(get_db)):
-    users=db.query(User).all()
+def get_users(
+    db: Session = Depends(get_db),
+    limit: int = 250,
+    offset: int = 0,
+):
+    page_size = max(1, min(int(limit), 500))
+    page_offset = max(0, int(offset))
+    users = (
+        db.query(User)
+        .order_by(User.id.asc())
+        .offset(page_offset)
+        .limit(page_size)
+        .all()
+    )
     return [{
         "id":u.id,
         "name":u.name,

@@ -71,9 +71,7 @@ async function loadUsers() {
     const refreshButton = document.querySelector(".users-refresh-button");
     refreshButton?.classList.add("is-loading");
     try {
-        const response = await fetch("/api/users", { cache: "no-store" });
-        const data = await response.json().catch(() => []);
-        if (!response.ok) throw new Error(data.detail || "Unable to load users.");
+        const data = await fetchPaginatedList("/api/users", { cache: "no-store" });
         usersCache = Array.isArray(data) ? data : [];
         populateUserFilters(usersCache);
         renderUserStats(usersCache);

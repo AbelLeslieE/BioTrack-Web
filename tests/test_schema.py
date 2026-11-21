@@ -2,6 +2,10 @@ import sqlite3
 import unittest
 from pathlib import Path
 
+from sqlalchemy import create_engine, inspect
+
+from backend.models import Base
+
 
 class SchemaTests(unittest.TestCase):
     def test_schema_builds_every_application_table(self):
@@ -18,31 +22,24 @@ class SchemaTests(unittest.TestCase):
         finally:
             connection.close()
 
-        self.assertTrue(
-            {
-                "users",
-                "assets",
-                "asset_documents",
-                "asset_history",
-                "asset_spares",
-                "devices",
-                "inventory",
-                "requests",
-                "ward_boy_tasks",
-                "pm_schedules",
-                "pm_history",
-                "departments",
-                "manufacturers",
-                "suppliers",
-                "logs",
-                "request_attachments",
-                "vendor_contracts",
-                "vendor_service_history",
-                "central_store_items",
-                "spare_part_requests",
-                "store_delivery_tasks",
-            }.issubset(tables)
-        )
+        self.assertEqual(tables, set(Base.metadata.tables))
+
+        orm_engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(orm_engine)
+        orm_inspector = inspect(orm_engine)
+        try:
+            connection = sqlite3.connect(":memory:")
+            connection.executescript(schema_path.read_text(encoding="utf-8"))
+            for table in sorted(tables):
+                schema_columns = {
+                    row[1] for row in connection.execute(f'PRAGMA table_info("{table}")')
+                }
+                orm_columns = {
+                    column["name"] for column in orm_inspector.get_columns(table)
+                }
+                self.assertEqual(schema_columns, orm_columns, table)
+        finally:
+            connection.close()
 
         connection = sqlite3.connect(":memory:")
         try:

@@ -462,9 +462,7 @@ async function loadGenerateQRAssets() {
 
     try {
 
-        const response = await fetch("/api/assets/");
-
-        const assets = await response.json();
+        const assets = await fetchPaginatedList("/api/assets/");
 
         qrAssetsCache = Array.isArray(assets) ? assets : [];
         applyGenerateQRSearch();

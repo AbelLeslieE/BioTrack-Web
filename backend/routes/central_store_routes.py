@@ -212,7 +212,12 @@ def _serialize_request(db: Session, request: SparePartRequest) -> dict:
 def _issue_internal_stock(db: Session, request: SparePartRequest) -> None:
     if request.stock_issued:
         return
-    item = db.get(CentralStoreItem, request.central_store_item_id)
+    item = (
+        db.query(CentralStoreItem)
+        .filter(CentralStoreItem.id == request.central_store_item_id)
+        .with_for_update()
+        .one_or_none()
+    )
     if not item or not item.active:
         raise HTTPException(status_code=409, detail="The selected Central Store item is unavailable.")
     if (item.current_stock or 0) < request.quantity:
@@ -458,7 +463,12 @@ def process_spare_request(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("Manager", "CentralStore")),
 ):
-    request = db.get(SparePartRequest, request_id)
+    request = (
+        db.query(SparePartRequest)
+        .filter(SparePartRequest.id == request_id)
+        .with_for_update()
+        .one_or_none()
+    )
     if not request:
         raise HTTPException(status_code=404, detail="Spare-part request not found.")
     now = datetime.now()

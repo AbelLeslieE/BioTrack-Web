@@ -6,6 +6,7 @@ from backend.models.security_audit import SecurityAudit
 from backend.models.request import Request
 from backend.models.request_attachment import RequestAttachment
 from backend.models.device import Device
+from backend.models.log import Log
 
 from backend.models.asset import Asset
 from backend.models.asset_document import AssetDocument

@@ -190,12 +190,18 @@ def create_request(
 
 @router.get("/api/requests", dependencies=[Depends(require_roles("Manager", "BME"))])
 def get_requests(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    limit: int = 250,
+    offset: int = 0,
 ):
 
+    page_size = max(1, min(int(limit), 500))
+    page_offset = max(0, int(offset))
     requests = (
         db.query(Request)
         .order_by(Request.id.desc())
+        .offset(page_offset)
+        .limit(page_size)
         .all()
     )
 

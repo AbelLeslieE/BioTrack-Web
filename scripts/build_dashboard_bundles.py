@@ -125,15 +125,19 @@ def build_bundle(paths: list[str], output_name: str, separator: str) -> Path:
     return destination
 
 
-def copy_icon_runtime() -> list[Path]:
-    """Keep every icon dependency on the same origin as the dashboard."""
+def copy_vendor_runtime() -> list[Path]:
+    """Keep browser dependencies on the same origin as the dashboard."""
 
     lucide_source = ROOT / "node_modules" / "lucide" / "dist" / "umd" / "lucide.min.js"
     fontawesome_root = ROOT / "node_modules" / "@fortawesome" / "fontawesome-free"
+    chart_source = ROOT / "node_modules" / "chart.js" / "dist" / "chart.umd.min.js"
+    scanner_source = ROOT / "node_modules" / "html5-qrcode" / "html5-qrcode.min.js"
     required_sources = [
         lucide_source,
         fontawesome_root / "css" / "all.min.css",
         fontawesome_root / "webfonts",
+        chart_source,
+        scanner_source,
     ]
     missing = [str(source.relative_to(ROOT)) for source in required_sources if not source.exists()]
     if missing:
@@ -144,6 +148,10 @@ def copy_icon_runtime() -> list[Path]:
     VENDOR_OUTPUT.mkdir(parents=True, exist_ok=True)
     lucide_destination = VENDOR_OUTPUT / "lucide.min.js"
     copy2(lucide_source, lucide_destination)
+    chart_destination = VENDOR_OUTPUT / "chart.umd.min.js"
+    scanner_destination = VENDOR_OUTPUT / "html5-qrcode.min.js"
+    copy2(chart_source, chart_destination)
+    copy2(scanner_source, scanner_destination)
 
     fontawesome_destination = VENDOR_OUTPUT / "fontawesome"
     (fontawesome_destination / "css").mkdir(parents=True, exist_ok=True)
@@ -153,11 +161,16 @@ def copy_icon_runtime() -> list[Path]:
         fontawesome_destination / "webfonts",
         dirs_exist_ok=True,
     )
-    return [lucide_destination, fontawesome_destination / "css" / "all.min.css"]
+    return [
+        lucide_destination,
+        chart_destination,
+        scanner_destination,
+        fontawesome_destination / "css" / "all.min.css",
+    ]
 
 
 if __name__ == "__main__":
-    vendor_files = copy_icon_runtime()
+    vendor_files = copy_vendor_runtime()
     css = build_bundle(CSS_FILES, "dashboard.bundle.css", "\n\n")
     js = build_bundle(JS_FILES, "dashboard.bundle.js", "\n;\n")
     for vendor_file in vendor_files:

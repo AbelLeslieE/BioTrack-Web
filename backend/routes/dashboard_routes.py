@@ -3,6 +3,7 @@
 # ==========================================
 
 from fastapi import APIRouter, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
@@ -17,7 +18,7 @@ from backend.models.asset_relocation_request import AssetRelocationRequest
 from backend.models.ward_boy_task import WardBoyTask
 from backend.auth import get_current_user, require_roles
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 # ==========================================
 # ROUTER
@@ -191,59 +192,75 @@ def dashboard_v2(
             return "Electrical"
         return "Biomedical"
 
-    requests = db.query(Request).order_by(Request.id.desc()).all()
-    assets = db.query(Asset).all()
-    inventory_items = db.query(Inventory).all()
-    pm_schedules = db.query(PMSchedule).all()
     today = date.today()
     now = datetime.now()
+    tomorrow = today + timedelta(days=1)
+
+    def team_filter(column, team: str):
+        normalized = func.lower(func.trim(func.coalesce(column, "Biomedical")))
+        if team == "IT":
+            return normalized.in_(("it", "information technology"))
+        if team == "Electrical":
+            return normalized == "electrical"
+        return normalized.notin_(("electrical", "it", "information technology"))
 
     team_activity = []
     for team, role in team_definitions:
-        team_requests = [item for item in requests if normalized_team(item.service_team) == team]
-        team_assets = [item for item in assets if normalized_team(item.service_team) == team]
-        team_inventory = [item for item in inventory_items if normalized_team(item.service_team) == team]
-        completed_today = sum(
-            item.status in completed_statuses
-            and item.fixed_datetime is not None
-            and item.fixed_datetime.date() == today
-            for item in team_requests
-        )
-        low_stock = sum(
-            (item.current_stock or 0) <= (item.minimum_stock or 0)
-            for item in team_inventory
-        )
+        request_scope = db.query(Request).filter(team_filter(Request.service_team, team))
+        asset_scope = db.query(Asset).filter(team_filter(Asset.service_team, team))
+        inventory_scope = db.query(Inventory).filter(team_filter(Inventory.service_team, team))
+        active_calls = request_scope.filter(Request.status.in_(active_statuses)).count()
+        open_calls = request_scope.filter(Request.status.in_(("Open", "Assigned"))).count()
+        in_progress = request_scope.filter(Request.status == "In Progress").count()
+        awaiting_parts = request_scope.filter(Request.status == "Awaiting Parts").count()
+        completed_today = request_scope.filter(
+            Request.status.in_(completed_statuses),
+            Request.fixed_datetime >= datetime.combine(today, datetime.min.time()),
+            Request.fixed_datetime < datetime.combine(tomorrow, datetime.min.time()),
+        ).count()
+        critical_calls = request_scope.filter(
+            Request.status.in_(active_statuses),
+            func.lower(func.coalesce(Request.priority, "")) == "critical",
+        ).count()
+        asset_count = asset_scope.count()
+        out_of_service = asset_scope.filter(
+            func.lower(func.coalesce(Asset.status, "")).in_(("out of service", "inactive"))
+        ).count()
+        inventory_count = inventory_scope.count()
+        low_stock = inventory_scope.filter(
+            func.coalesce(Inventory.current_stock, 0)
+            <= func.coalesce(Inventory.minimum_stock, 0)
+        ).count()
         team_activity.append({
             "team": team,
-            "active_calls": sum(item.status in active_statuses for item in team_requests),
-            "open_calls": sum(item.status in {"Open", "Assigned"} for item in team_requests),
-            "in_progress": sum(item.status == "In Progress" for item in team_requests),
-            "awaiting_parts": sum(item.status == "Awaiting Parts" for item in team_requests),
+            "active_calls": active_calls,
+            "open_calls": open_calls,
+            "in_progress": in_progress,
+            "awaiting_parts": awaiting_parts,
             "completed_today": completed_today,
-            "critical_calls": sum(
-                item.status in active_statuses and (item.priority or "").lower() == "critical"
-                for item in team_requests
-            ),
-            "assets": len(team_assets),
-            "out_of_service_assets": sum(
-                (item.status or "").lower() in {"out of service", "inactive"}
-                for item in team_assets
-            ),
-            "inventory_items": len(team_inventory),
+            "critical_calls": critical_calls,
+            "assets": asset_count,
+            "out_of_service_assets": out_of_service,
+            "inventory_items": inventory_count,
             "low_stock": low_stock,
             "engineers": db.query(User).filter(User.role == role).count(),
         })
 
-    completed_requests = [
-        item for item in requests
-        if item.status in completed_statuses and (item.final_downtime_hours or 0) > 0
-    ]
+    recent_requests = (
+        db.query(Request)
+        .order_by(
+            func.coalesce(
+                Request.fixed_datetime,
+                Request.engineer_start_datetime,
+                Request.call_received_datetime,
+            ).desc(),
+            Request.id.desc(),
+        )
+        .limit(10)
+        .all()
+    )
     recent_activity = []
-    for item in sorted(
-        requests,
-        key=lambda request: request.fixed_datetime or request.engineer_start_datetime or request.call_received_datetime or datetime.min,
-        reverse=True,
-    )[:10]:
+    for item in recent_requests:
         occurred_at = item.fixed_datetime or item.engineer_start_datetime or item.call_received_datetime
         recent_activity.append({
             "ticket_number": item.ticket_number or f"Call #{item.id}",
@@ -258,60 +275,72 @@ def dashboard_v2(
     active_calls = sum(item["active_calls"] for item in team_activity)
     critical_calls = sum(item["critical_calls"] for item in team_activity)
     inventory_alerts = sum(item["low_stock"] for item in team_activity)
-    active_requests = [item for item in requests if item.status in active_statuses]
+    active_received_times = (
+        db.query(Request.call_received_datetime)
+        .filter(
+            Request.status.in_(active_statuses),
+            Request.call_received_datetime.is_not(None),
+        )
+        .all()
+    )
     active_downtime_values = [
-        max((now - item.call_received_datetime).total_seconds() / 3600, 0)
-        for item in active_requests
-        if item.call_received_datetime is not None
+        max((now - received_at).total_seconds() / 3600, 0)
+        for (received_at,) in active_received_times
     ]
-    out_of_stock = sum((item.current_stock or 0) <= 0 for item in inventory_items)
-    out_of_service_assets = sum(
-        (item.status or "").lower() in {"out of service", "inactive"}
-        for item in assets
-    )
-    pm_due = sum((item.status or "") in {"Due", "Overdue"} for item in pm_schedules)
-    pm_overdue = sum((item.status or "") == "Overdue" for item in pm_schedules)
-    pm_pending_confirmation = sum(
-        (item.department_response or "Pending") == "Pending"
-        and (item.status or "") not in {"Completed", "Closed"}
-        for item in pm_schedules
-    )
+    inventory_count = db.query(Inventory).count()
+    out_of_stock = db.query(Inventory).filter(
+        func.coalesce(Inventory.current_stock, 0) <= 0
+    ).count()
+    inventory_value = db.query(
+        func.coalesce(func.sum(
+            func.coalesce(Inventory.current_stock, 0)
+            * func.coalesce(Inventory.purchase_price, 0)
+        ), 0)
+    ).scalar()
+    asset_count = db.query(Asset).count()
+    out_of_service_assets = db.query(Asset).filter(
+        func.lower(func.coalesce(Asset.status, "")).in_(("out of service", "inactive"))
+    ).count()
+    pm_due = db.query(PMSchedule).filter(PMSchedule.status.in_(("Due", "Overdue"))).count()
+    pm_overdue = db.query(PMSchedule).filter(PMSchedule.status == "Overdue").count()
+    pm_pending_confirmation = db.query(PMSchedule).filter(
+        func.coalesce(PMSchedule.department_response, "Pending") == "Pending",
+        func.coalesce(PMSchedule.status, "").notin_(("Completed", "Closed")),
+    ).count()
+    average_downtime = db.query(func.avg(Request.final_downtime_hours)).filter(
+        Request.status.in_(completed_statuses),
+        Request.final_downtime_hours > 0,
+    ).scalar()
     stock_health_percent = round(
-        ((len(inventory_items) - inventory_alerts) / len(inventory_items)) * 100
-    ) if inventory_items else 100
+        ((inventory_count - inventory_alerts) / inventory_count) * 100
+    ) if inventory_count else 100
     asset_availability_percent = round(
-        ((len(assets) - out_of_service_assets) / len(assets)) * 100
-    ) if assets else 100
+        ((asset_count - out_of_service_assets) / asset_count) * 100
+    ) if asset_count else 100
     return {
         "generated_at": datetime.now().isoformat(),
         "summary": {
             "active_calls": active_calls,
             "critical_calls": critical_calls,
             "completed_today": sum(item["completed_today"] for item in team_activity),
-            "total_assets": len(assets),
+            "total_assets": asset_count,
             "inventory_alerts": inventory_alerts,
-            "inventory_items": len(inventory_items),
+            "inventory_items": inventory_count,
             "out_of_stock": out_of_stock,
             "stock_health_percent": stock_health_percent,
-            "inventory_value": round(sum(
-                (item.current_stock or 0) * (item.purchase_price or 0)
-                for item in inventory_items
-            ), 2),
+            "inventory_value": round(float(inventory_value or 0), 2),
             "engineers": sum(item["engineers"] for item in team_activity),
             "pm_due": pm_due,
             "pm_overdue": pm_overdue,
             "pm_pending_confirmation": pm_pending_confirmation,
-            "open_calls": sum(item.status in {"Open", "Assigned"} for item in requests),
-            "in_progress": sum(item.status == "In Progress" for item in requests),
-            "awaiting_parts": sum(item.status == "Awaiting Parts" for item in requests),
+            "open_calls": sum(item["open_calls"] for item in team_activity),
+            "in_progress": sum(item["in_progress"] for item in team_activity),
+            "awaiting_parts": sum(item["awaiting_parts"] for item in team_activity),
             "out_of_service_assets": out_of_service_assets,
             "asset_availability_percent": asset_availability_percent,
             "active_downtime_hours": round(sum(active_downtime_values), 1),
             "oldest_active_call_hours": round(max(active_downtime_values), 1) if active_downtime_values else 0,
-            "avg_downtime": round(
-                sum(item.final_downtime_hours or 0 for item in completed_requests) / len(completed_requests),
-                2,
-            ) if completed_requests else 0,
+            "avg_downtime": round(float(average_downtime or 0), 2),
         },
         "teams": team_activity,
         "recent_activity": recent_activity,

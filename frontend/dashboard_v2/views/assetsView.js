@@ -346,9 +346,7 @@ async function loadAssets() {
 
     try {
 
-        const response = await fetch("/api/assets/");
-
-        const assets = await response.json();
+        const assets = await fetchPaginatedList("/api/assets/");
 
         assetsCache = Array.isArray(assets) ? assets : [];
         const availableIds = new Set(assetsCache.map(asset => Number(asset.id)));
@@ -804,9 +802,7 @@ async function openAssetQRGenerator(assetId = null) {
     let assets = assetsCache;
     if (!assets.length) {
         try {
-            const response = await fetch("/api/assets/", { cache: "no-store" });
-            if (!response.ok) throw new Error("Unable to load assets.");
-            assets = await response.json();
+            assets = await fetchPaginatedList("/api/assets/", { cache: "no-store" });
             assetsCache = Array.isArray(assets) ? assets : [];
         } catch (error) {
             BioTrackToast.error("Assets unavailable", error.message || "Unable to load assets.");

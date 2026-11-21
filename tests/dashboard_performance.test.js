@@ -17,7 +17,7 @@ test("dashboard loads local application code from two bundles", () => {
     assert.equal(applicationScripts.length, 1);
     assert.ok(applicationScripts[0][1].includes("dashboard.bundle.js"));
     assert.ok(localStyles.every(match => /dashboard\.bundle|vendor\/fontawesome/.test(match[1])));
-    assert.ok(localScripts.every(match => /dashboard\.bundle|vendor\/lucide|js\/pwa/.test(match[1])));
+    assert.ok(localScripts.every(match => /dashboard\.bundle|vendor\/(?:lucide|chart\.umd|html5-qrcode)|js\/pwa/.test(match[1])));
 
     for (const file of ["dashboard.bundle.css", "dashboard.bundle.js"]) {
         const bundle = path.join(root, "frontend/dashboard_v2/dist", file);

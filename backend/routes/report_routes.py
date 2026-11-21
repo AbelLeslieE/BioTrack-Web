@@ -13,6 +13,7 @@ from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4, landscape
@@ -933,8 +934,8 @@ def export_report(
         sheet.freeze_panes = "A2"
         sheet.auto_filter.ref = sheet.dimensions
         for cell in sheet[1]:
-            cell.font = cell.font.copy(bold=True, color="FFFFFF")
-            cell.fill = cell.fill.copy(fill_type="solid", fgColor="2563EB")
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(fill_type="solid", fgColor="2563EB")
         for column in sheet.columns:
             width = min(max(len(str(cell.value or "")) for cell in column) + 2, 42)
             sheet.column_dimensions[column[0].column_letter].width = width

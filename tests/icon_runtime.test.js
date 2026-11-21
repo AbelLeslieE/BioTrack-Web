@@ -30,10 +30,16 @@ test("icon libraries are served locally instead of relying on public CDNs", () =
 
     assert.doesNotMatch(html, /unpkg\.com\/lucide/i);
     assert.doesNotMatch(html, /cdnjs\.cloudflare\.com\/ajax\/libs\/font-awesome/i);
+    assert.doesNotMatch(html, /cdn\.jsdelivr\.net\/npm\/chart\.js/i);
+    assert.doesNotMatch(html, /unpkg\.com\/html5-qrcode/i);
     assert.match(html, /\/static\/vendor\/lucide\.min\.js/);
     assert.match(html, /\/static\/vendor\/fontawesome\/css\/all\.min\.css/);
+    assert.match(html, /\/static\/vendor\/chart\.umd\.min\.js/);
+    assert.match(html, /\/static\/vendor\/html5-qrcode\.min\.js/);
 
     assert.ok(fs.statSync(path.join(frontend, "vendor", "lucide.min.js")).size > 100_000);
+    assert.ok(fs.statSync(path.join(frontend, "vendor", "chart.umd.min.js")).size > 100_000);
+    assert.ok(fs.statSync(path.join(frontend, "vendor", "html5-qrcode.min.js")).size > 100_000);
     assert.ok(fs.statSync(path.join(frontend, "vendor", "fontawesome", "css", "all.min.css")).size > 10_000);
     assert.ok(fs.statSync(path.join(frontend, "vendor", "fontawesome", "webfonts", "fa-solid-900.woff2")).size > 10_000);
 });

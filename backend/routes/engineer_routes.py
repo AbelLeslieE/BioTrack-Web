@@ -80,6 +80,8 @@ def _inventory_items_for_parts(db: Session, service_team: str, *part_lists: list
     items = (
         db.query(Inventory)
         .filter(Inventory.id.in_(item_ids), Inventory.service_team == service_team)
+        .order_by(Inventory.id.asc())
+        .with_for_update()
         .all()
     )
     items_by_id = {item.id: item for item in items}
@@ -220,7 +222,11 @@ def get_ticket(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    ticket = _calls_for_team(db, current_user).filter(Request.id == ticket_id).first()
+    ticket = (
+        _calls_for_team(db, current_user)
+        .filter(Request.id == ticket_id)
+        .first()
+    )
     if not ticket:
         raise HTTPException(status_code=404, detail="Maintenance call not found.")
 
@@ -338,7 +344,12 @@ def assign_ticket(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    ticket = _calls_for_team(db, current_user).filter(Request.id == ticket_id).first()
+    ticket = (
+        _calls_for_team(db, current_user)
+        .filter(Request.id == ticket_id)
+        .with_for_update()
+        .first()
+    )
     if not ticket:
         raise HTTPException(status_code=404, detail="Maintenance call not found.")
 
@@ -371,7 +382,12 @@ def update_ticket(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    ticket = _calls_for_team(db, current_user).filter(Request.id == ticket_id).first()
+    ticket = (
+        _calls_for_team(db, current_user)
+        .filter(Request.id == ticket_id)
+        .with_for_update()
+        .first()
+    )
     if not ticket:
         raise HTTPException(status_code=404, detail="Maintenance call not found.")
     if payload.status not in VALID_STATUSES:
