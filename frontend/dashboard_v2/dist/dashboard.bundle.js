@@ -607,36 +607,22 @@ async function getDashboardData() {
 
 document.addEventListener("DOMContentLoaded", () => {
 
-    console.log("Logout JS Loaded");
-
     const logoutButton = document.querySelector(".logout-btn");
-
-    console.log(logoutButton);
+    if (!logoutButton) return;
 
     logoutButton.addEventListener("click", async () => {
-
-        console.log("Logout clicked");
+        logoutButton.disabled = true;
 
         try {
-
-            const response = await fetch("/api/logout", {
+            await fetch("/api/logout", {
                 method: "POST"
             });
-
-            console.log(response.status);
-
+        } finally {
             if (typeof clearDashboardIdentity === "function") {
                 clearDashboardIdentity();
             }
 
             window.location.href = "/";
-
-        }
-
-        catch(error){
-
-            console.error(error);
-
         }
 
     });
@@ -4147,9 +4133,10 @@ async function compressTicketImage(file, targetBytes = 850 * 1024) {
 
 async function uploadTicketAttachment(event) {
     event.preventDefault();
+    const form = event.currentTarget;
     const input = document.getElementById("ticketAttachmentFile");
     const progress = document.getElementById("ticketAttachmentProgress");
-    const button = event.currentTarget.querySelector("button[type=submit]");
+    const button = form.querySelector("button[type=submit]");
     let file = input.files?.[0];
     if (!file) return;
     button.disabled = true;
@@ -4164,7 +4151,7 @@ async function uploadTicketAttachment(event) {
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.detail || "Unable to upload this attachment.");
         progress.textContent = `Stored at ${ticketFileSize(result.attachment.stored_size_bytes)}${originalSize > result.attachment.stored_size_bytes ? ` (from ${ticketFileSize(originalSize)})` : ""}.`;
-        event.currentTarget.reset();
+        form.reset();
         document.getElementById("ticketAttachmentFileName").textContent = "Choose PDF or image";
         await loadTicketAttachments();
     } catch (error) { progress.textContent = error.message || "Upload failed."; BioTrackToast.error("Attachment not uploaded", progress.textContent); }
@@ -4998,7 +4985,8 @@ async function deleteSelectedAssets(assetIds) {
 async function openAssetQRGenerator(assetId = null) {
     const canGenerate = canManageAssetQR();
     let assets = assetsCache;
-    if (!assets.length) {
+    const selectedAssetIsMissing = assetId && !assets.some(asset => Number(asset.id) === Number(assetId));
+    if (!assets.length || selectedAssetIsMissing) {
         try {
             assets = await fetchPaginatedList("/api/assets/", { cache: "no-store" });
             assetsCache = Array.isArray(assets) ? assets : [];
@@ -5645,8 +5633,6 @@ function saveBasicInformation() {
     assetFormData.description =
         document.getElementById("description").value;
 
-    console.log(assetFormData);
-
     return true;
 
 }
@@ -6074,7 +6060,7 @@ function renderDocumentsSection() {
                 <input
                     id="manualFile"
                     type="file"
-                    accept=".pdf,.doc,.docx">
+                    accept="application/pdf,image/jpeg,image/png">
 
             </div>
 
@@ -6085,7 +6071,7 @@ function renderDocumentsSection() {
                 <input
                     id="invoiceFile"
                     type="file"
-                    accept=".pdf,.jpg,.png">
+                    accept="application/pdf,image/jpeg,image/png">
 
             </div>
 
@@ -6095,7 +6081,8 @@ function renderDocumentsSection() {
 
                 <input
                     id="warrantyFile"
-                    type="file">
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png">
 
             </div>
 
@@ -6105,7 +6092,8 @@ function renderDocumentsSection() {
 
                 <input
                     id="calibrationFile"
-                    type="file">
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png">
 
             </div>
 
@@ -6116,6 +6104,7 @@ function renderDocumentsSection() {
                 <input
                     id="otherFiles"
                     type="file"
+                    accept="application/pdf,image/jpeg,image/png"
                     multiple>
 
             </div>
@@ -6198,7 +6187,7 @@ function renderAssetSummary() {
 
                 <td><strong>Equipment ID</strong></td>
 
-                <td>${assetFormData.equipmentId || "-"}</td>
+                <td>${escapeHTML(assetFormData.equipmentId || "-")}</td>
 
             </tr>
 
@@ -6206,7 +6195,7 @@ function renderAssetSummary() {
 
                 <td><strong>Equipment Name</strong></td>
 
-                <td>${assetFormData.equipmentName || "-"}</td>
+                <td>${escapeHTML(assetFormData.equipmentName || "-")}</td>
 
             </tr>
 
@@ -6214,7 +6203,7 @@ function renderAssetSummary() {
 
                 <td><strong>Department</strong></td>
 
-                <td>${assetFormData.department || "-"}</td>
+                <td>${escapeHTML(assetFormData.department || "-")}</td>
 
             </tr>
 
@@ -6222,7 +6211,7 @@ function renderAssetSummary() {
 
                 <td><strong>Manufacturer</strong></td>
 
-                <td>${assetFormData.manufacturer || "-"}</td>
+                <td>${escapeHTML(assetFormData.manufacturer || "-")}</td>
 
             </tr>
 
@@ -6230,7 +6219,7 @@ function renderAssetSummary() {
 
                 <td><strong>Purchase Cost</strong></td>
 
-                <td>${assetFormData.purchaseCost || "-"}</td>
+                <td>${escapeHTML(assetFormData.purchaseCost || "-")}</td>
 
             </tr>
 
@@ -6238,7 +6227,7 @@ function renderAssetSummary() {
 
                 <td><strong>Warranty End</strong></td>
 
-                <td>${assetFormData.warrantyEnd || "-"}</td>
+                <td>${escapeHTML(assetFormData.warrantyEnd || "-")}</td>
 
             </tr>
 
@@ -6266,62 +6255,128 @@ function initializeFinalButtons() {
 // SAVE ASSET
 // ==========================================
 
-async function saveAsset() {
+function setAssetSaveState(saving, generateQR = false) {
+    const saveButton = document.getElementById("saveAssetBtn");
+    const qrButton = document.getElementById("saveQrBtn");
+
+    if (saveButton) {
+        saveButton.disabled = saving;
+        saveButton.textContent = saving && !generateQR ? "Saving asset…" : "💾 Save Asset";
+    }
+    if (qrButton) {
+        qrButton.disabled = saving;
+        qrButton.textContent = saving && generateQR ? "Saving & generating…" : "🏷 Save & Generate QR";
+    }
+}
+
+function collectAssetRegistrationFiles() {
+    const fields = [
+        ["equipmentImage", "Photo"],
+        ["manualFile", "Manual"],
+        ["invoiceFile", "Invoice"],
+        ["warrantyFile", "Certificate"],
+        ["calibrationFile", "Calibration Document"],
+        ["otherFiles", "Service Report"]
+    ];
+    return fields.flatMap(([id, documentType]) =>
+        Array.from(document.getElementById(id)?.files || []).map(file => ({ file, documentType }))
+    );
+}
+
+async function uploadAssetRegistrationFiles(assetId, uploads) {
+    const failures = [];
+    for (const upload of uploads) {
+        const formData = new FormData();
+        formData.append("document_type", upload.documentType);
+        formData.append("file", upload.file);
+        try {
+            const response = await fetch(`/api/assets/${assetId}/documents`, {
+                method: "POST",
+                body: formData
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.detail || "Upload failed.");
+        } catch (error) {
+            failures.push(upload.file.name);
+        }
+    }
+    return failures;
+}
+
+function showAssetUploadWarning(failures) {
+    if (!failures.length) return;
+    BioTrackToast.warning(
+        "Asset saved with pending files",
+        `${failures.length} attachment${failures.length === 1 ? "" : "s"} could not be uploaded. Add ${failures.length === 1 ? "it" : "them"} from the asset details page.`
+    );
+}
+
+async function persistAsset(generateQR = false) {
     saveWarrantyInformation();
+    const pendingUploads = collectAssetRegistrationFiles();
+    let createdAssetId = null;
+    setAssetSaveState(true, generateQR);
 
     try {
-
         const response = await fetch("/api/assets/", {
-
             method: "POST",
-
             headers: {
-
                 "Content-Type": "application/json"
-
             },
-
             body: JSON.stringify(assetFormData)
-
         });
+        const result = await response.json().catch(() => ({}));
 
-        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.detail || "Failed to save the asset.");
+        }
 
-        if (result.success) {
+        createdAssetId = Number(result.asset_id);
+        const uploadFailures = await uploadAssetRegistrationFiles(createdAssetId, pendingUploads);
+        if (generateQR) {
+            const qrResponse = await fetch(`/api/qr/generate/${createdAssetId}`, {
+                method: "POST"
+            });
+            const qrResult = await qrResponse.json().catch(() => ({}));
+            if (!qrResponse.ok || !qrResult.success) {
+                throw new Error(qrResult.detail || "The QR code could not be generated.");
+            }
 
-            BioTrackToast.success("Asset saved", "The equipment record was added successfully.");
-
+            BioTrackToast.success("Asset and QR saved", "The equipment record and printable QR code are ready.");
+            showAssetUploadWarning(uploadFailures);
             navigate("assets");
-
+            window.setTimeout(() => {
+                if (typeof openAssetQRGenerator === "function") openAssetQRGenerator(createdAssetId);
+            }, 0);
+            return;
         }
 
-        else {
-
-            BioTrackToast.error("Asset not saved", result.detail || "Failed to save the asset.");
-
+        BioTrackToast.success("Asset saved", "The equipment record was added successfully.");
+        showAssetUploadWarning(uploadFailures);
+        navigate("assets");
+    } catch (error) {
+        if (createdAssetId) {
+            BioTrackToast.warning("Asset saved; QR pending", error.message || "Generate the QR code from Asset Management.");
+            navigate("assets");
+        } else {
+            console.error(error);
+            BioTrackToast.error("Asset not saved", error.message || "The asset could not be saved.");
         }
-
+    } finally {
+        setAssetSaveState(false, generateQR);
     }
-
-    catch (error) {
-
-        console.error(error);
-
-        BioTrackToast.error("Server error", error.message || "The asset could not be saved.");
-
-    }
-
 }
+
+function saveAsset() {
+    return persistAsset(false);
+}
+
 // ==========================================
 // SAVE & QR
 // ==========================================
 
 function saveAndGenerateQR() {
-
-    console.log(assetFormData);
-
-    BioTrackToast.info("QR generation", "Save the asset, then generate its QR code from Asset Management.");
-
+    return persistAsset(true);
 }
 // ==========================================
 // SAVE PURCHASE INFORMATION
@@ -7417,25 +7472,35 @@ async function loadAssetDocuments(assetId = currentAssetId) {
 
 async function uploadAssetDocument(event) {
     event.preventDefault();
+    const form = event.currentTarget;
     const input = document.getElementById("assetDocumentFile");
+    const typeSelect = document.getElementById("assetDocumentType");
+    const fileName = document.getElementById("assetDocumentFileName");
     const progress = document.getElementById("assetDocumentProgress");
-    const button = event.currentTarget.querySelector('button[type="submit"]');
+    const button = form.querySelector('button[type="submit"]');
     const file = input?.files?.[0];
     if (!file) return;
+    const documentType = typeSelect.value;
     button.disabled = true;
     progress.textContent = "Compressing and storing the document…";
     try {
         const formData = new FormData();
-        formData.append("document_type", document.getElementById("assetDocumentType").value);
+        formData.append("document_type", documentType);
         formData.append("file", file);
         const response = await fetch(`/api/assets/${Number(currentAssetId)}/documents`, { method: "POST", body: formData });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.detail || "Unable to upload this asset document.");
         progress.textContent = `Stored at ${assetDocumentSize(result.document.stored_size_bytes)}${result.document.original_size_bytes > result.document.stored_size_bytes ? ` (from ${assetDocumentSize(result.document.original_size_bytes)})` : ""}.`;
-        event.currentTarget.reset();
-        document.getElementById("assetDocumentFileName").textContent = "Choose PDF or image";
-        BioTrackToast.success("Document uploaded", "The optimized file is attached to this asset.");
+        form.reset();
+        fileName.textContent = "Choose PDF or image";
+        BioTrackToast.success(
+            documentType === "Photo" ? "Equipment photo updated" : "Document uploaded",
+            documentType === "Photo" ? "This photo is now used for the equipment profile." : "The optimized file is attached to this asset."
+        );
         await loadAssetDocuments();
+        if (documentType === "Photo" && typeof loadAssetProfile === "function") {
+            await loadAssetProfile();
+        }
     } catch (error) {
         progress.textContent = error.message || "Upload failed.";
         BioTrackToast.error("Document not uploaded", progress.textContent);
@@ -9446,20 +9511,6 @@ function initializeKeyboardShortcuts(){
 
 }
 
-/* ==========================================================
-   FINAL INITIALIZATION
-========================================================== */
-
-console.log(
-    "%cBioTrack Settings Module Loaded",
-    "color:#2563eb;font-size:16px;font-weight:bold;"
-);
-
-console.log("Version : 1.0.0");
-
-console.log("Status  : Ready");
-
-
 ;
 /* source: dashboard_v2/views/pmView.js */
 // ==========================================
@@ -9831,7 +9882,6 @@ function renderPM() {
 
     lucide.createIcons();
 
-    // Calendar engine (next phase)
     initializePMCalendar();
 
     initializePMDrawer();
@@ -10373,17 +10423,6 @@ function formatPMDate(date){
 function selectPMDate(date){
 
     pmSelectedDate = date;
-
-    console.log(
-
-        "Selected PM Date:",
-
-        formatPMDate(date)
-
-    );
-
-    // Next Phase:
-    // openPMScheduleDrawer(date);
 
 }
 // ==========================================
@@ -12822,13 +12861,6 @@ async function startReports(){
 
 }
 
-console.log(
-
-    "%cBioTrack Reports Loaded",
-
-    "color:#2563eb;font-size:16px;font-weight:bold;"
-
-);
 window.startReports = startReports;
 window.initializeReports = initializeReports;
 ;
@@ -15775,8 +15807,6 @@ async function saveAssetEdits(event, assetId, originalServiceTeam) {
 ========================================================== */
 function renderEngineerDashboard() {
 
-    console.log("Engineer Dashboard Rendered");
-
     if (engineerRefreshTimer) {
 
         clearInterval(engineerRefreshTimer);
@@ -16403,10 +16433,6 @@ function navigate(page) {
     }
 
     // Render selected page
-    // Render selected page
-
-    console.log("Navigating to:", page);
-
     Pages[page]();
 
     if (page === "qr" && typeof openQRScanner === "function") {

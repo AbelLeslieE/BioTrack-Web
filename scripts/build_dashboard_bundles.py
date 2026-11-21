@@ -131,12 +131,14 @@ def copy_vendor_runtime() -> list[Path]:
     lucide_source = ROOT / "node_modules" / "lucide" / "dist" / "umd" / "lucide.min.js"
     fontawesome_root = ROOT / "node_modules" / "@fortawesome" / "fontawesome-free"
     chart_source = ROOT / "node_modules" / "chart.js" / "dist" / "chart.umd.min.js"
+    chart_map_source = ROOT / "node_modules" / "chart.js" / "dist" / "chart.umd.min.js.map"
     scanner_source = ROOT / "node_modules" / "html5-qrcode" / "html5-qrcode.min.js"
     required_sources = [
         lucide_source,
         fontawesome_root / "css" / "all.min.css",
         fontawesome_root / "webfonts",
         chart_source,
+        chart_map_source,
         scanner_source,
     ]
     missing = [str(source.relative_to(ROOT)) for source in required_sources if not source.exists()]
@@ -149,8 +151,10 @@ def copy_vendor_runtime() -> list[Path]:
     lucide_destination = VENDOR_OUTPUT / "lucide.min.js"
     copy2(lucide_source, lucide_destination)
     chart_destination = VENDOR_OUTPUT / "chart.umd.min.js"
+    chart_map_destination = VENDOR_OUTPUT / "chart.umd.min.js.map"
     scanner_destination = VENDOR_OUTPUT / "html5-qrcode.min.js"
     copy2(chart_source, chart_destination)
+    copy2(chart_map_source, chart_map_destination)
     copy2(scanner_source, scanner_destination)
 
     fontawesome_destination = VENDOR_OUTPUT / "fontawesome"
@@ -164,6 +168,7 @@ def copy_vendor_runtime() -> list[Path]:
     return [
         lucide_destination,
         chart_destination,
+        chart_map_destination,
         scanner_destination,
         fontawesome_destination / "css" / "all.min.css",
     ]

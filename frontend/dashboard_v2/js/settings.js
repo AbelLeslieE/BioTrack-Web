@@ -908,17 +908,3 @@ function initializeKeyboardShortcuts(){
 
 }
 
-/* ==========================================================
-   FINAL INITIALIZATION
-========================================================== */
-
-console.log(
-    "%cBioTrack Settings Module Loaded",
-    "color:#2563eb;font-size:16px;font-weight:bold;"
-);
-
-console.log("Version : 1.0.0");
-
-console.log("Status  : Ready");
-
- 

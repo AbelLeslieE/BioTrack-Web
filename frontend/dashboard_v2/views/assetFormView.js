@@ -529,8 +529,6 @@ function saveBasicInformation() {
     assetFormData.description =
         document.getElementById("description").value;
 
-    console.log(assetFormData);
-
     return true;
 
 }
@@ -958,7 +956,7 @@ function renderDocumentsSection() {
                 <input
                     id="manualFile"
                     type="file"
-                    accept=".pdf,.doc,.docx">
+                    accept="application/pdf,image/jpeg,image/png">
 
             </div>
 
@@ -969,7 +967,7 @@ function renderDocumentsSection() {
                 <input
                     id="invoiceFile"
                     type="file"
-                    accept=".pdf,.jpg,.png">
+                    accept="application/pdf,image/jpeg,image/png">
 
             </div>
 
@@ -979,7 +977,8 @@ function renderDocumentsSection() {
 
                 <input
                     id="warrantyFile"
-                    type="file">
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png">
 
             </div>
 
@@ -989,7 +988,8 @@ function renderDocumentsSection() {
 
                 <input
                     id="calibrationFile"
-                    type="file">
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png">
 
             </div>
 
@@ -1000,6 +1000,7 @@ function renderDocumentsSection() {
                 <input
                     id="otherFiles"
                     type="file"
+                    accept="application/pdf,image/jpeg,image/png"
                     multiple>
 
             </div>
@@ -1082,7 +1083,7 @@ function renderAssetSummary() {
 
                 <td><strong>Equipment ID</strong></td>
 
-                <td>${assetFormData.equipmentId || "-"}</td>
+                <td>${escapeHTML(assetFormData.equipmentId || "-")}</td>
 
             </tr>
 
@@ -1090,7 +1091,7 @@ function renderAssetSummary() {
 
                 <td><strong>Equipment Name</strong></td>
 
-                <td>${assetFormData.equipmentName || "-"}</td>
+                <td>${escapeHTML(assetFormData.equipmentName || "-")}</td>
 
             </tr>
 
@@ -1098,7 +1099,7 @@ function renderAssetSummary() {
 
                 <td><strong>Department</strong></td>
 
-                <td>${assetFormData.department || "-"}</td>
+                <td>${escapeHTML(assetFormData.department || "-")}</td>
 
             </tr>
 
@@ -1106,7 +1107,7 @@ function renderAssetSummary() {
 
                 <td><strong>Manufacturer</strong></td>
 
-                <td>${assetFormData.manufacturer || "-"}</td>
+                <td>${escapeHTML(assetFormData.manufacturer || "-")}</td>
 
             </tr>
 
@@ -1114,7 +1115,7 @@ function renderAssetSummary() {
 
                 <td><strong>Purchase Cost</strong></td>
 
-                <td>${assetFormData.purchaseCost || "-"}</td>
+                <td>${escapeHTML(assetFormData.purchaseCost || "-")}</td>
 
             </tr>
 
@@ -1122,7 +1123,7 @@ function renderAssetSummary() {
 
                 <td><strong>Warranty End</strong></td>
 
-                <td>${assetFormData.warrantyEnd || "-"}</td>
+                <td>${escapeHTML(assetFormData.warrantyEnd || "-")}</td>
 
             </tr>
 
@@ -1150,62 +1151,128 @@ function initializeFinalButtons() {
 // SAVE ASSET
 // ==========================================
 
-async function saveAsset() {
+function setAssetSaveState(saving, generateQR = false) {
+    const saveButton = document.getElementById("saveAssetBtn");
+    const qrButton = document.getElementById("saveQrBtn");
+
+    if (saveButton) {
+        saveButton.disabled = saving;
+        saveButton.textContent = saving && !generateQR ? "Saving asset…" : "💾 Save Asset";
+    }
+    if (qrButton) {
+        qrButton.disabled = saving;
+        qrButton.textContent = saving && generateQR ? "Saving & generating…" : "🏷 Save & Generate QR";
+    }
+}
+
+function collectAssetRegistrationFiles() {
+    const fields = [
+        ["equipmentImage", "Photo"],
+        ["manualFile", "Manual"],
+        ["invoiceFile", "Invoice"],
+        ["warrantyFile", "Certificate"],
+        ["calibrationFile", "Calibration Document"],
+        ["otherFiles", "Service Report"]
+    ];
+    return fields.flatMap(([id, documentType]) =>
+        Array.from(document.getElementById(id)?.files || []).map(file => ({ file, documentType }))
+    );
+}
+
+async function uploadAssetRegistrationFiles(assetId, uploads) {
+    const failures = [];
+    for (const upload of uploads) {
+        const formData = new FormData();
+        formData.append("document_type", upload.documentType);
+        formData.append("file", upload.file);
+        try {
+            const response = await fetch(`/api/assets/${assetId}/documents`, {
+                method: "POST",
+                body: formData
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.detail || "Upload failed.");
+        } catch (error) {
+            failures.push(upload.file.name);
+        }
+    }
+    return failures;
+}
+
+function showAssetUploadWarning(failures) {
+    if (!failures.length) return;
+    BioTrackToast.warning(
+        "Asset saved with pending files",
+        `${failures.length} attachment${failures.length === 1 ? "" : "s"} could not be uploaded. Add ${failures.length === 1 ? "it" : "them"} from the asset details page.`
+    );
+}
+
+async function persistAsset(generateQR = false) {
     saveWarrantyInformation();
+    const pendingUploads = collectAssetRegistrationFiles();
+    let createdAssetId = null;
+    setAssetSaveState(true, generateQR);
 
     try {
-
         const response = await fetch("/api/assets/", {
-
             method: "POST",
-
             headers: {
-
                 "Content-Type": "application/json"
-
             },
-
             body: JSON.stringify(assetFormData)
-
         });
+        const result = await response.json().catch(() => ({}));
 
-        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.detail || "Failed to save the asset.");
+        }
 
-        if (result.success) {
+        createdAssetId = Number(result.asset_id);
+        const uploadFailures = await uploadAssetRegistrationFiles(createdAssetId, pendingUploads);
+        if (generateQR) {
+            const qrResponse = await fetch(`/api/qr/generate/${createdAssetId}`, {
+                method: "POST"
+            });
+            const qrResult = await qrResponse.json().catch(() => ({}));
+            if (!qrResponse.ok || !qrResult.success) {
+                throw new Error(qrResult.detail || "The QR code could not be generated.");
+            }
 
-            BioTrackToast.success("Asset saved", "The equipment record was added successfully.");
-
+            BioTrackToast.success("Asset and QR saved", "The equipment record and printable QR code are ready.");
+            showAssetUploadWarning(uploadFailures);
             navigate("assets");
-
+            window.setTimeout(() => {
+                if (typeof openAssetQRGenerator === "function") openAssetQRGenerator(createdAssetId);
+            }, 0);
+            return;
         }
 
-        else {
-
-            BioTrackToast.error("Asset not saved", result.detail || "Failed to save the asset.");
-
+        BioTrackToast.success("Asset saved", "The equipment record was added successfully.");
+        showAssetUploadWarning(uploadFailures);
+        navigate("assets");
+    } catch (error) {
+        if (createdAssetId) {
+            BioTrackToast.warning("Asset saved; QR pending", error.message || "Generate the QR code from Asset Management.");
+            navigate("assets");
+        } else {
+            console.error(error);
+            BioTrackToast.error("Asset not saved", error.message || "The asset could not be saved.");
         }
-
+    } finally {
+        setAssetSaveState(false, generateQR);
     }
-
-    catch (error) {
-
-        console.error(error);
-
-        BioTrackToast.error("Server error", error.message || "The asset could not be saved.");
-
-    }
-
 }
+
+function saveAsset() {
+    return persistAsset(false);
+}
+
 // ==========================================
 // SAVE & QR
 // ==========================================
 
 function saveAndGenerateQR() {
-
-    console.log(assetFormData);
-
-    BioTrackToast.info("QR generation", "Save the asset, then generate its QR code from Asset Management.");
-
+    return persistAsset(true);
 }
 // ==========================================
 // SAVE PURCHASE INFORMATION

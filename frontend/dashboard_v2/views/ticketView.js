@@ -924,9 +924,10 @@ async function compressTicketImage(file, targetBytes = 850 * 1024) {
 
 async function uploadTicketAttachment(event) {
     event.preventDefault();
+    const form = event.currentTarget;
     const input = document.getElementById("ticketAttachmentFile");
     const progress = document.getElementById("ticketAttachmentProgress");
-    const button = event.currentTarget.querySelector("button[type=submit]");
+    const button = form.querySelector("button[type=submit]");
     let file = input.files?.[0];
     if (!file) return;
     button.disabled = true;
@@ -941,7 +942,7 @@ async function uploadTicketAttachment(event) {
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.detail || "Unable to upload this attachment.");
         progress.textContent = `Stored at ${ticketFileSize(result.attachment.stored_size_bytes)}${originalSize > result.attachment.stored_size_bytes ? ` (from ${ticketFileSize(originalSize)})` : ""}.`;
-        event.currentTarget.reset();
+        form.reset();
         document.getElementById("ticketAttachmentFileName").textContent = "Choose PDF or image";
         await loadTicketAttachments();
     } catch (error) { progress.textContent = error.message || "Upload failed."; BioTrackToast.error("Attachment not uploaded", progress.textContent); }

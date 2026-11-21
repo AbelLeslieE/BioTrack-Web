@@ -56,6 +56,19 @@ def check(condition: bool, message: str, failures: list[str]) -> None:
         failures.append(message)
 
 
+def registered_route_paths(routes) -> set[str]:
+    """Collect routes across both legacy and deferred FastAPI router layouts."""
+    paths: set[str] = set()
+    for route in routes:
+        path = getattr(route, "path", None)
+        if path:
+            paths.add(path)
+        included_router = getattr(route, "original_router", None)
+        if included_router is not None:
+            paths.update(registered_route_paths(included_router.routes))
+    return paths
+
+
 def main() -> int:
     failures: list[str] = []
     schema_path = ROOT / "database" / "schema.sql"
@@ -96,7 +109,7 @@ def main() -> int:
         os.environ["COOKIE_SECURE"] = "false"
         from backend.main import app
 
-        route_paths = {route.path for route in app.routes}
+        route_paths = registered_route_paths(app.routes)
         check(REQUIRED_ROUTES.issubset(route_paths), "all critical API routes are registered", failures)
 
     worker = (ROOT / "frontend" / "service-worker.js").read_text(encoding="utf-8")

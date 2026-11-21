@@ -800,25 +800,35 @@ async function loadAssetDocuments(assetId = currentAssetId) {
 
 async function uploadAssetDocument(event) {
     event.preventDefault();
+    const form = event.currentTarget;
     const input = document.getElementById("assetDocumentFile");
+    const typeSelect = document.getElementById("assetDocumentType");
+    const fileName = document.getElementById("assetDocumentFileName");
     const progress = document.getElementById("assetDocumentProgress");
-    const button = event.currentTarget.querySelector('button[type="submit"]');
+    const button = form.querySelector('button[type="submit"]');
     const file = input?.files?.[0];
     if (!file) return;
+    const documentType = typeSelect.value;
     button.disabled = true;
     progress.textContent = "Compressing and storing the document…";
     try {
         const formData = new FormData();
-        formData.append("document_type", document.getElementById("assetDocumentType").value);
+        formData.append("document_type", documentType);
         formData.append("file", file);
         const response = await fetch(`/api/assets/${Number(currentAssetId)}/documents`, { method: "POST", body: formData });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.detail || "Unable to upload this asset document.");
         progress.textContent = `Stored at ${assetDocumentSize(result.document.stored_size_bytes)}${result.document.original_size_bytes > result.document.stored_size_bytes ? ` (from ${assetDocumentSize(result.document.original_size_bytes)})` : ""}.`;
-        event.currentTarget.reset();
-        document.getElementById("assetDocumentFileName").textContent = "Choose PDF or image";
-        BioTrackToast.success("Document uploaded", "The optimized file is attached to this asset.");
+        form.reset();
+        fileName.textContent = "Choose PDF or image";
+        BioTrackToast.success(
+            documentType === "Photo" ? "Equipment photo updated" : "Document uploaded",
+            documentType === "Photo" ? "This photo is now used for the equipment profile." : "The optimized file is attached to this asset."
+        );
         await loadAssetDocuments();
+        if (documentType === "Photo" && typeof loadAssetProfile === "function") {
+            await loadAssetProfile();
+        }
     } catch (error) {
         progress.textContent = error.message || "Upload failed.";
         BioTrackToast.error("Document not uploaded", progress.textContent);

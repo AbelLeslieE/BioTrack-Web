@@ -1165,12 +1165,5 @@ async function startReports(){
 
 }
 
-console.log(
-
-    "%cBioTrack Reports Loaded",
-
-    "color:#2563eb;font-size:16px;font-weight:bold;"
-
-);
 window.startReports = startReports;
 window.initializeReports = initializeReports;

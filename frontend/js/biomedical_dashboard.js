@@ -7,8 +7,6 @@
 ========================================================== */
 function renderEngineerDashboard() {
 
-    console.log("Engineer Dashboard Rendered");
-
     if (engineerRefreshTimer) {
 
         clearInterval(engineerRefreshTimer);

@@ -10,7 +10,8 @@ from typing import Callable
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -106,7 +107,7 @@ def decode_session_token(token: str | None) -> dict | None:
         return None
     try:
         return jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])
-    except JWTError:
+    except PyJWTError:
         return None
 
 
@@ -132,7 +133,7 @@ def get_current_user(
         token_id = str(payload.get("sid", ""))
         if not token_id:
             raise ValueError("Session identifier missing")
-    except (JWTError, TypeError, ValueError):
+    except (PyJWTError, TypeError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Your session is invalid or has expired.",

@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import pandas as pd
 import fitz
+from PIL import Image
 from fastapi import HTTPException, UploadFile
 from fastapi.params import Query
 from starlette.datastructures import Headers
@@ -74,6 +75,48 @@ class AssetRouteTests(unittest.TestCase):
                     self.assertEqual(stored.original_size_bytes, len(pdf_bytes))
                     delete_asset_document(stored.id, session, user)
                     self.assertFalse(stored_path.exists())
+        finally:
+            session.close()
+            engine.dispose()
+
+    def test_uploaded_photo_becomes_asset_image_and_falls_back_when_deleted(self):
+        engine = create_engine("sqlite:///:memory:")
+        Asset.__table__.create(engine)
+        AssetDocument.__table__.create(engine)
+        session = sessionmaker(bind=engine)()
+        try:
+            asset = Asset(asset_code="PHOTO-1", equipment_name="Infusion Pump", service_team="Biomedical")
+            session.add(asset)
+            session.commit()
+            user = SimpleNamespace(role="Manager", username="admin", name="Admin")
+
+            def image_upload(name: str, color: str) -> UploadFile:
+                buffer = BytesIO()
+                Image.new("RGB", (80, 60), color).save(buffer, format="PNG")
+                buffer.seek(0)
+                return UploadFile(
+                    filename=name,
+                    file=buffer,
+                    headers=Headers({"content-type": "image/png"}),
+                )
+
+            with tempfile.TemporaryDirectory(prefix="biotrack-asset-photo-") as directory:
+                with patch("backend.routes.asset_routes.ASSET_DOCUMENT_DIRECTORY", Path(directory)):
+                    first = asyncio.run(upload_asset_document(asset.id, "Photo", image_upload("front.png", "blue"), session, user))
+                    session.refresh(asset)
+                    self.assertEqual(asset.image_path, first["document"]["preview_url"])
+
+                    second = asyncio.run(upload_asset_document(asset.id, "Photo", image_upload("side.png", "green"), session, user))
+                    session.refresh(asset)
+                    self.assertEqual(asset.image_path, second["document"]["preview_url"])
+
+                    delete_asset_document(second["document"]["id"], session, user)
+                    session.refresh(asset)
+                    self.assertEqual(asset.image_path, first["document"]["preview_url"])
+
+                    delete_asset_document(first["document"]["id"], session, user)
+                    session.refresh(asset)
+                    self.assertIsNone(asset.image_path)
         finally:
             session.close()
             engine.dispose()

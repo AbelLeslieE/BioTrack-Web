@@ -154,10 +154,6 @@ function navigate(page) {
     }
 
     // Render selected page
-    // Render selected page
-
-    console.log("Navigating to:", page);
-
     Pages[page]();
 
     if (page === "qr" && typeof openQRScanner === "function") {

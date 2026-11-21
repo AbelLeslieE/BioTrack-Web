@@ -800,7 +800,8 @@ async function deleteSelectedAssets(assetIds) {
 async function openAssetQRGenerator(assetId = null) {
     const canGenerate = canManageAssetQR();
     let assets = assetsCache;
-    if (!assets.length) {
+    const selectedAssetIsMissing = assetId && !assets.some(asset => Number(asset.id) === Number(assetId));
+    if (!assets.length || selectedAssetIsMissing) {
         try {
             assets = await fetchPaginatedList("/api/assets/", { cache: "no-store" });
             assetsCache = Array.isArray(assets) ? assets : [];

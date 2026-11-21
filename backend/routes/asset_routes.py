@@ -517,6 +517,7 @@ def bulk_delete_assets(
 # ==========================================
 
 def _asset_document_payload(document: AssetDocument) -> dict:
+    is_image = (document.content_type or "").startswith("image/")
     return {
         "id": document.id,
         "asset_id": document.asset_id,
@@ -528,6 +529,7 @@ def _asset_document_payload(document: AssetDocument) -> dict:
         "uploaded_by": document.uploaded_by or "",
         "uploaded_at": document.uploaded_at,
         "download_url": f"/api/assets/documents/{document.id}/download",
+        "preview_url": f"/api/assets/documents/{document.id}/preview" if is_image else None,
     }
 
 
@@ -587,6 +589,8 @@ async def upload_asset_document(
         file.content_type or "",
         raw,
     )
+    if document_type == "Photo" and not content_type.startswith("image/"):
+        raise HTTPException(status_code=422, detail="Equipment photos must be JPG, JPEG, or PNG images.")
     stored_name = f"{uuid4().hex}{extension}"
     if stored_total + len(optimized) > 50 * 1024 * 1024:
         raise HTTPException(status_code=409, detail="This document would exceed the asset storage limit.")
@@ -605,6 +609,9 @@ async def upload_asset_document(
     )
     db.add(document)
     try:
+        db.flush()
+        if document_type == "Photo":
+            asset.image_path = f"/api/assets/documents/{document.id}/preview"
         db.commit()
         db.refresh(document)
     except Exception:
@@ -625,6 +632,34 @@ def _asset_document_for_user(
         raise HTTPException(status_code=404, detail="Asset document not found.")
     _engineering_asset(db, document.asset_id, current_user)
     return document
+
+
+@router.get(
+    "/documents/{document_id}/preview",
+    dependencies=[Depends(require_roles("Manager", "BME", "Electrical", "IT", "User"))],
+)
+def preview_asset_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    document = db.get(AssetDocument, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Asset photo not found.")
+    asset = _assets_visible_to(db, current_user).filter(Asset.id == document.asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset photo not found for your portal.")
+    if not (document.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=415, detail="This asset document is not an image.")
+    path = ASSET_DOCUMENT_DIRECTORY / Path(document.file_path).name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="The stored asset photo is missing.")
+    return FileResponse(
+        path,
+        media_type=document.content_type,
+        content_disposition_type="inline",
+        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=3600"},
+    )
 
 
 @router.get(
@@ -660,6 +695,21 @@ def delete_asset_document(
 ):
     document = _asset_document_for_user(db, document_id, current_user)
     path = ASSET_DOCUMENT_DIRECTORY / Path(document.file_path).name
+    asset = db.get(Asset, document.asset_id)
+    active_photo_url = f"/api/assets/documents/{document.id}/preview"
+    if asset and asset.image_path == active_photo_url:
+        fallback = (
+            db.query(AssetDocument)
+            .filter(
+                AssetDocument.asset_id == asset.id,
+                AssetDocument.id != document.id,
+                AssetDocument.document_type == "Photo",
+                AssetDocument.content_type.like("image/%"),
+            )
+            .order_by(AssetDocument.uploaded_at.desc(), AssetDocument.id.desc())
+            .first()
+        )
+        asset.image_path = f"/api/assets/documents/{fallback.id}/preview" if fallback else None
     db.delete(document)
     db.commit()
     if path.is_file():

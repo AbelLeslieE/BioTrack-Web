@@ -32,6 +32,9 @@ test("maintenance evidence is optimized and uploaded in KB-sized files", () => {
     assert.match(ticket, /compressTicketImage/);
     assert.match(ticket, /Optimize & upload/);
     assert.match(ticket, /application\/pdf,image\/jpeg,image\/png/);
+    assert.match(ticket, /const form = event\.currentTarget/);
+    assert.match(ticket, /form\.reset\(\)/);
+    assert.doesNotMatch(ticket, /event\.currentTarget\.reset\(\)/);
 });
 
 test("asset manuals and documents use the same compressed evidence pipeline", () => {
@@ -39,6 +42,10 @@ test("asset manuals and documents use the same compressed evidence pipeline", ()
     assert.match(assetDetails, /Auto-compressed below 900 KB/);
     assert.match(assetDetails, /uploadAssetDocument/);
     assert.match(assetDetails, /application\/pdf,image\/jpeg,image\/png/);
+    assert.match(assetDetails, /const form = event\.currentTarget/);
+    assert.match(assetDetails, /form\.reset\(\)/);
+    assert.doesNotMatch(assetDetails, /event\.currentTarget\.reset\(\)/);
+    assert.match(assetDetails, /documentType === "Photo"[\s\S]*?loadAssetProfile\(\)/);
 });
 
 test("asset quick actions preserve icon and label spacing at narrow desktop widths", () => {

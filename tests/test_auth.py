@@ -3,7 +3,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from jose import jwt
+import jwt
 
 from backend.auth import JWT_ALGORITHM, create_access_token, validate_auth_config
 from backend.routes.auth_routes import ProfileUpdateRequest

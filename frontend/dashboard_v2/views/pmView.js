@@ -367,7 +367,6 @@ function renderPM() {
 
     lucide.createIcons();
 
-    // Calendar engine (next phase)
     initializePMCalendar();
 
     initializePMDrawer();

@@ -530,17 +530,6 @@ function selectPMDate(date){
 
     pmSelectedDate = date;
 
-    console.log(
-
-        "Selected PM Date:",
-
-        formatPMDate(date)
-
-    );
-
-    // Next Phase:
-    // openPMScheduleDrawer(date);
-
 }
 // ==========================================
 // SET EVENTS

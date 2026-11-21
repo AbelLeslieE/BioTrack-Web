@@ -4,36 +4,22 @@
 
 document.addEventListener("DOMContentLoaded", () => {
 
-    console.log("Logout JS Loaded");
-
     const logoutButton = document.querySelector(".logout-btn");
-
-    console.log(logoutButton);
+    if (!logoutButton) return;
 
     logoutButton.addEventListener("click", async () => {
-
-        console.log("Logout clicked");
+        logoutButton.disabled = true;
 
         try {
-
-            const response = await fetch("/api/logout", {
+            await fetch("/api/logout", {
                 method: "POST"
             });
-
-            console.log(response.status);
-
+        } finally {
             if (typeof clearDashboardIdentity === "function") {
                 clearDashboardIdentity();
             }
 
             window.location.href = "/";
-
-        }
-
-        catch(error){
-
-            console.error(error);
-
         }
 
     });

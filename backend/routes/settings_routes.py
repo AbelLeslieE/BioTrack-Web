@@ -4,10 +4,9 @@ import json
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, Request as WebRequest, Response
-from jose import jwt
 from sqlalchemy.orm import Query, Session
 
-from backend.auth import get_current_user, session_cookie_name
+from backend.auth import decode_session_token, get_current_user, session_cookie_name
 from backend.database import get_db
 from backend.models.asset import Asset
 from backend.models.inventory import Inventory
@@ -77,7 +76,7 @@ def current_session(
     current_user: User = Depends(get_current_user),
 ):
     token = request.cookies.get(session_cookie_name()) or request.cookies.get("access_token")
-    claims = jwt.get_unverified_claims(token) if token else {}
+    claims = decode_session_token(token) or {}
     issued_at = claims.get("iat")
     expires_at = claims.get("exp")
     return {
