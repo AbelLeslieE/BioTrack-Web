@@ -56,6 +56,15 @@ test("quotation comparison recommends best overall value with adjustable priorit
     assert.match(view, /dominatesCount/);
 });
 
+test("quotations have a dedicated Business Office module", () => {
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    assert.match(view, /businessTabButton\("quotations", "scale", "Quotations"\)/);
+    assert.match(view, /quotations: renderBusinessQuotations/);
+    assert.match(view, /function renderBusinessQuotations\(\)/);
+    for (const phrase of ["Quotation management", "Quotation workbench", "Ready to compare", "Quotation register"]) assert.match(view, new RegExp(phrase));
+    assert.match(view, /openBusinessQuotationModule\(\$\{item\.id\}\)/);
+});
+
 test("business summary keeps long currency values readable", () => {
     const view = read("frontend/dashboard_v2/views/businessView.js");
     const css = read("frontend/dashboard_v2/css/business.css");

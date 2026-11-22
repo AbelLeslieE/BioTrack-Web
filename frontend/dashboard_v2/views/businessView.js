@@ -1,5 +1,6 @@
 let businessData = null;
 let businessActiveTab = "overview";
+let businessQuotationFocusPurchaseId = null;
 const businessQuoteDefaultWeights = { price: 40, warranty: 30, delivery: 20, payment_terms: 10 };
 let businessQuoteWeights = { ...businessQuoteDefaultWeights };
 
@@ -14,6 +15,7 @@ function renderBusinessPortal() {
         <nav class="business-tabs" aria-label="Business Office sections">
           ${businessTabButton("overview", "layout-dashboard", "Overview")}
           ${businessTabButton("purchases", "shopping-cart", "Purchases")}
+          ${businessTabButton("quotations", "scale", "Quotations")}
           ${businessTabButton("suppliers", "handshake", "Vendors & invoices")}
           ${businessTabButton("budgets", "wallet-cards", "Budgets & payments")}
           ${businessTabButton("insurance", "shield-plus", "Insurance operations")}
@@ -48,7 +50,7 @@ function showBusinessTab(tab) {
     businessActiveTab = tab;
     document.querySelectorAll("[data-business-tab]").forEach(button => button.classList.toggle("is-active", button.dataset.businessTab === tab));
     if (!businessData) return;
-    const renderers = { overview: renderBusinessOverview, purchases: renderBusinessPurchases, suppliers: renderBusinessSuppliers, budgets: renderBusinessBudgets, insurance: renderBusinessInsurance, reports: renderBusinessReports };
+    const renderers = { overview: renderBusinessOverview, purchases: renderBusinessPurchases, quotations: renderBusinessQuotations, suppliers: renderBusinessSuppliers, budgets: renderBusinessBudgets, insurance: renderBusinessInsurance, reports: renderBusinessReports };
     const workspace = document.getElementById("businessWorkspace");
     if (workspace) workspace.innerHTML = (renderers[tab] || renderBusinessOverview)();
     if (window.lucide) lucide.createIcons();
@@ -109,12 +111,59 @@ function renderBusinessPurchases() {
 }
 
 function businessPurchaseActions(item, isManager) {
-    const quotation = ["Submitted", "Approved"].includes(item.status) ? `<button class="business-row-action" type="button" onclick="openQuotationComparison(${item.id})">Quotations</button>` : "";
+    const quotation = ["Submitted", "Approved"].includes(item.status) ? `<button class="business-row-action" type="button" onclick="openBusinessQuotationModule(${item.id})">Quotations</button>` : "";
     if (item.status === "Submitted" && isManager) return `<span class="business-action-stack">${quotation}<button class="business-row-action" type="button" onclick="openPurchaseReview(${item.id})">Review</button></span>`;
     const next = { Approved: "Ordered", Ordered: "Received", Received: "Paid" }[item.status];
     if (next === "Paid" && (businessData?.invoices || []).some(invoice => invoice.purchase_id === item.id)) return `<button class="business-row-action" type="button" onclick="showBusinessTab('suppliers')">Open invoices</button>`;
     if (next) return `<span class="business-action-stack">${quotation}<button class="business-row-action" type="button" onclick="openPurchaseStatus(${item.id}, '${next}')">Mark ${next}</button></span>`;
     return quotation || `<span class="business-muted">${item.approved_by ? `By ${businessEscape(item.approved_by)}` : "No action"}</span>`;
+}
+
+function openBusinessQuotationModule(purchaseId) {
+    businessQuotationFocusPurchaseId = Number(purchaseId) || null;
+    showBusinessTab("quotations");
+    const row = document.querySelector(`[data-quotation-purchase="${businessQuotationFocusPurchaseId}"]`);
+    if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function renderBusinessQuotations() {
+    const purchases = businessData.purchases || [];
+    const quotations = businessData.quotations || [];
+    const vendors = (businessData.vendors || []).filter(item => item.status === "Active");
+    const eligibleStatuses = ["Submitted", "Approved"];
+    const quotationGroups = purchases
+        .filter(purchase => eligibleStatuses.includes(purchase.status) || quotations.some(quote => quote.purchase_id === purchase.id))
+        .sort((left, right) => Number(right.id === businessQuotationFocusPurchaseId) - Number(left.id === businessQuotationFocusPurchaseId));
+    const comparisonCount = quotationGroups.filter(purchase => quotations.filter(quote => quote.purchase_id === purchase.id).length >= 2).length;
+    const selectedCount = quotations.filter(item => item.status === "Selected").length;
+    const groupRows = quotationGroups.length ? quotationGroups.map(purchase => {
+        const purchaseQuotes = quotations.filter(item => item.purchase_id === purchase.id);
+        const evaluated = evaluateBusinessQuotations(purchaseQuotes);
+        const best = evaluated[0];
+        const selected = purchaseQuotes.find(item => item.status === "Selected");
+        const totals = purchaseQuotes.map(item => Number(item.total_amount || 0));
+        const priceRange = totals.length ? `${businessMoney(Math.min(...totals))}${totals.length > 1 ? ` – ${businessMoney(Math.max(...totals))}` : ""}` : "—";
+        const recommendation = evaluated.length >= 2 ? `<strong>${businessEscape(best.vendor_name)}</strong><small>${best.evaluation_score.toFixed(1)} / 100 best-value score</small>` : `<span class="business-muted">${evaluated.length ? "Add another quotation to compare" : "Not evaluated"}</span>`;
+        const addButton = eligibleStatuses.includes(purchase.status) && vendors.length ? `<button class="business-row-action" type="button" onclick="openBusinessForm('quotation', ${purchase.id})">Add quotation</button>` : "";
+        const compareButton = purchaseQuotes.length ? `<button class="business-row-action" type="button" onclick="openQuotationComparison(${purchase.id})">${purchaseQuotes.length >= 2 ? "Compare" : "Review"}</button>` : "";
+        const vendorButton = !vendors.length ? `<button class="business-row-action" type="button" onclick="showBusinessTab('suppliers')">Add a vendor first</button>` : "";
+        return `<tr class="${purchase.id === businessQuotationFocusPurchaseId ? "is-focused" : ""}" data-quotation-purchase="${purchase.id}"><td><strong>${businessEscape(purchase.request_number)}</strong><small>${businessDate(purchase.requested_at)}</small></td><td><strong>${businessEscape(purchase.item_name)}</strong><small>${businessEscape(purchase.department)} · ${businessNumber(purchase.quantity)} ${businessEscape(purchase.unit)}</small></td><td><span class="business-quotation-count">${purchaseQuotes.length}</span><small>${purchaseQuotes.length >= 2 ? "Ready to compare" : "quotation received"}</small></td><td><strong>${priceRange}</strong></td><td>${recommendation}</td><td>${selected ? `<span class="business-status is-approved">Selected</span><small>${businessEscape(selected.vendor_name)}</small>` : `<span class="business-status is-${businessStatusClass(purchase.status)}">${businessEscape(purchase.status)}</span>`}</td><td><span class="business-action-stack">${addButton}${compareButton}${vendorButton}</span></td></tr>`;
+    }).join("") : businessTableEmpty(7, "No purchases need quotations", "Create a purchase request before collecting supplier quotations.");
+    const quotationRows = quotations.length ? quotations.map(item => {
+        const purchase = purchases.find(row => row.id === item.purchase_id);
+        const documentCount = businessData.document_counts?.[`quotation:${item.id}`] || 0;
+        return `<tr><td><strong>${businessEscape(item.quote_number)}</strong><small>${businessDate(item.quote_date)}${item.valid_until ? ` · valid to ${businessDate(item.valid_until)}` : ""}</small></td><td><strong>${businessEscape(item.vendor_name)}</strong><small>${item.vendor_payment_terms_days || 0} day credit</small></td><td><strong>${businessEscape(purchase?.request_number || `Purchase #${item.purchase_id}`)}</strong><small>${businessEscape(purchase?.item_name || "")}</small></td><td><strong>${businessMoney(item.total_amount)}</strong><small>${businessMoney(item.unit_price)} each</small></td><td>${item.delivery_days || 0} days<small>${item.warranty_months || 0} month warranty</small></td><td><span class="business-status is-${businessStatusClass(item.status)}">${businessEscape(item.status)}</span></td><td><span class="business-action-stack"><button class="business-row-action" type="button" onclick="openQuotationComparison(${item.purchase_id})">Compare</button><button class="business-row-action" type="button" onclick="openBusinessDocuments('quotation', ${item.id})">Documents${documentCount ? ` (${documentCount})` : ""}</button></span></td></tr>`;
+    }).join("") : businessTableEmpty(7, "No quotations collected", "Use the quotation workbench above to add the first supplier offer.");
+    return `
+      <section class="business-section-heading"><div><span class="business-eyebrow">Supplier sourcing</span><h2>Quotation management</h2><p>Collect supplier offers, compare total value and document the selection decision in one dedicated workspace.</p></div></section>
+      <section class="business-insurance-summary business-quotation-summary">
+        <article><span><i data-lucide="shopping-basket"></i></span><div><small>Purchases in workbench</small><strong>${quotationGroups.length}</strong></div></article>
+        <article><span><i data-lucide="files"></i></span><div><small>Quotations received</small><strong>${quotations.length}</strong></div></article>
+        <article><span><i data-lucide="scale"></i></span><div><small>Ready to compare</small><strong>${comparisonCount}</strong></div></article>
+        <article><span><i data-lucide="badge-check"></i></span><div><small>Selections completed</small><strong>${selectedCount}</strong></div></article>
+      </section>
+      <section class="business-panel business-table-panel business-quotation-workbench"><header><div><h2>Quotation workbench</h2><p>Each purchase stays together with its offers, price range, best-value recommendation and final selection.</p></div></header><div class="business-table-scroll"><table class="business-table"><thead><tr><th>Purchase</th><th>Requirement</th><th>Offers</th><th>Price range</th><th>Recommendation</th><th>Decision</th><th>Action</th></tr></thead><tbody>${groupRows}</tbody></table></div></section>
+      <section class="business-panel business-table-panel"><header><div><h2>Quotation register</h2><p>All supplier quotations, commercial terms and supporting documents remain available for audit.</p></div></header><div class="business-table-scroll"><table class="business-table"><thead><tr><th>Quotation</th><th>Vendor</th><th>Purchase</th><th>Total value</th><th>Delivery & warranty</th><th>Status</th><th>Action</th></tr></thead><tbody>${quotationRows}</tbody></table></div></section>`;
 }
 
 function renderBusinessSuppliers() {
