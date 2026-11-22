@@ -14,6 +14,7 @@ function createRouter(role) {
         "renderAssetForm", "renderAssetDetails", "renderInventory", "renderPM",
         "renderReports", "renderAI", "renderUsers", "renderQRScannerModule", "renderQRAssetProfile", "renderSettings",
         "renderWardBoyDashboard", "renderCentralStore", "renderStoreRequests",
+        "renderBusinessPortal",
     ];
     const context = {
         console: { log() {}, warn() {}, error() {} },
@@ -73,6 +74,17 @@ test("Central Store and engineers receive their scoped supply pages", () => {
     const bme = createRouter("bme");
     bme.navigate("storeRequests");
     assert.deepEqual(bme.renders, ["renderStoreRequests"]);
+});
+
+test("Business Office accounts open only the institutional finance portal", () => {
+    const business = createRouter("business");
+    business.navigate("businessPortal");
+    business.navigate("assets");
+    assert.deepEqual(business.renders, ["renderBusinessPortal", "renderBusinessPortal"]);
+
+    const manager = createRouter("manager");
+    manager.navigate("businessPortal");
+    assert.deepEqual(manager.renders, ["renderBusinessPortal"]);
 });
 
 test("unknown roles are returned to login instead of receiving a dashboard", () => {

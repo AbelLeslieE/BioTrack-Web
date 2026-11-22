@@ -13,9 +13,6 @@ from backend.database import MIGRATION_DATABASE_URL as DATABASE_URL
 
 
 def migrate() -> bool:
-    if not DATABASE_URL.startswith("sqlite:///"):
-        raise RuntimeError("This migration currently supports SQLite databases only.")
-    database_path = Path(DATABASE_URL[len("sqlite:///") :]).resolve()
     engine = create_engine(DATABASE_URL)
     inspector = inspect(engine)
     if "requests" not in inspector.get_table_names():
@@ -24,14 +21,20 @@ def migrate() -> bool:
         print("Spare-parts stock tracking is already applied.")
         return False
 
-    backup_path = database_path.with_suffix(".before-spare-parts-stock.db")
-    if database_path.exists() and not backup_path.exists():
-        shutil.copy2(database_path, backup_path)
-        print(f"Backup created: {backup_path}")
+    sqlite = DATABASE_URL.startswith("sqlite:///")
+    if sqlite:
+        database_path = Path(DATABASE_URL[len("sqlite:///") :]).resolve()
+        backup_path = database_path.with_suffix(".before-spare-parts-stock.db")
+        if database_path.exists() and not backup_path.exists():
+            shutil.copy2(database_path, backup_path)
+            print(f"Backup created: {backup_path}")
 
     with engine.begin() as connection:
         connection.execute(
-            text("ALTER TABLE requests ADD COLUMN stock_deducted BOOLEAN NOT NULL DEFAULT 0")
+            text(
+                "ALTER TABLE requests ADD COLUMN stock_deducted BOOLEAN NOT NULL DEFAULT "
+                + ("0" if sqlite else "FALSE")
+            )
         )
     print("Spare-parts stock tracking applied successfully.")
     return True

@@ -19,16 +19,18 @@ const ROLE_HOME_PAGES = {
     user: "userDashboard",
     wardboy: "wardBoyDashboard",
     centralstore: "centralStore",
+    business: "businessPortal",
 };
 
 const ROLE_PAGE_ACCESS = {
-    admin: new Set(["dashboard", "ticket", "callManagement", "callAssignment", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "centralStore", "storeRequests", "vendors", "pm", "reports", "users", "qr", "qrAssetProfile", "settings"]),
+    admin: new Set(["dashboard", "ticket", "callManagement", "callAssignment", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "centralStore", "storeRequests", "vendors", "businessPortal", "pm", "reports", "users", "qr", "qrAssetProfile", "settings"]),
     engineer: new Set(["engineerDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "storeRequests", "vendors", "pm", "reports", "qr", "qrAssetProfile", "settings"]),
     electrical: new Set(["electricalDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "storeRequests", "vendors", "qr", "qrAssetProfile", "settings"]),
     it: new Set(["itDashboard", "ticket", "callManagement", "maintenance", "assets", "assetForm", "assetDetails", "inventory", "storeRequests", "vendors", "qr", "qrAssetProfile", "settings"]),
     user: new Set(["userDashboard", "newRequest", "myRequests", "myAssets", "assetDetails", "departmentPMSchedule", "requestDetails", "qr", "qrAssetProfile", "settings"]),
     wardboy: new Set(["wardBoyDashboard", "settings"]),
     centralstore: new Set(["centralStore", "settings"]),
+    business: new Set(["businessPortal", "settings"]),
 };
 // ==========================================
 // CURRENT SELECTED ASSET
@@ -73,6 +75,7 @@ const Pages = {
     centralStore: renderCentralStore,
     storeRequests: renderStoreRequests,
     vendors: typeof renderVendors === "function" ? renderVendors : () => {},
+    businessPortal: renderBusinessPortal,
     pm: renderPM,
     reports: renderReports,
     ai: renderAI,

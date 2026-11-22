@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    LargeBinary,
     String
 )
 
@@ -36,6 +37,10 @@ class AssetDocument(Base):
     document_type = Column(String)
 
     file_path = Column(String, nullable=False)
+
+    # Keep uploaded evidence in the database so files survive Render restarts.
+    # file_path remains for backward-compatible access to legacy disk uploads.
+    file_data = Column(LargeBinary)
 
     content_type = Column(String, nullable=False, default="application/pdf")
 

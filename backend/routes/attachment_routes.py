@@ -1,8 +1,9 @@
 from pathlib import Path
+from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request as WebRequest, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -109,14 +110,12 @@ async def upload_ticket_attachment(
     stored_name = f"{uuid4().hex}{extension}"
     if stored_total + len(optimized) > MAX_STORED_BYTES_PER_TICKET:
         raise HTTPException(status_code=409, detail="This attachment would exceed the maintenance call storage limit.")
-    target = ATTACHMENT_DIRECTORY / stored_name
-    await run_in_threadpool(target.write_bytes, optimized)
-
     attachment = RequestAttachment(
         request_id=ticket.id,
         document_type=document_type,
         original_name=original_name,
         stored_name=stored_name,
+        file_data=optimized,
         content_type=stored_content_type,
         original_size_bytes=len(raw),
         stored_size_bytes=len(optimized),
@@ -145,21 +144,34 @@ def download_ticket_attachment(
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found.")
     _ticket_for_user(db, attachment.request_id, current_user)
-    path = ATTACHMENT_DIRECTORY / attachment.stored_name
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="The stored attachment file is missing.")
+    if attachment.file_data is not None:
+        safe_name = quote(Path(attachment.original_name).name, safe="")
+        response = Response(
+            content=attachment.file_data,
+            media_type=attachment.content_type,
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}",
+                "X-Content-Type-Options": "nosniff",
+                "Cache-Control": "private, no-store",
+            },
+        )
+    else:
+        path = ATTACHMENT_DIRECTORY / attachment.stored_name
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="The stored attachment file is missing.")
+        response = FileResponse(
+            path,
+            media_type=attachment.content_type,
+            filename=attachment.original_name,
+            content_disposition_type="attachment",
+            headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"},
+        )
     record_security_event(
         db, "attachment.downloaded", "success", request=request,
         actor_user_id=current_user.id, actor_username=current_user.username,
         target_type="request_attachment", target_id=attachment.id,
     )
-    return FileResponse(
-        path,
-        media_type=attachment.content_type,
-        filename=attachment.original_name,
-        content_disposition_type="attachment",
-        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"},
-    )
+    return response
 
 
 @router.delete("/attachments/{attachment_id}")

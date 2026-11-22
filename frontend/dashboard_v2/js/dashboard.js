@@ -28,7 +28,34 @@ async function loadDashboard() {
     renderAdminTeams(data.teams || []);
     renderAdminActivity(data.recent_activity || []);
     renderAdminAttention(summary, data.teams || []);
+    loadBusinessAdminSummary();
     if (window.lucide) lucide.createIcons();
+}
+
+async function loadBusinessAdminSummary() {
+    const container = document.getElementById("adminBusinessPending");
+    if (!container) return;
+    try {
+        const response = await fetch("/api/business/admin-summary", { cache: "no-store" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || "Business summary unavailable");
+        setAdminDashboardText("adminBusinessBudget", adminMoney(data.allocated_budget));
+        setAdminDashboardText("adminBusinessSpend", adminMoney(data.paid_spend));
+        setAdminDashboardText("adminBusinessRemaining", adminMoney(data.remaining_budget));
+        setAdminDashboardText("adminBusinessPurchases", data.pending_purchase_count || 0);
+        setAdminDashboardText("adminBusinessPurchaseAmount", adminMoney(data.pending_purchase_amount) + " awaiting review");
+        setAdminDashboardText("adminBusinessInsurance", adminMoney(data.insurance_outstanding));
+        const pending = data.recent_pending || [];
+        container.innerHTML = pending.length ? `<div class="admin-business-pending-heading"><strong>Purchases awaiting your decision</strong><button type="button" onclick="navigate('businessPortal')">Review all <i data-lucide="arrow-right"></i></button></div>${pending.map(item => `<button type="button" onclick="navigate('businessPortal')"><span><strong>${adminEscape(item.item_name)}</strong><small>${adminEscape(item.department)} · ${adminEscape(item.request_number)}</small></span><em>${adminMoney(item.total_amount)}</em><i data-lucide="chevron-right"></i></button>`).join("")}` : `<div class="admin-business-clear"><i data-lucide="circle-check-big"></i><span><strong>No purchases are waiting for approval</strong><small>The Business Office queue is current.</small></span></div>`;
+        if (window.lucide) lucide.createIcons();
+    } catch (error) {
+        container.innerHTML = `<div class="admin-business-clear"><i data-lucide="wifi-off"></i><span><strong>Financial overview unavailable</strong><small>Open the Business Office to try again.</small></span></div>`;
+        if (window.lucide) lucide.createIcons();
+    }
+}
+
+function adminMoney(value) {
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value || 0));
 }
 
 function setAdminDashboardText(id, value) {

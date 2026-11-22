@@ -12,8 +12,9 @@ from fastapi import (
     HTTPException,
     Body,
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pathlib import Path
+from urllib.parse import quote
 from uuid import uuid4
 from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
@@ -594,14 +595,12 @@ async def upload_asset_document(
     stored_name = f"{uuid4().hex}{extension}"
     if stored_total + len(optimized) > 50 * 1024 * 1024:
         raise HTTPException(status_code=409, detail="This document would exceed the asset storage limit.")
-    target = ASSET_DOCUMENT_DIRECTORY / stored_name
-    await run_in_threadpool(target.write_bytes, optimized)
-
     document = AssetDocument(
         asset_id=asset.id,
         document_name=original_name,
         document_type=document_type,
         file_path=stored_name,
+        file_data=optimized,
         content_type=content_type,
         original_size_bytes=len(raw),
         stored_size_bytes=len(optimized),
@@ -616,8 +615,6 @@ async def upload_asset_document(
         db.refresh(document)
     except Exception:
         db.rollback()
-        if target.is_file():
-            target.unlink()
         raise
     return {"success": True, "document": _asset_document_payload(document)}
 
@@ -651,6 +648,12 @@ def preview_asset_document(
         raise HTTPException(status_code=404, detail="Asset photo not found for your portal.")
     if not (document.content_type or "").startswith("image/"):
         raise HTTPException(status_code=415, detail="This asset document is not an image.")
+    if document.file_data is not None:
+        return Response(
+            content=document.file_data,
+            media_type=document.content_type,
+            headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=3600"},
+        )
     path = ASSET_DOCUMENT_DIRECTORY / Path(document.file_path).name
     if not path.is_file():
         raise HTTPException(status_code=404, detail="The stored asset photo is missing.")
@@ -672,6 +675,17 @@ def download_asset_document(
     current_user: User = Depends(get_current_user),
 ):
     document = _asset_document_for_user(db, document_id, current_user)
+    if document.file_data is not None:
+        safe_name = quote(Path(document.document_name).name, safe="")
+        return Response(
+            content=document.file_data,
+            media_type=document.content_type or "application/octet-stream",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}",
+                "X-Content-Type-Options": "nosniff",
+                "Cache-Control": "private, no-store",
+            },
+        )
     path = ASSET_DOCUMENT_DIRECTORY / Path(document.file_path).name
     if not path.is_file():
         raise HTTPException(status_code=404, detail="The stored asset document is missing.")

@@ -17,7 +17,7 @@ router=APIRouter(
     dependencies=[Depends(require_roles("Manager"))],
 )
 
-ALLOWED_ROLES = {"Manager", "BME", "Electrical", "IT", "User", "WardBoy", "CentralStore"}
+ALLOWED_ROLES = {"Manager", "BME", "Electrical", "IT", "User", "WardBoy", "CentralStore", "Business"}
 
 class UserFields(BaseModel):
     name: str = Field(min_length=1, max_length=120)

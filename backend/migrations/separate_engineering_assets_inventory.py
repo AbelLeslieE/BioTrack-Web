@@ -22,7 +22,6 @@ def _sqlite_database_path() -> Path:
 
 
 def migrate() -> bool:
-    database_path = _sqlite_database_path()
     engine = create_engine(DATABASE_URL)
     inspector = inspect(engine)
     target_tables = ("assets", "inventory")
@@ -39,10 +38,12 @@ def migrate() -> bool:
         print("Asset and Inventory separation is already applied.")
         return False
 
-    backup_path = database_path.with_suffix(".before-team-separation.db")
-    if database_path.exists() and not backup_path.exists():
-        shutil.copy2(database_path, backup_path)
-        print(f"Backup created: {backup_path}")
+    if DATABASE_URL.startswith("sqlite:///"):
+        database_path = _sqlite_database_path()
+        backup_path = database_path.with_suffix(".before-team-separation.db")
+        if database_path.exists() and not backup_path.exists():
+            shutil.copy2(database_path, backup_path)
+            print(f"Backup created: {backup_path}")
 
     with engine.begin() as connection:
         for table_name in tables_to_update:

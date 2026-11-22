@@ -29,10 +29,12 @@ from backend.routes.asset_routes import (
     create_asset,
     create_asset_relocation_request,
     delete_asset_document,
+    download_asset_document,
     get_asset,
     get_asset_relocation_requests,
     get_assets,
     list_asset_documents,
+    preview_asset_document,
     get_my_asset_relocation_requests,
     review_asset_relocation_request,
     update_asset,
@@ -44,7 +46,7 @@ from backend.services.service_team import team_for_user
 
 
 class AssetRouteTests(unittest.TestCase):
-    def test_asset_document_upload_compresses_stores_and_deletes_file(self):
+    def test_asset_document_upload_compresses_stores_and_deletes_database_content(self):
         engine = create_engine("sqlite:///:memory:")
         Asset.__table__.create(engine)
         AssetDocument.__table__.create(engine)
@@ -64,17 +66,16 @@ class AssetRouteTests(unittest.TestCase):
                 file=BytesIO(pdf_bytes),
                 headers=Headers({"content-type": "application/pdf"}),
             )
-            with tempfile.TemporaryDirectory(prefix="biotrack-asset-doc-") as directory:
-                target_directory = Path(directory)
-                with patch("backend.routes.asset_routes.ASSET_DOCUMENT_DIRECTORY", target_directory):
-                    result = asyncio.run(upload_asset_document(asset.id, "Manual", upload, session, user))
-                    stored = session.get(AssetDocument, result["document"]["id"])
-                    stored_path = target_directory / stored.file_path
-                    self.assertTrue(stored_path.is_file())
-                    self.assertLessEqual(stored.stored_size_bytes, 900 * 1024)
-                    self.assertEqual(stored.original_size_bytes, len(pdf_bytes))
-                    delete_asset_document(stored.id, session, user)
-                    self.assertFalse(stored_path.exists())
+            result = asyncio.run(upload_asset_document(asset.id, "Manual", upload, session, user))
+            stored = session.get(AssetDocument, result["document"]["id"])
+            self.assertIsNotNone(stored.file_data)
+            self.assertEqual(len(stored.file_data), stored.stored_size_bytes)
+            self.assertLessEqual(stored.stored_size_bytes, 900 * 1024)
+            self.assertEqual(stored.original_size_bytes, len(pdf_bytes))
+            response = download_asset_document(stored.id, session, user)
+            self.assertEqual(response.body, stored.file_data)
+            delete_asset_document(stored.id, session, user)
+            self.assertIsNone(session.get(AssetDocument, stored.id))
         finally:
             session.close()
             engine.dispose()
@@ -100,23 +101,24 @@ class AssetRouteTests(unittest.TestCase):
                     headers=Headers({"content-type": "image/png"}),
                 )
 
-            with tempfile.TemporaryDirectory(prefix="biotrack-asset-photo-") as directory:
-                with patch("backend.routes.asset_routes.ASSET_DOCUMENT_DIRECTORY", Path(directory)):
-                    first = asyncio.run(upload_asset_document(asset.id, "Photo", image_upload("front.png", "blue"), session, user))
-                    session.refresh(asset)
-                    self.assertEqual(asset.image_path, first["document"]["preview_url"])
+            first = asyncio.run(upload_asset_document(asset.id, "Photo", image_upload("front.png", "blue"), session, user))
+            session.refresh(asset)
+            self.assertEqual(asset.image_path, first["document"]["preview_url"])
+            preview = preview_asset_document(first["document"]["id"], session, user)
+            self.assertTrue(preview.body)
+            self.assertEqual(preview.media_type, "image/jpeg")
 
-                    second = asyncio.run(upload_asset_document(asset.id, "Photo", image_upload("side.png", "green"), session, user))
-                    session.refresh(asset)
-                    self.assertEqual(asset.image_path, second["document"]["preview_url"])
+            second = asyncio.run(upload_asset_document(asset.id, "Photo", image_upload("side.png", "green"), session, user))
+            session.refresh(asset)
+            self.assertEqual(asset.image_path, second["document"]["preview_url"])
 
-                    delete_asset_document(second["document"]["id"], session, user)
-                    session.refresh(asset)
-                    self.assertEqual(asset.image_path, first["document"]["preview_url"])
+            delete_asset_document(second["document"]["id"], session, user)
+            session.refresh(asset)
+            self.assertEqual(asset.image_path, first["document"]["preview_url"])
 
-                    delete_asset_document(first["document"]["id"], session, user)
-                    session.refresh(asset)
-                    self.assertIsNone(asset.image_path)
+            delete_asset_document(first["document"]["id"], session, user)
+            session.refresh(asset)
+            self.assertIsNone(asset.image_path)
         finally:
             session.close()
             engine.dispose()

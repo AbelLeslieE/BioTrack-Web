@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT,
     email TEXT,
     phone TEXT,
-    role TEXT NOT NULL CHECK (role IN ('Manager', 'BME', 'Electrical', 'IT', 'User', 'WardBoy', 'CentralStore')),
+    role TEXT NOT NULL CHECK (role IN ('Manager', 'BME', 'Electrical', 'IT', 'User', 'WardBoy', 'CentralStore', 'Business')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN NOT NULL DEFAULT 1,
     failed_login_attempts INTEGER NOT NULL DEFAULT 0,
@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS asset_documents (
     document_name TEXT NOT NULL,
     document_type TEXT,
     file_path TEXT NOT NULL,
+    file_data BLOB,
     content_type TEXT NOT NULL DEFAULT 'application/pdf',
     original_size_bytes INTEGER NOT NULL DEFAULT 0,
     stored_size_bytes INTEGER NOT NULL DEFAULT 0,
@@ -267,6 +268,7 @@ CREATE TABLE IF NOT EXISTS request_attachments (
     document_type TEXT NOT NULL,
     original_name TEXT NOT NULL,
     stored_name TEXT NOT NULL UNIQUE,
+    file_data BLOB,
     content_type TEXT NOT NULL,
     original_size_bytes INTEGER NOT NULL DEFAULT 0,
     stored_size_bytes INTEGER NOT NULL DEFAULT 0,
@@ -462,6 +464,117 @@ CREATE TABLE IF NOT EXISTS report_schedules (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS business_budgets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fiscal_year TEXT NOT NULL,
+    department TEXT NOT NULL DEFAULT 'Hospital-wide',
+    category TEXT NOT NULL,
+    allocated_amount REAL NOT NULL DEFAULT 0,
+    notes TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'Active',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (fiscal_year, department, category)
+);
+
+CREATE TABLE IF NOT EXISTS purchase_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_number TEXT NOT NULL UNIQUE,
+    budget_id INTEGER,
+    department TEXT NOT NULL,
+    category TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    specification TEXT NOT NULL DEFAULT '',
+    vendor_name TEXT NOT NULL DEFAULT '',
+    quantity REAL NOT NULL DEFAULT 1,
+    unit TEXT NOT NULL DEFAULT 'units',
+    unit_cost REAL NOT NULL DEFAULT 0,
+    total_amount REAL NOT NULL DEFAULT 0,
+    justification TEXT NOT NULL,
+    priority TEXT NOT NULL DEFAULT 'Normal',
+    status TEXT NOT NULL DEFAULT 'Submitted',
+    requested_by_username TEXT NOT NULL,
+    requested_by_name TEXT NOT NULL,
+    approved_by_username TEXT,
+    approved_by_name TEXT,
+    approval_note TEXT NOT NULL DEFAULT '',
+    requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP,
+    ordered_at TIMESTAMP,
+    received_at TIMESTAMP,
+    paid_at TIMESTAMP,
+    FOREIGN KEY (budget_id) REFERENCES business_budgets(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS business_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reference_number TEXT NOT NULL UNIQUE,
+    budget_id INTEGER,
+    transaction_type TEXT NOT NULL,
+    category TEXT NOT NULL,
+    department TEXT NOT NULL DEFAULT 'Hospital-wide',
+    counterparty TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    transaction_date DATE NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Pending',
+    payment_method TEXT NOT NULL DEFAULT '',
+    invoice_number TEXT NOT NULL DEFAULT '',
+    source_type TEXT,
+    source_id INTEGER,
+    created_by TEXT NOT NULL,
+    approved_by TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (source_type, source_id),
+    FOREIGN KEY (budget_id) REFERENCES business_budgets(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS insurance_policies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider_name TEXT NOT NULL,
+    policy_name TEXT NOT NULL,
+    policy_code TEXT NOT NULL UNIQUE,
+    payer_type TEXT NOT NULL,
+    coverage_model TEXT NOT NULL DEFAULT 'Cashless',
+    valid_from DATE NOT NULL,
+    valid_to DATE NOT NULL,
+    claim_submission_days INTEGER NOT NULL DEFAULT 30,
+    payment_due_days INTEGER NOT NULL DEFAULT 30,
+    status TEXT NOT NULL DEFAULT 'Active',
+    contact_person TEXT NOT NULL DEFAULT '',
+    contact_email TEXT NOT NULL DEFAULT '',
+    contact_phone TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS insurance_claim_batches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_reference TEXT NOT NULL UNIQUE,
+    policy_id INTEGER NOT NULL,
+    service_period_start DATE NOT NULL,
+    service_period_end DATE NOT NULL,
+    claim_count INTEGER NOT NULL DEFAULT 0,
+    claimed_amount REAL NOT NULL DEFAULT 0,
+    approved_amount REAL NOT NULL DEFAULT 0,
+    received_amount REAL NOT NULL DEFAULT 0,
+    deductions_amount REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'Draft',
+    submitted_at TIMESTAMP,
+    expected_payment_date DATE,
+    received_at TIMESTAMP,
+    query_reason TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (policy_id) REFERENCES insurance_policies(id) ON DELETE RESTRICT
+);
+
 CREATE INDEX IF NOT EXISTS ix_assets_service_team ON assets(service_team);
 CREATE INDEX IF NOT EXISTS ix_asset_relocation_requests_asset_id ON asset_relocation_requests(asset_id);
 CREATE INDEX IF NOT EXISTS ix_asset_relocation_requests_status ON asset_relocation_requests(status);
@@ -476,4 +589,11 @@ CREATE INDEX IF NOT EXISTS ix_vendor_service_history_contract_id ON vendor_servi
 CREATE INDEX IF NOT EXISTS ix_ward_boy_tasks_request_id ON ward_boy_tasks(request_id);
 CREATE INDEX IF NOT EXISTS ix_ward_boy_tasks_status ON ward_boy_tasks(status);
 CREATE INDEX IF NOT EXISTS ix_pm_schedules_asset_id ON pm_schedules(asset_id);
+CREATE INDEX IF NOT EXISTS ix_business_budgets_fiscal_year ON business_budgets(fiscal_year);
+CREATE INDEX IF NOT EXISTS ix_purchase_requests_status ON purchase_requests(status);
+CREATE INDEX IF NOT EXISTS ix_purchase_requests_budget_id ON purchase_requests(budget_id);
+CREATE INDEX IF NOT EXISTS ix_business_transactions_transaction_date ON business_transactions(transaction_date);
+CREATE INDEX IF NOT EXISTS ix_business_transactions_budget_id ON business_transactions(budget_id);
+CREATE INDEX IF NOT EXISTS ix_insurance_policies_status ON insurance_policies(status);
+CREATE INDEX IF NOT EXISTS ix_insurance_claim_batches_status ON insurance_claim_batches(status);
 

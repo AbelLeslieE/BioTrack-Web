@@ -31,6 +31,11 @@ REQUIRED_TABLES = {
     "ward_boy_tasks",
     "auth_sessions",
     "security_audit",
+    "business_budgets",
+    "purchase_requests",
+    "business_transactions",
+    "insurance_policies",
+    "insurance_claim_batches",
 }
 REQUIRED_ROUTES = {
     "/api/assets/{asset_id}/documents",
@@ -41,6 +46,10 @@ REQUIRED_ROUTES = {
     "/api/central-store/requests",
     "/api/ward-boy/dashboard",
     "/api/security/audit",
+    "/api/business/dashboard",
+    "/api/business/purchases",
+    "/api/business/admin-summary",
+    "/api/business/report.csv",
     "/api/auth/mfa/setup",
     "/api/auth/mfa/enable",
     "/api/auth/mfa/disable",
@@ -86,8 +95,16 @@ def main() -> int:
             row[1] for row in connection.execute("PRAGMA table_info(asset_documents)")
         }
         check(
-            {"content_type", "original_size_bytes", "stored_size_bytes"}.issubset(asset_document_columns),
-            "asset documents retain compression metadata",
+            {"content_type", "original_size_bytes", "stored_size_bytes", "file_data"}.issubset(asset_document_columns),
+            "asset documents retain compressed database-backed content",
+            failures,
+        )
+        request_attachment_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(request_attachments)")
+        }
+        check(
+            "file_data" in request_attachment_columns,
+            "maintenance evidence uses durable database storage",
             failures,
         )
     finally:
@@ -121,6 +138,7 @@ def main() -> int:
     bundle = (ROOT / "frontend" / "dashboard_v2" / "dist" / "dashboard.bundle.js").read_text(encoding="utf-8")
     check("views/centralStoreView.js" in bundle, "Central Store portal is present in the dashboard bundle", failures)
     check("views/vendorsView.js" in bundle, "vendor contracts are present in the dashboard bundle", failures)
+    check("views/businessView.js" in bundle, "Business Office portal is present in the dashboard bundle", failures)
     check("uploadAssetDocument" in bundle, "asset document upload is present in the dashboard bundle", failures)
     check(
         all(path in bundle for path in ("/api/auth/mfa/setup", "/api/auth/mfa/enable", "/api/auth/mfa/disable")),

@@ -48,6 +48,11 @@ const adminMenu = `
     <span>Vendors & Contracts</span>
 </a>
 
+<a href="#" class="nav-item" data-page="businessPortal">
+    <i data-lucide="landmark"></i>
+    <span>Business Office</span>
+</a>
+
 <a href="#" class="nav-item" data-page="users">
     <i data-lucide="users"></i>
     <span>Users</span>
@@ -276,6 +281,17 @@ const centralStoreMenu = `
     <span>Settings</span>
 </a>
 `;
+
+const businessMenu = `
+<a href="#" class="nav-item active" data-page="businessPortal">
+    <i data-lucide="landmark"></i>
+    <span>Business Office</span>
+</a>
+<a href="#" class="nav-item" data-page="settings">
+    <i data-lucide="settings"></i>
+    <span>Settings</span>
+</a>
+`;
  
 // ==========================================
 // LOAD MENU
@@ -323,6 +339,11 @@ document.addEventListener("DOMContentLoaded", () => {
         case "centralstore":
 
             sidebar.innerHTML = centralStoreMenu;
+            break;
+
+        case "business":
+
+            sidebar.innerHTML = businessMenu;
             break;
 
         default:

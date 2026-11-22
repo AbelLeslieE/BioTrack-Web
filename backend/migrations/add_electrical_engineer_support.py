@@ -19,26 +19,32 @@ def _sqlite_database_path() -> Path:
 
 
 def migrate() -> bool:
-    database_path = _sqlite_database_path()
     engine = create_engine(DATABASE_URL)
     inspector = inspect(engine)
     if "users" not in inspector.get_table_names() or "requests" not in inspector.get_table_names():
         raise RuntimeError("Expected users and requests tables were not found.")
 
     needs_team_column = "service_team" not in {column["name"] for column in inspector.get_columns("requests")}
-    with engine.connect() as connection:
-        users_sql = connection.execute(
-            text("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")
-        ).scalar() or ""
-    needs_role_update = "Electrical" not in users_sql or "IT" not in users_sql
+    sqlite = DATABASE_URL.startswith("sqlite:///")
+    users_sql = ""
+    if sqlite:
+        with engine.connect() as connection:
+            users_sql = connection.execute(
+                text("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")
+            ).scalar() or ""
+    # PostgreSQL deployments use the unconstrained SQLAlchemy role column and
+    # therefore need no table rebuild when roles are added.
+    needs_role_update = sqlite and ("Electrical" not in users_sql or "IT" not in users_sql)
     if not needs_team_column and not needs_role_update:
         print("Electrical Engineer migration is already applied.")
         return False
 
-    backup_path = database_path.with_suffix(".before-electrical-migration.db")
-    if database_path.exists() and not backup_path.exists():
-        shutil.copy2(database_path, backup_path)
-        print(f"Backup created: {backup_path}")
+    if sqlite:
+        database_path = _sqlite_database_path()
+        backup_path = database_path.with_suffix(".before-electrical-migration.db")
+        if database_path.exists() and not backup_path.exists():
+            shutil.copy2(database_path, backup_path)
+            print(f"Backup created: {backup_path}")
 
     with engine.begin() as connection:
         if needs_team_column:

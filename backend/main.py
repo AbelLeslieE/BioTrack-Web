@@ -7,6 +7,7 @@ import os
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
@@ -32,6 +33,7 @@ from backend.routes.attachment_routes import router as attachment_router
 from backend.routes.vendor_routes import router as vendor_router
 from backend.routes.central_store_routes import router as central_store_router
 from backend.routes.security_routes import router as security_router
+from backend.routes.business_routes import router as business_router
 from backend.auth import get_current_user, validate_auth_config
 from backend.security_middleware import SecurityMiddleware
 from backend.storage import QR_DIRECTORY
@@ -69,9 +71,13 @@ async def cache_static_assets(request, call_next):
 
 
 @app.get("/api/health", include_in_schema=False)
-def health_check():
-    """Unauthenticated readiness check for Render and other hosting platforms."""
-    return {"status": "ok"}
+def health_check(db: Session = Depends(get_db)):
+    """Unauthenticated readiness check for the web process and its database."""
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Database readiness check failed.") from exc
+    return {"status": "ok", "database": "ready"}
 
 
 @app.get("/manifest.webmanifest", include_in_schema=False)
@@ -138,6 +144,7 @@ app.include_router(attachment_router)
 app.include_router(vendor_router)
 app.include_router(central_store_router)
 app.include_router(security_router)
+app.include_router(business_router)
 # ==========================================
 # ROUTES
 # ==========================================
