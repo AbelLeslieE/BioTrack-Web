@@ -34,3 +34,15 @@ test("administrator dashboard exposes financial supervision", () => {
     assert.match(dashboardData, /\/api\/business\/admin-summary/);
     assert.match(dashboardData, /recent_pending/);
 });
+
+test("supplier workflow covers vendors quotations invoices partial payments and documents", () => {
+    const model = read("backend/models/business.py");
+    const route = read("backend/routes/business_routes.py");
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    for (const name of ["BusinessVendor", "SupplierQuotation", "SupplierInvoice", "SupplierPayment", "BusinessDocument"]) assert.match(model, new RegExp(`class ${name}`));
+    for (const phrase of ["Quotation comparison", "Vendor master", "Supplier invoices", "Payment approval queue", "Outstanding report", "Supporting documents"]) assert.match(view, new RegExp(phrase));
+    assert.match(route, /vendor-outstanding\.csv/);
+    assert.match(route, /Pending Approval/);
+    assert.match(route, /source_type="supplier_payment"/);
+    assert.match(model, /Numeric\(18, 2\)/);
+});

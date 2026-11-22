@@ -36,6 +36,11 @@ REQUIRED_TABLES = {
     "business_transactions",
     "insurance_policies",
     "insurance_claim_batches",
+    "business_vendors",
+    "supplier_quotations",
+    "supplier_invoices",
+    "supplier_payments",
+    "business_documents",
 }
 REQUIRED_ROUTES = {
     "/api/assets/{asset_id}/documents",
@@ -50,6 +55,12 @@ REQUIRED_ROUTES = {
     "/api/business/purchases",
     "/api/business/admin-summary",
     "/api/business/report.csv",
+    "/api/business/vendors",
+    "/api/business/purchases/{purchase_id}/quotations",
+    "/api/business/invoices",
+    "/api/business/invoices/{invoice_id}/payments",
+    "/api/business/vendor-outstanding.csv",
+    "/api/business/documents/{record_type}/{record_id}",
     "/api/auth/mfa/setup",
     "/api/auth/mfa/enable",
     "/api/auth/mfa/disable",
@@ -105,6 +116,14 @@ def main() -> int:
         check(
             "file_data" in request_attachment_columns,
             "maintenance evidence uses durable database storage",
+            failures,
+        )
+        business_money_types = {
+            row[1]: row[2] for row in connection.execute("PRAGMA table_info(supplier_invoices)")
+        }
+        check(
+            all("NUMERIC" in business_money_types.get(name, "") for name in ("subtotal_amount", "total_amount", "paid_amount")),
+            "supplier accounting uses exact decimal currency columns",
             failures,
         )
     finally:

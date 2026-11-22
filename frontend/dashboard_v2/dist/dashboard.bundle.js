@@ -677,8 +677,12 @@ async function loadBusinessAdminSummary() {
         setAdminDashboardText("adminBusinessPurchases", data.pending_purchase_count || 0);
         setAdminDashboardText("adminBusinessPurchaseAmount", adminMoney(data.pending_purchase_amount) + " awaiting review");
         setAdminDashboardText("adminBusinessInsurance", adminMoney(data.insurance_outstanding));
+        setAdminDashboardText("adminBusinessSupplierOutstanding", adminMoney(data.supplier_outstanding));
+        setAdminDashboardText("adminBusinessPaymentApprovals", data.pending_payment_approvals || 0);
         const pending = data.recent_pending || [];
-        container.innerHTML = pending.length ? `<div class="admin-business-pending-heading"><strong>Purchases awaiting your decision</strong><button type="button" onclick="navigate('businessPortal')">Review all <i data-lucide="arrow-right"></i></button></div>${pending.map(item => `<button type="button" onclick="navigate('businessPortal')"><span><strong>${adminEscape(item.item_name)}</strong><small>${adminEscape(item.department)} · ${adminEscape(item.request_number)}</small></span><em>${adminMoney(item.total_amount)}</em><i data-lucide="chevron-right"></i></button>`).join("")}` : `<div class="admin-business-clear"><i data-lucide="circle-check-big"></i><span><strong>No purchases are waiting for approval</strong><small>The Business Office queue is current.</small></span></div>`;
+        const paymentApprovals = data.recent_pending_payments || [];
+        const rows = [...pending.map(item => ({ title: item.item_name, detail: `${item.department} · ${item.request_number}`, amount: item.total_amount })), ...paymentApprovals.map(item => ({ title: `Payment · ${item.vendor_name}`, detail: `${item.invoice_number} · ${item.reference_number}`, amount: item.amount }))];
+        container.innerHTML = rows.length ? `<div class="admin-business-pending-heading"><strong>Business approvals awaiting your decision</strong><button type="button" onclick="navigate('businessPortal')">Review all <i data-lucide="arrow-right"></i></button></div>${rows.map(item => `<button type="button" onclick="navigate('businessPortal')"><span><strong>${adminEscape(item.title)}</strong><small>${adminEscape(item.detail)}</small></span><em>${adminMoney(item.amount)}</em><i data-lucide="chevron-right"></i></button>`).join("")}` : `<div class="admin-business-clear"><i data-lucide="circle-check-big"></i><span><strong>No business approvals are waiting</strong><small>The purchase and payment queues are current.</small></span></div>`;
         if (window.lucide) lucide.createIcons();
     } catch (error) {
         container.innerHTML = `<div class="admin-business-clear"><i data-lucide="wifi-off"></i><span><strong>Financial overview unavailable</strong><small>Open the Business Office to try again.</small></span></div>`;
@@ -2213,13 +2217,15 @@ function renderDashboard() {
         </section>
 
         <section class="admin-business-section" aria-labelledby="adminBusinessTitle">
-          <div class="admin-section-heading"><div><span class="admin-eyebrow">Business oversight</span><h2 id="adminBusinessTitle">Hospital financial position</h2><p>Budget, paid spend, insurance recovery and purchases requiring administrator supervision.</p></div><button class="admin-quiet-action" onclick="navigate('businessPortal')"><i data-lucide="landmark"></i> Open Business Office</button></div>
+          <div class="admin-section-heading"><div><span class="admin-eyebrow">Business oversight</span><h2 id="adminBusinessTitle">Hospital financial position</h2><p>Budget, supplier liabilities, payments, insurance recovery and purchases requiring administrator supervision.</p></div><button class="admin-quiet-action" onclick="navigate('businessPortal')"><i data-lucide="landmark"></i> Open Business Office</button></div>
           <div class="admin-business-grid">
             <article><span class="is-blue"><i data-lucide="wallet-cards"></i></span><div><small>Allocated budget</small><strong id="adminBusinessBudget">—</strong></div></article>
             <article><span class="is-violet"><i data-lucide="badge-indian-rupee"></i></span><div><small>Paid spend</small><strong id="adminBusinessSpend">—</strong></div></article>
             <article><span class="is-green"><i data-lucide="circle-dollar-sign"></i></span><div><small>Remaining budget</small><strong id="adminBusinessRemaining">—</strong></div></article>
             <article><span class="is-orange"><i data-lucide="clipboard-clock"></i></span><div><small>Purchases to approve</small><strong id="adminBusinessPurchases">—</strong><em id="adminBusinessPurchaseAmount">Awaiting review</em></div></article>
             <article><span class="is-red"><i data-lucide="hourglass"></i></span><div><small>Insurance outstanding</small><strong id="adminBusinessInsurance">—</strong></div></article>
+            <article><span class="is-orange"><i data-lucide="receipt"></i></span><div><small>Supplier outstanding</small><strong id="adminBusinessSupplierOutstanding">—</strong></div></article>
+            <article><span class="is-red"><i data-lucide="hand-coins"></i></span><div><small>Payments to approve</small><strong id="adminBusinessPaymentApprovals">—</strong></div></article>
           </div>
           <div id="adminBusinessPending" class="admin-business-pending"><div class="admin-dashboard-loading">Loading purchase approvals…</div></div>
         </section>
@@ -8432,6 +8438,7 @@ function renderBusinessPortal() {
         <nav class="business-tabs" aria-label="Business Office sections">
           ${businessTabButton("overview", "layout-dashboard", "Overview")}
           ${businessTabButton("purchases", "shopping-cart", "Purchases")}
+          ${businessTabButton("suppliers", "handshake", "Vendors & invoices")}
           ${businessTabButton("budgets", "wallet-cards", "Budgets & payments")}
           ${businessTabButton("insurance", "shield-plus", "Insurance operations")}
           ${businessTabButton("reports", "file-chart-column", "Reports")}
@@ -8465,7 +8472,7 @@ function showBusinessTab(tab) {
     businessActiveTab = tab;
     document.querySelectorAll("[data-business-tab]").forEach(button => button.classList.toggle("is-active", button.dataset.businessTab === tab));
     if (!businessData) return;
-    const renderers = { overview: renderBusinessOverview, purchases: renderBusinessPurchases, budgets: renderBusinessBudgets, insurance: renderBusinessInsurance, reports: renderBusinessReports };
+    const renderers = { overview: renderBusinessOverview, purchases: renderBusinessPurchases, suppliers: renderBusinessSuppliers, budgets: renderBusinessBudgets, insurance: renderBusinessInsurance, reports: renderBusinessReports };
     const workspace = document.getElementById("businessWorkspace");
     if (workspace) workspace.innerHTML = (renderers[tab] || renderBusinessOverview)();
     if (window.lucide) lucide.createIcons();
@@ -8484,6 +8491,7 @@ function renderBusinessOverview() {
         ${businessMetric("clipboard-clock", "Pending purchases", summary.pending_purchase_amount, "orange", `${summary.pending_purchase_count || 0} awaiting approval`)}
         ${businessMetric("hand-coins", "Claims received", summary.claims_received, "teal")}
         ${businessMetric("hourglass", "Insurance outstanding", summary.claims_outstanding, "red")}
+        ${businessMetric("receipt", "Supplier outstanding", summary.supplier_outstanding, Number(summary.overdue_supplier_amount) > 0 ? "red" : "orange", `${businessMoney(summary.overdue_supplier_amount)} overdue`)}
       </section>
       <section class="business-overview-grid">
         <article class="business-panel">
@@ -8525,10 +8533,51 @@ function renderBusinessPurchases() {
 }
 
 function businessPurchaseActions(item, isManager) {
-    if (item.status === "Submitted" && isManager) return `<button class="business-row-action" type="button" onclick="openPurchaseReview(${item.id})">Review</button>`;
+    const quotation = ["Submitted", "Approved"].includes(item.status) ? `<button class="business-row-action" type="button" onclick="openQuotationComparison(${item.id})">Quotations</button>` : "";
+    if (item.status === "Submitted" && isManager) return `<span class="business-action-stack">${quotation}<button class="business-row-action" type="button" onclick="openPurchaseReview(${item.id})">Review</button></span>`;
     const next = { Approved: "Ordered", Ordered: "Received", Received: "Paid" }[item.status];
-    if (next) return `<button class="business-row-action" type="button" onclick="openPurchaseStatus(${item.id}, '${next}')">Mark ${next}</button>`;
-    return `<span class="business-muted">${item.approved_by ? `By ${businessEscape(item.approved_by)}` : "No action"}</span>`;
+    if (next === "Paid" && (businessData?.invoices || []).some(invoice => invoice.purchase_id === item.id)) return `<button class="business-row-action" type="button" onclick="showBusinessTab('suppliers')">Open invoices</button>`;
+    if (next) return `<span class="business-action-stack">${quotation}<button class="business-row-action" type="button" onclick="openPurchaseStatus(${item.id}, '${next}')">Mark ${next}</button></span>`;
+    return quotation || `<span class="business-muted">${item.approved_by ? `By ${businessEscape(item.approved_by)}` : "No action"}</span>`;
+}
+
+function renderBusinessSuppliers() {
+    const vendors = businessData.vendors || [];
+    const invoices = businessData.invoices || [];
+    const payments = businessData.payments || [];
+    const summary = businessData.summary || {};
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    const isManager = ["manager", "admin"].includes(role);
+    return `
+      <section class="business-section-heading"><div><span class="business-eyebrow">Supplier finance</span><h2>Vendors, invoices and payments</h2><p>Maintain approved suppliers, verify invoices, approve partial payments and monitor every outstanding balance.</p></div><div class="business-heading-actions"><button type="button" onclick="downloadVendorOutstanding()"><i data-lucide="download"></i> Outstanding report</button><button type="button" onclick="openBusinessForm('invoice')" ${vendors.length ? "" : "disabled"}><i data-lucide="receipt-text"></i> Add invoice</button><button class="business-primary" type="button" onclick="openBusinessForm('vendor')"><i data-lucide="plus"></i> Add vendor</button></div></section>
+      <section class="business-insurance-summary">
+        <article><span><i data-lucide="building-2"></i></span><div><small>Active vendors</small><strong>${summary.active_vendors || 0}</strong></div></article>
+        <article><span><i data-lucide="receipt"></i></span><div><small>Supplier outstanding</small><strong>${businessMoney(summary.supplier_outstanding)}</strong></div></article>
+        <article><span><i data-lucide="triangle-alert"></i></span><div><small>Overdue invoices</small><strong>${businessMoney(summary.overdue_supplier_amount)}</strong></div></article>
+        <article><span><i data-lucide="clipboard-clock"></i></span><div><small>Payment approvals</small><strong>${summary.pending_payment_approvals || 0}</strong></div></article>
+      </section>
+      <section class="business-panel business-table-panel"><header><div><h2>Vendor master</h2><p>Supplier identity, contacts, payment terms and current outstanding position.</p></div></header><div class="business-table-scroll"><table class="business-table"><thead><tr><th>Vendor</th><th>Type</th><th>Contact</th><th>Terms</th><th>Outstanding</th><th>Status</th><th>Action</th></tr></thead><tbody>
+        ${vendors.length ? vendors.map(item => `<tr><td><strong>${businessEscape(item.vendor_name)}</strong><small>${businessEscape(item.vendor_code)} · ${businessEscape(item.tax_identifier || "No tax ID")}</small></td><td>${businessEscape(item.supplier_type)}</td><td>${businessEscape(item.contact_person || "—")}<small>${businessEscape(item.phone || item.email || "No contact")}</small></td><td>${item.payment_terms_days} days</td><td><strong>${businessMoney(item.outstanding_amount)}</strong></td><td><span class="business-status is-${businessStatusClass(item.status)}">${businessEscape(item.status)}</span></td><td><span class="business-action-stack"><button class="business-row-action" type="button" onclick="openBusinessForm('vendorUpdate', ${item.id})">Edit</button><button class="business-row-action" type="button" onclick="openBusinessDocuments('vendor', ${item.id})">Documents</button></span></td></tr>`).join("") : businessTableEmpty(7, "No vendors configured", "Create the first vendor before collecting quotations or invoices.")}
+      </tbody></table></div></section>
+      <section class="business-panel business-table-panel"><header><div><h2>Supplier invoices</h2><p>Approved, partially paid, overdue and settled invoices with exact outstanding values.</p></div></header><div class="business-table-scroll"><table class="business-table"><thead><tr><th>Invoice</th><th>Vendor / purchase</th><th>Due date</th><th>Total</th><th>Paid</th><th>Outstanding</th><th>Status</th><th>Action</th></tr></thead><tbody>
+        ${invoices.length ? invoices.map(item => `<tr><td><strong>${businessEscape(item.invoice_number)}</strong><small>${businessDate(item.invoice_date)}</small></td><td><strong>${businessEscape(item.vendor_name)}</strong><small>${businessEscape(item.request_number)}</small></td><td>${businessDate(item.due_date)}</td><td>${businessMoney(item.total_amount)}</td><td>${businessMoney(item.paid_amount)}</td><td><strong>${businessMoney(item.outstanding_amount)}</strong></td><td><span class="business-status is-${businessStatusClass(item.status)}">${businessEscape(item.status)}</span></td><td>${businessInvoiceActions(item, isManager)}</td></tr>`).join("") : businessTableEmpty(8, "No supplier invoices", "Record an invoice after a purchase has been approved.")}
+      </tbody></table></div></section>
+      <section class="business-panel business-table-panel"><header><div><h2>Payment approval queue</h2><p>Every partial payment is separately requested, approved and completed with a bank reference.</p></div></header><div class="business-table-scroll"><table class="business-table"><thead><tr><th>Request</th><th>Vendor / invoice</th><th>Amount</th><th>Requested date</th><th>Requested by</th><th>Status</th><th>Action</th></tr></thead><tbody>
+        ${payments.length ? payments.map(item => `<tr><td><strong>${businessEscape(item.reference_number)}</strong></td><td><strong>${businessEscape(item.vendor_name)}</strong><small>${businessEscape(item.invoice_number)}</small></td><td><strong>${businessMoney(item.amount)}</strong></td><td>${businessDate(item.requested_payment_date)}</td><td>${businessEscape(item.requested_by)}</td><td><span class="business-status is-${businessStatusClass(item.status)}">${businessEscape(item.status)}</span></td><td>${businessPaymentActions(item, isManager)}</td></tr>`).join("") : businessTableEmpty(7, "No payment requests", "Approved invoices can be paid in one or more controlled instalments.")}
+      </tbody></table></div></section>`;
+}
+
+function businessInvoiceActions(item, isManager) {
+    const docs = `<button class="business-row-action" type="button" onclick="openBusinessDocuments('invoice', ${item.id})">Documents</button>`;
+    if (item.stored_status === "Submitted" && isManager) return `<span class="business-action-stack"><button class="business-row-action" type="button" onclick="openInvoiceReview(${item.id})">Review</button>${docs}</span>`;
+    if (["Approved", "Partially Paid"].includes(item.stored_status) && Number(item.outstanding_amount) > 0) return `<span class="business-action-stack"><button class="business-row-action" type="button" onclick="openBusinessForm('payment', ${item.id})">Request payment</button>${docs}</span>`;
+    return docs;
+}
+
+function businessPaymentActions(item, isManager) {
+    if (item.status === "Pending Approval" && isManager) return `<button class="business-row-action" type="button" onclick="openPaymentReview(${item.id})">Review</button>`;
+    if (item.status === "Approved") return `<button class="business-row-action" type="button" onclick="openBusinessForm('paymentComplete', ${item.id})">Complete payment</button>`;
+    return `<button class="business-row-action" type="button" onclick="openBusinessDocuments('payment', ${item.id})">Documents</button>`;
 }
 
 function renderBusinessBudgets() {
@@ -8583,6 +8632,12 @@ function openBusinessForm(kind, recordId = null) {
     const forms = {
         budget: { title: "Set institutional budget", icon: "wallet-cards", body: businessBudgetFields(), submit: "Save budget" },
         purchase: { title: "New purchase request", icon: "shopping-cart", body: businessPurchaseFields(), submit: "Submit for approval" },
+        vendor: { title: "Add vendor", icon: "building-2", body: businessVendorFields(), submit: "Save vendor" },
+        vendorUpdate: { title: "Edit vendor", icon: "building-2", body: businessVendorFields(recordId), submit: "Update vendor" },
+        quotation: { title: "Add supplier quotation", icon: "scale", body: businessQuotationFields(recordId), submit: "Save quotation" },
+        invoice: { title: "Record supplier invoice", icon: "receipt-text", body: businessInvoiceFields(), submit: "Submit invoice" },
+        payment: { title: "Request partial payment", icon: "hand-coins", body: businessPaymentFields(recordId), submit: "Send for approval" },
+        paymentComplete: { title: "Complete approved payment", icon: "badge-check", body: businessPaymentCompletionFields(recordId), submit: "Post payment" },
         transaction: { title: "Record institutional transaction", icon: "receipt-indian-rupee", body: businessTransactionFields(), submit: "Record transaction" },
         policy: { title: "Add payer policy or scheme", icon: "shield-plus", body: businessPolicyFields(), submit: "Save payer agreement" },
         policyUpdate: { title: "Edit payer policy or scheme", icon: "shield-check", body: businessPolicyFields(recordId), submit: "Update payer agreement" },
@@ -8598,6 +8653,11 @@ function openBusinessForm(kind, recordId = null) {
 
 function businessBudgetFields() { return `${businessField("Fiscal year *", "fiscal_year", "text", businessFiscalYear(), "e.g. 2026-27")}${businessField("Department / scope *", "department", "text", "Hospital-wide")}${businessField("Budget category *", "category", "text", "", "Equipment, maintenance, utilities…")}${businessField("Allocated amount (INR) *", "allocated_amount", "number", "", "", "min=\"0\" step=\"0.01\"")}${businessTextarea("Notes", "notes", "Purpose, restrictions or approval reference", true)}${businessSelect("Status *", "status", [["Active", "Active"], ["Closed", "Closed"]])}`; }
 function businessPurchaseFields() { const budgets = businessData?.budgets || []; return `${businessSelect("Budget line", "budget_id", [["", "Not linked"], ...budgets.map(item => [item.id, `${item.fiscal_year} · ${item.department} · ${item.category}`])])}${businessField("Department *", "department", "text", localStorage.getItem("department") || "")}${businessField("Category *", "category", "text", "", "Equipment, supplies, utilities…")}${businessField("Item or service *", "item_name", "text")}${businessTextarea("Specification", "specification", "What exactly is required?")}${businessField("Proposed vendor", "vendor_name", "text")}${businessField("Quantity *", "quantity", "number", "1", "", "min=\"0.01\" step=\"0.01\"")}${businessField("Unit *", "unit", "text", "units")}${businessField("Unit cost (INR) *", "unit_cost", "number", "", "", "min=\"0\" step=\"0.01\"")}${businessSelect("Priority *", "priority", [["Low", "Low"], ["Normal", "Normal"], ["High", "High"], ["Urgent", "Urgent"]], "Normal")}${businessTextarea("Business justification *", "justification", "Why is this purchase needed and what happens if it is delayed?", true)}`; }
+function businessVendorFields(id = null) { const item = (businessData?.vendors || []).find(row => row.id === Number(id)) || {}; return `${businessField("Vendor code *", "vendor_code", "text", item.vendor_code || "", "e.g. VEN-001")}${businessField("Vendor name *", "vendor_name", "text", item.vendor_name || "")}${businessField("Supplier type *", "supplier_type", "text", item.supplier_type || "General", "Medical equipment, pharmacy, services…")}${businessField("Tax / GST identifier", "tax_identifier", "text", item.tax_identifier || "")}${businessField("Contact person", "contact_person", "text", item.contact_person || "")}${businessField("Phone", "phone", "tel", item.phone || "")}${businessField("Email", "email", "email", item.email || "")}${businessField("Payment terms (days) *", "payment_terms_days", "number", item.payment_terms_days ?? 30, "", "min=\"0\" max=\"365\"")}${businessField("Bank name", "bank_name", "text", item.bank_name || "")}${businessField("Bank account reference", "bank_account_reference", "text", item.bank_account_reference || "")}${businessSelect("Status *", "status", [["Active", "Active"], ["Blocked", "Blocked"], ["Inactive", "Inactive"]], item.status || "Active")}${businessTextarea("Address", "address", "Registered business address", true, item.address || "")}${businessTextarea("Notes", "notes", "Supply categories, restrictions or verification details", true, item.notes || "")}`; }
+function businessQuotationFields(purchaseId) { const purchase = (businessData?.purchases || []).find(row => row.id === Number(purchaseId)); const vendors = (businessData?.vendors || []).filter(row => row.status === "Active"); return `<div class="business-form-context"><strong>${businessEscape(purchase?.request_number || "Purchase")}</strong><span>${businessEscape(purchase?.item_name || "")} · ${businessNumber(purchase?.quantity || 0)} ${businessEscape(purchase?.unit || "")}</span></div>${businessSelect("Vendor *", "vendor_id", vendors.map(item => [item.id, `${item.vendor_code} · ${item.vendor_name}`]))}${businessField("Quotation number *", "quote_number", "text")}${businessField("Quotation date *", "quote_date", "date", new Date().toISOString().slice(0, 10))}${businessField("Valid until", "valid_until", "date")}${businessField("Quantity *", "quantity", "number", purchase?.quantity || 1, "", "min=\"0.001\" step=\"0.001\"")}${businessField("Unit price (INR) *", "unit_price", "number", "", "", "min=\"0\" step=\"0.01\"")}${businessField("Tax amount", "tax_amount", "number", "0", "", "min=\"0\" step=\"0.01\"")}${businessField("Discount", "discount_amount", "number", "0", "", "min=\"0\" step=\"0.01\"")}${businessField("Freight / delivery", "freight_amount", "number", "0", "", "min=\"0\" step=\"0.01\"")}${businessField("Delivery days", "delivery_days", "number", "0", "", "min=\"0\"")}${businessField("Warranty months", "warranty_months", "number", "0", "", "min=\"0\"")}${businessField("Payment terms", "payment_terms", "text")}${businessTextarea("Notes", "notes", "Technical deviations or commercial conditions", true)}`; }
+function businessInvoiceFields() { const vendors = businessData?.vendors || []; const purchases = (businessData?.purchases || []).filter(item => ["Approved", "Ordered", "Received"].includes(item.status)); const quotations = (businessData?.quotations || []).filter(item => item.status === "Selected"); return `${businessSelect("Purchase request *", "purchase_id", purchases.map(item => [item.id, `${item.request_number} · ${item.item_name}`]))}${businessSelect("Vendor *", "vendor_id", vendors.map(item => [item.id, `${item.vendor_code} · ${item.vendor_name}`]))}${businessSelect("Selected quotation", "quotation_id", [["", "Not linked"], ...quotations.map(item => [item.id, `${item.quote_number} · ${item.vendor_name}`])])}${businessField("Invoice number *", "invoice_number", "text")}${businessField("Invoice date *", "invoice_date", "date", new Date().toISOString().slice(0, 10))}${businessField("Due date *", "due_date", "date")}${businessField("Subtotal (INR) *", "subtotal_amount", "number", "", "", "min=\"0\" step=\"0.01\"")}${businessField("Tax amount", "tax_amount", "number", "0", "", "min=\"0\" step=\"0.01\"")}${businessField("Discount", "discount_amount", "number", "0", "", "min=\"0\" step=\"0.01\"")}${businessTextarea("Notes", "notes", "Invoice description, delivery reference or exception", true)}`; }
+function businessPaymentFields(invoiceId) { const item = (businessData?.invoices || []).find(row => row.id === Number(invoiceId)); return `<div class="business-form-context"><strong>${businessEscape(item?.invoice_number || "Invoice")}</strong><span>${businessEscape(item?.vendor_name || "")} · Outstanding ${businessMoney(item?.outstanding_amount)}</span></div>${businessField("Payment amount (INR) *", "amount", "number", item?.outstanding_amount || "", "", `min=\"0.01\" max=\"${Number(item?.outstanding_amount || 0)}\" step=\"0.01\"`)}${businessField("Requested payment date *", "requested_payment_date", "date", new Date().toISOString().slice(0, 10))}${businessTextarea("Request note", "request_note", "Reason, instalment description or supporting reference", true)}`; }
+function businessPaymentCompletionFields(paymentId) { const item = (businessData?.payments || []).find(row => row.id === Number(paymentId)); return `<div class="business-form-context"><strong>${businessEscape(item?.reference_number || "Payment")}</strong><span>${businessEscape(item?.vendor_name || "")} · ${businessMoney(item?.amount)}</span></div>${businessField("Paid date *", "paid_date", "date", new Date().toISOString().slice(0, 10))}${businessField("Payment method *", "payment_method", "text", "Bank transfer")}${businessField("Bank / payment reference *", "bank_reference", "text")}`; }
 function businessTransactionFields() { const budgets = businessData?.budgets || []; return `${businessSelect("Budget line", "budget_id", [["", "Not linked"], ...budgets.map(item => [item.id, `${item.fiscal_year} · ${item.department} · ${item.category}`])])}${businessSelect("Transaction type *", "transaction_type", [["Expense", "Expense"], ["Insurance Receipt", "Insurance receipt"], ["Other Income", "Other institutional income"]])}${businessField("Category *", "category", "text")}${businessField("Department *", "department", "text", "Hospital-wide")}${businessField("Counterparty", "counterparty", "text", "", "Vendor, insurer or other party")}${businessTextarea("Description *", "description", "Purpose and supporting reference", true)}${businessField("Amount (INR) *", "amount", "number", "", "", "min=\"0.01\" step=\"0.01\"")}${businessField("Transaction date *", "transaction_date", "date", new Date().toISOString().slice(0, 10))}${businessSelect("Status *", "status", [["Pending", "Pending"], ["Approved", "Approved"], ["Paid", "Paid"], ["Received", "Received"]], "Paid")}${businessField("Payment method", "payment_method", "text")}${businessField("Invoice / bank reference", "invoice_number", "text")}`; }
 function businessPolicyFields(id = null) { const item = (businessData?.policies || []).find(row => row.id === Number(id)) || {}; return `${businessField("Payer / provider name *", "provider_name", "text", item.provider_name || "")}${businessField("Policy or scheme name *", "policy_name", "text", item.policy_name || "")}${businessField("Policy / scheme code *", "policy_code", "text", item.policy_code || "")}${businessSelect("Payer type *", "payer_type", [["Government Scheme", "Government scheme"], ["Private Insurer", "Private insurer"], ["TPA", "Third-party administrator"], ["Corporate", "Corporate payer"], ["Other", "Other"]], item.payer_type || "Government Scheme")}${businessSelect("Coverage model *", "coverage_model", [["Cashless", "Cashless"], ["Reimbursement", "Reimbursement"], ["Package Rate", "Package rate"], ["Mixed", "Mixed"]], item.coverage_model || "Cashless")}${businessField("Valid from *", "valid_from", "date", item.valid_from || "")}${businessField("Valid to *", "valid_to", "date", item.valid_to || "")}${businessField("Claim submission window (days) *", "claim_submission_days", "number", item.claim_submission_days ?? "30", "", "min=\"0\"")}${businessField("Payment due (days) *", "payment_due_days", "number", item.payment_due_days ?? "30", "", "min=\"0\"")}${businessSelect("Status *", "status", [["Active", "Active"], ["Expired", "Expired"], ["Suspended", "Suspended"]], item.status || "Active")}${businessField("Contact person", "contact_person", "text", item.contact_person || "")}${businessField("Contact email", "contact_email", "email", item.contact_email || "")}${businessField("Contact phone", "contact_phone", "tel", item.contact_phone || "")}${businessTextarea("Notes", "notes", "Coverage, exclusions, escalation or portal details", true, item.notes || "")}`; }
 function businessClaimFields() { const policies = businessData?.policies || []; return `${businessField("Batch reference *", "batch_reference", "text", "", "Hospital or payer batch number")}${businessSelect("Payer policy / scheme *", "policy_id", policies.map(item => [item.id, `${item.provider_name} · ${item.policy_name}`]))}${businessField("Service period start *", "service_period_start", "date")}${businessField("Service period end *", "service_period_end", "date")}${businessField("Number of claims *", "claim_count", "number", "0", "", "min=\"0\"")}${businessField("Claimed amount (INR) *", "claimed_amount", "number", "0", "", "min=\"0\" step=\"0.01\"")}${businessField("Approved amount (INR)", "approved_amount", "number", "0", "", "min=\"0\" step=\"0.01\"")}${businessField("Amount received (INR)", "received_amount", "number", "0", "", "min=\"0\" step=\"0.01\"")}${businessSelect("Status *", "status", [["Draft", "Draft"], ["Submitted", "Submitted"], ["Queried", "Queried"], ["Approved", "Approved"], ["Partially Paid", "Partially paid"], ["Paid", "Paid"], ["Rejected", "Rejected"]])}${businessField("Expected payment date", "expected_payment_date", "date")}${businessTextarea("Query reason", "query_reason", "Reason for payer query, if any")}${businessTextarea("Notes", "notes", "Submission or settlement notes", true)}`; }
@@ -8615,10 +8675,12 @@ async function submitBusinessForm(event) {
     const button = form.querySelector("button[type='submit']");
     const errorBox = document.getElementById("businessFormError");
     const payload = Object.fromEntries(new FormData(form).entries());
-    ["budget_id", "allocated_amount", "quantity", "unit_cost", "amount", "claim_submission_days", "payment_due_days", "policy_id", "claim_count", "claimed_amount", "approved_amount", "received_amount"].forEach(key => { if (key in payload && payload[key] !== "") payload[key] = Number(payload[key]); });
+    ["budget_id", "claim_submission_days", "payment_due_days", "policy_id", "claim_count", "vendor_id", "purchase_id", "quotation_id", "delivery_days", "warranty_months"].forEach(key => { if (key in payload && payload[key] !== "") payload[key] = Number(payload[key]); });
     if (payload.budget_id === "") payload.budget_id = null;
+    if (payload.quotation_id === "") payload.quotation_id = null;
+    if (payload.valid_until === "") payload.valid_until = null;
     if (payload.expected_payment_date === "") payload.expected_payment_date = null;
-    const routes = { budget: ["POST", "/api/business/budgets"], purchase: ["POST", "/api/business/purchases"], transaction: ["POST", "/api/business/transactions"], policy: ["POST", "/api/business/policies"], policyUpdate: ["PUT", `/api/business/policies/${recordId}`], claim: ["POST", "/api/business/claims"], claimUpdate: ["PATCH", `/api/business/claims/${recordId}`] };
+    const routes = { budget: ["POST", "/api/business/budgets"], purchase: ["POST", "/api/business/purchases"], vendor: ["POST", "/api/business/vendors"], vendorUpdate: ["PUT", `/api/business/vendors/${recordId}`], quotation: ["POST", `/api/business/purchases/${recordId}/quotations`], invoice: ["POST", "/api/business/invoices"], payment: ["POST", `/api/business/invoices/${recordId}/payments`], paymentComplete: ["PATCH", `/api/business/payments/${recordId}/complete`], transaction: ["POST", "/api/business/transactions"], policy: ["POST", "/api/business/policies"], policyUpdate: ["PUT", `/api/business/policies/${recordId}`], claim: ["POST", "/api/business/claims"], claimUpdate: ["PATCH", `/api/business/claims/${recordId}`] };
     const [method, endpoint] = routes[kind];
     button.disabled = true;
     errorBox.hidden = true;
@@ -8633,6 +8695,109 @@ async function submitBusinessForm(event) {
         errorBox.textContent = error.message;
         errorBox.hidden = false;
     } finally { button.disabled = false; }
+}
+
+function openQuotationComparison(purchaseId) {
+    const purchase = (businessData?.purchases || []).find(row => row.id === Number(purchaseId));
+    const quotations = (businessData?.quotations || []).filter(row => row.purchase_id === Number(purchaseId));
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    const isManager = ["manager", "admin"].includes(role);
+    const modal = document.getElementById("businessModal");
+    if (!purchase || !modal) return;
+    modal.innerHTML = `<div class="business-modal-backdrop" onclick="closeBusinessModal(event)"><section class="business-modal business-comparison-modal" role="dialog" aria-modal="true"><header><span><i data-lucide="scale"></i></span><div><h2>Quotation comparison</h2><p>${businessEscape(purchase.request_number)} · ${businessEscape(purchase.item_name)}</p></div><button type="button" onclick="closeBusinessModal()"><i data-lucide="x"></i></button></header><div class="business-comparison-toolbar"><div><strong>${quotations.length} quotation${quotations.length === 1 ? "" : "s"}</strong><small>Compare total price, delivery, warranty and payment terms.</small></div><button class="business-primary" type="button" onclick="openBusinessForm('quotation', ${purchase.id})"><i data-lucide="plus"></i> Add quotation</button></div><div class="business-table-scroll"><table class="business-table"><thead><tr><th>Vendor</th><th>Quotation</th><th>Total</th><th>Delivery</th><th>Warranty</th><th>Terms</th><th>Status</th><th>Action</th></tr></thead><tbody>${quotations.length ? quotations.map(item => `<tr class="${item.is_lowest ? "is-best-quote" : ""}"><td><strong>${businessEscape(item.vendor_name)}</strong>${item.is_lowest ? "<small>Lowest evaluated total</small>" : ""}</td><td>${businessEscape(item.quote_number)}<small>${businessDate(item.quote_date)}</small></td><td><strong>${businessMoney(item.total_amount)}</strong><small>${businessMoney(item.unit_price)} each</small></td><td>${item.delivery_days} days</td><td>${item.warranty_months} months</td><td>${businessEscape(item.payment_terms || "—")}</td><td><span class="business-status is-${businessStatusClass(item.status)}">${businessEscape(item.status)}</span></td><td><span class="business-action-stack">${isManager && item.status !== "Selected" ? `<button class="business-row-action" type="button" onclick="selectBusinessQuotation(${item.id}, ${purchase.id})">Select</button>` : ""}<button class="business-row-action" type="button" onclick="openBusinessDocuments('quotation', ${item.id})">Documents</button></span></td></tr>`).join("") : businessTableEmpty(8, "No quotations collected", "Add at least one supplier quotation for comparison.")}</tbody></table></div></section></div>`;
+    if (window.lucide) lucide.createIcons();
+}
+
+async function selectBusinessQuotation(id, purchaseId) {
+    try {
+        const response = await fetch(`/api/business/quotations/${id}/select`, { method: "PATCH" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        businessNotify("success", "Quotation selected", "The chosen vendor and exact purchase value have been applied to the request.");
+        await loadBusinessPortal();
+        openQuotationComparison(purchaseId);
+    } catch (error) { businessNotify("error", "Quotation not selected", error.message); }
+}
+
+function openInvoiceReview(id) {
+    const item = (businessData?.invoices || []).find(row => row.id === Number(id));
+    const modal = document.getElementById("businessModal");
+    if (!item || !modal) return;
+    modal.innerHTML = `<div class="business-modal-backdrop" onclick="closeBusinessModal(event)"><section class="business-modal business-review-modal" role="dialog" aria-modal="true"><header><span><i data-lucide="receipt-text"></i></span><div><h2>Review invoice ${businessEscape(item.invoice_number)}</h2><p>${businessEscape(item.vendor_name)} · ${businessEscape(item.request_number)}</p></div><button type="button" onclick="closeBusinessModal()"><i data-lucide="x"></i></button></header><div class="business-review-detail"><div><small>Invoice total</small><strong>${businessMoney(item.total_amount)}</strong><span>Subtotal ${businessMoney(item.subtotal_amount)} · Tax ${businessMoney(item.tax_amount)}</span></div><div><small>Due date</small><strong>${businessDate(item.due_date)}</strong><span>${businessEscape(item.notes || "No notes")}</span></div></div><div class="business-form-grid business-review-fields">${businessField("Approved amount (INR) *", "approved_amount", "number", item.total_amount, "", `min=\"0\" max=\"${Number(item.total_amount)}\" step=\"0.01\"`)}${businessTextarea("Decision note", "note", "Matching result, exception or rejection reason", true)}</div><div id="businessFormError" class="business-form-error" hidden></div><footer><button class="business-reject" type="button" onclick="decideBusinessInvoice(${item.id}, 'Rejected')">Reject</button><button type="button" onclick="decideBusinessInvoice(${item.id}, 'Disputed')">Dispute</button><button class="business-primary" type="button" onclick="decideBusinessInvoice(${item.id}, 'Approved')">Approve invoice</button></footer></section></div>`;
+    if (window.lucide) lucide.createIcons();
+}
+
+async function decideBusinessInvoice(id, decision) {
+    const amount = document.querySelector("[name='approved_amount']")?.value || "0";
+    const note = document.querySelector("[name='note']")?.value.trim() || "";
+    try {
+        const response = await fetch(`/api/business/invoices/${id}/decision`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decision, approved_amount: amount, note }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        closeBusinessModal();
+        businessNotify(decision === "Approved" ? "success" : "warning", `Invoice ${decision.toLowerCase()}`, "The decision and approved amount are recorded in the audit trail.");
+        await loadBusinessPortal();
+    } catch (error) { const box = document.getElementById("businessFormError"); if (box) { box.textContent = error.message; box.hidden = false; } }
+}
+
+function openPaymentReview(id) {
+    const item = (businessData?.payments || []).find(row => row.id === Number(id));
+    const modal = document.getElementById("businessModal");
+    if (!item || !modal) return;
+    modal.innerHTML = `<div class="business-modal-backdrop" onclick="closeBusinessModal(event)"><section class="business-modal business-review-modal" role="dialog" aria-modal="true"><header><span><i data-lucide="hand-coins"></i></span><div><h2>Review payment request</h2><p>${businessEscape(item.reference_number)} · ${businessEscape(item.vendor_name)}</p></div><button type="button" onclick="closeBusinessModal()"><i data-lucide="x"></i></button></header><div class="business-review-detail"><div><small>Requested amount</small><strong>${businessMoney(item.amount)}</strong><span>Invoice ${businessEscape(item.invoice_number)}</span></div><div><small>Requested date</small><strong>${businessDate(item.requested_payment_date)}</strong><span>${businessEscape(item.request_note || "No request note")}</span></div></div><label class="business-review-note"><span>Approval note</span><textarea id="paymentDecisionNote" placeholder="Approval conditions or rejection reason"></textarea></label><div id="businessFormError" class="business-form-error" hidden></div><footer><button class="business-reject" type="button" onclick="decideBusinessPayment(${item.id}, 'Rejected')">Reject</button><button class="business-primary" type="button" onclick="decideBusinessPayment(${item.id}, 'Approved')">Approve payment</button></footer></section></div>`;
+    if (window.lucide) lucide.createIcons();
+}
+
+async function decideBusinessPayment(id, decision) {
+    const note = document.getElementById("paymentDecisionNote")?.value.trim() || "";
+    try {
+        const response = await fetch(`/api/business/payments/${id}/decision`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decision, note }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        closeBusinessModal();
+        businessNotify(decision === "Approved" ? "success" : "warning", `Payment ${decision.toLowerCase()}`, "The approval decision has been recorded.");
+        await loadBusinessPortal();
+    } catch (error) { const box = document.getElementById("businessFormError"); if (box) { box.textContent = error.message; box.hidden = false; } }
+}
+
+async function openBusinessDocuments(recordType, recordId) {
+    const modal = document.getElementById("businessModal");
+    if (!modal) return;
+    modal.innerHTML = `<div class="business-modal-backdrop" onclick="closeBusinessModal(event)"><section class="business-modal business-review-modal" role="dialog" aria-modal="true"><header><span><i data-lucide="paperclip"></i></span><div><h2>Supporting documents</h2><p>Compressed and stored securely with this business record.</p></div><button type="button" onclick="closeBusinessModal()"><i data-lucide="x"></i></button></header><div class="business-loading"><span></span><strong>Loading documents</strong></div></section></div>`;
+    try {
+        const response = await fetch(`/api/business/documents/${recordType}/${recordId}`, { cache: "no-store" });
+        const documents = await response.json().catch(() => []);
+        if (!response.ok) throw new Error(businessErrorMessage(documents.detail));
+        const section = modal.querySelector("section");
+        section.innerHTML = `<header><span><i data-lucide="paperclip"></i></span><div><h2>Supporting documents</h2><p>${documents.length} file${documents.length === 1 ? "" : "s"} attached.</p></div><button type="button" onclick="closeBusinessModal()"><i data-lucide="x"></i></button></header><form class="business-document-upload" onsubmit="uploadBusinessDocument(event, '${recordType}', ${recordId})"><div>${businessSelect("Document type *", "document_type", [["Quotation", "Quotation"], ["Invoice", "Invoice"], ["Purchase Order", "Purchase order"], ["Delivery Note", "Delivery note"], ["Receipt", "Receipt"], ["Contract", "Contract"], ["Tax Document", "Tax document"], ["Other", "Other"]])}${businessField("PDF or image *", "file", "file", "", "", "accept=\".pdf,.jpg,.jpeg,.png\"")}</div><button class="business-primary" type="submit"><i data-lucide="upload"></i> Upload</button></form><div class="business-document-list">${documents.length ? documents.map(item => `<article><span><i data-lucide="file-check-2"></i></span><div><strong>${businessEscape(item.original_name)}</strong><small>${businessEscape(item.document_type)} · ${Math.ceil(Number(item.stored_size_bytes || 0) / 1024)} KB · ${businessDate(item.uploaded_at)}</small></div><a href="${businessEscape(item.download_url)}"><i data-lucide="download"></i> Download</a><button type="button" onclick="deleteBusinessDocument(${item.id}, '${recordType}', ${recordId})"><i data-lucide="trash-2"></i></button></article>`).join("") : businessInlineEmpty("No supporting documents have been uploaded.")}</div><div id="businessFormError" class="business-form-error" hidden></div>`;
+        if (window.lucide) lucide.createIcons();
+    } catch (error) { businessNotify("error", "Documents unavailable", error.message); closeBusinessModal(); }
+}
+
+async function uploadBusinessDocument(event, recordType, recordId) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector("button[type='submit']");
+    const errorBox = document.getElementById("businessFormError");
+    button.disabled = true;
+    try {
+        const response = await fetch(`/api/business/documents/${recordType}/${recordId}`, { method: "POST", body: new FormData(form) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        businessNotify("success", "Document uploaded", "The supporting file is compressed and stored with the record.");
+        await loadBusinessPortal();
+        await openBusinessDocuments(recordType, recordId);
+    } catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; } finally { button.disabled = false; }
+}
+
+async function deleteBusinessDocument(id, recordType, recordId) {
+    try {
+        const response = await fetch(`/api/business/documents/${id}`, { method: "DELETE" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        await loadBusinessPortal();
+        await openBusinessDocuments(recordType, recordId);
+    } catch (error) { businessNotify("error", "Document not deleted", error.message); }
 }
 
 function openPurchaseReview(id) {
@@ -8682,6 +8847,7 @@ async function advancePurchase(event, id, status) {
 
 function closeBusinessModal(event) { if (event && event.target !== event.currentTarget) return; const modal = document.getElementById("businessModal"); if (modal) modal.innerHTML = ""; }
 function downloadBusinessReport() { window.location.href = "/api/business/report.csv"; }
+function downloadVendorOutstanding() { window.location.href = "/api/business/vendor-outstanding.csv"; }
 function businessFiscalYear() { const now = new Date(); const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1; return `${year}-${String(year + 1).slice(-2)}`; }
 function businessMoney(value) { return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(Number(value || 0)); }
 function businessNumber(value) { return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Number(value || 0)); }

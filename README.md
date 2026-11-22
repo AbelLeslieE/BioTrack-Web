@@ -4,7 +4,9 @@ FastAPI and SQLAlchemy application for managing hospital assets, maintenance, pr
 
 ## Business Office boundary
 
-The Business role manages hospital-level budgets, purchase requests, institutional payments, payer agreements, and aggregate insurance claim batches. It is deliberately not a patient billing or cashier system: patient names, patient identifiers, individual bills, and individual policy records do not belong in this module. Administrators can supervise purchase approvals and see a concise financial overview from their dashboard.
+The Business role manages hospital-level budgets, purchase requests, vendor records, quotation comparison, supplier invoices, partial-payment approvals, institutional payments, payer agreements, and aggregate insurance claim batches. It is deliberately not a patient billing or cashier system: patient names, patient identifiers, individual bills, and individual policy records do not belong in this module. Administrators supervise purchase, invoice, and supplier-payment approvals from their dashboard.
+
+All financial columns use fixed-precision decimal storage. Supplier quotations calculate their evaluated total automatically; selecting one updates the purchase vendor and value. Approved supplier invoices can be paid in controlled instalments, with each payment posted separately to the institutional ledger. The vendor outstanding report shows unpaid and overdue balances. Quotations, invoices, delivery notes, receipts, contracts, and tax documents can be attached directly to their business record.
 
 ## Run locally
 

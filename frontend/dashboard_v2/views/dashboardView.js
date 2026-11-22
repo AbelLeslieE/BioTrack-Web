@@ -22,13 +22,15 @@ function renderDashboard() {
         </section>
 
         <section class="admin-business-section" aria-labelledby="adminBusinessTitle">
-          <div class="admin-section-heading"><div><span class="admin-eyebrow">Business oversight</span><h2 id="adminBusinessTitle">Hospital financial position</h2><p>Budget, paid spend, insurance recovery and purchases requiring administrator supervision.</p></div><button class="admin-quiet-action" onclick="navigate('businessPortal')"><i data-lucide="landmark"></i> Open Business Office</button></div>
+          <div class="admin-section-heading"><div><span class="admin-eyebrow">Business oversight</span><h2 id="adminBusinessTitle">Hospital financial position</h2><p>Budget, supplier liabilities, payments, insurance recovery and purchases requiring administrator supervision.</p></div><button class="admin-quiet-action" onclick="navigate('businessPortal')"><i data-lucide="landmark"></i> Open Business Office</button></div>
           <div class="admin-business-grid">
             <article><span class="is-blue"><i data-lucide="wallet-cards"></i></span><div><small>Allocated budget</small><strong id="adminBusinessBudget">—</strong></div></article>
             <article><span class="is-violet"><i data-lucide="badge-indian-rupee"></i></span><div><small>Paid spend</small><strong id="adminBusinessSpend">—</strong></div></article>
             <article><span class="is-green"><i data-lucide="circle-dollar-sign"></i></span><div><small>Remaining budget</small><strong id="adminBusinessRemaining">—</strong></div></article>
             <article><span class="is-orange"><i data-lucide="clipboard-clock"></i></span><div><small>Purchases to approve</small><strong id="adminBusinessPurchases">—</strong><em id="adminBusinessPurchaseAmount">Awaiting review</em></div></article>
             <article><span class="is-red"><i data-lucide="hourglass"></i></span><div><small>Insurance outstanding</small><strong id="adminBusinessInsurance">—</strong></div></article>
+            <article><span class="is-orange"><i data-lucide="receipt"></i></span><div><small>Supplier outstanding</small><strong id="adminBusinessSupplierOutstanding">—</strong></div></article>
+            <article><span class="is-red"><i data-lucide="hand-coins"></i></span><div><small>Payments to approve</small><strong id="adminBusinessPaymentApprovals">—</strong></div></article>
           </div>
           <div id="adminBusinessPending" class="admin-business-pending"><div class="admin-dashboard-loading">Loading purchase approvals…</div></div>
         </section>

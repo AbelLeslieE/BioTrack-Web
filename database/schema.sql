@@ -469,7 +469,7 @@ CREATE TABLE IF NOT EXISTS business_budgets (
     fiscal_year TEXT NOT NULL,
     department TEXT NOT NULL DEFAULT 'Hospital-wide',
     category TEXT NOT NULL,
-    allocated_amount REAL NOT NULL DEFAULT 0,
+    allocated_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
     notes TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'Active',
     created_by TEXT NOT NULL,
@@ -487,10 +487,10 @@ CREATE TABLE IF NOT EXISTS purchase_requests (
     item_name TEXT NOT NULL,
     specification TEXT NOT NULL DEFAULT '',
     vendor_name TEXT NOT NULL DEFAULT '',
-    quantity REAL NOT NULL DEFAULT 1,
+    quantity NUMERIC(18,3) NOT NULL DEFAULT 1,
     unit TEXT NOT NULL DEFAULT 'units',
-    unit_cost REAL NOT NULL DEFAULT 0,
-    total_amount REAL NOT NULL DEFAULT 0,
+    unit_cost NUMERIC(18,2) NOT NULL DEFAULT 0,
+    total_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
     justification TEXT NOT NULL,
     priority TEXT NOT NULL DEFAULT 'Normal',
     status TEXT NOT NULL DEFAULT 'Submitted',
@@ -516,7 +516,7 @@ CREATE TABLE IF NOT EXISTS business_transactions (
     department TEXT NOT NULL DEFAULT 'Hospital-wide',
     counterparty TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL,
-    amount REAL NOT NULL DEFAULT 0,
+    amount NUMERIC(18,2) NOT NULL DEFAULT 0,
     transaction_date DATE NOT NULL,
     status TEXT NOT NULL DEFAULT 'Pending',
     payment_method TEXT NOT NULL DEFAULT '',
@@ -559,10 +559,10 @@ CREATE TABLE IF NOT EXISTS insurance_claim_batches (
     service_period_start DATE NOT NULL,
     service_period_end DATE NOT NULL,
     claim_count INTEGER NOT NULL DEFAULT 0,
-    claimed_amount REAL NOT NULL DEFAULT 0,
-    approved_amount REAL NOT NULL DEFAULT 0,
-    received_amount REAL NOT NULL DEFAULT 0,
-    deductions_amount REAL NOT NULL DEFAULT 0,
+    claimed_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    approved_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    received_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    deductions_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'Draft',
     submitted_at TIMESTAMP,
     expected_payment_date DATE,
@@ -573,6 +573,116 @@ CREATE TABLE IF NOT EXISTS insurance_claim_batches (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (policy_id) REFERENCES insurance_policies(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS business_vendors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    vendor_code TEXT NOT NULL UNIQUE,
+    vendor_name TEXT NOT NULL,
+    supplier_type TEXT NOT NULL DEFAULT 'General',
+    tax_identifier TEXT NOT NULL DEFAULT '',
+    contact_person TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '',
+    payment_terms_days INTEGER NOT NULL DEFAULT 30,
+    bank_name TEXT NOT NULL DEFAULT '',
+    bank_account_reference TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'Active',
+    notes TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS supplier_quotations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    purchase_id INTEGER NOT NULL,
+    vendor_id INTEGER NOT NULL,
+    quote_number TEXT NOT NULL,
+    quote_date DATE NOT NULL,
+    valid_until DATE,
+    quantity NUMERIC(18,3) NOT NULL DEFAULT 1,
+    unit_price NUMERIC(18,2) NOT NULL DEFAULT 0,
+    tax_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    discount_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    freight_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    total_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    delivery_days INTEGER NOT NULL DEFAULT 0,
+    warranty_months INTEGER NOT NULL DEFAULT 0,
+    payment_terms TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'Received',
+    created_by TEXT NOT NULL,
+    selected_by TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    selected_at TIMESTAMP,
+    UNIQUE (vendor_id, quote_number),
+    FOREIGN KEY (purchase_id) REFERENCES purchase_requests(id) ON DELETE CASCADE,
+    FOREIGN KEY (vendor_id) REFERENCES business_vendors(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS supplier_invoices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    purchase_id INTEGER NOT NULL,
+    vendor_id INTEGER NOT NULL,
+    quotation_id INTEGER,
+    invoice_number TEXT NOT NULL,
+    invoice_date DATE NOT NULL,
+    due_date DATE NOT NULL,
+    subtotal_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    tax_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    discount_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    total_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    approved_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    paid_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'Submitted',
+    notes TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL,
+    approved_by TEXT,
+    approval_note TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    approved_at TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (vendor_id, invoice_number),
+    FOREIGN KEY (purchase_id) REFERENCES purchase_requests(id) ON DELETE RESTRICT,
+    FOREIGN KEY (vendor_id) REFERENCES business_vendors(id) ON DELETE RESTRICT,
+    FOREIGN KEY (quotation_id) REFERENCES supplier_quotations(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS supplier_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_id INTEGER NOT NULL,
+    reference_number TEXT NOT NULL UNIQUE,
+    amount NUMERIC(18,2) NOT NULL,
+    requested_payment_date DATE NOT NULL,
+    paid_date DATE,
+    payment_method TEXT NOT NULL DEFAULT '',
+    bank_reference TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'Pending Approval',
+    request_note TEXT NOT NULL DEFAULT '',
+    approval_note TEXT NOT NULL DEFAULT '',
+    requested_by TEXT NOT NULL,
+    approved_by TEXT,
+    completed_by TEXT,
+    requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    FOREIGN KEY (invoice_id) REFERENCES supplier_invoices(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS business_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    record_type TEXT NOT NULL,
+    record_id INTEGER NOT NULL,
+    document_type TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    original_size_bytes INTEGER NOT NULL DEFAULT 0,
+    stored_size_bytes INTEGER NOT NULL DEFAULT 0,
+    file_data BLOB NOT NULL,
+    uploaded_by TEXT NOT NULL,
+    uploaded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS ix_assets_service_team ON assets(service_team);
@@ -596,4 +706,12 @@ CREATE INDEX IF NOT EXISTS ix_business_transactions_transaction_date ON business
 CREATE INDEX IF NOT EXISTS ix_business_transactions_budget_id ON business_transactions(budget_id);
 CREATE INDEX IF NOT EXISTS ix_insurance_policies_status ON insurance_policies(status);
 CREATE INDEX IF NOT EXISTS ix_insurance_claim_batches_status ON insurance_claim_batches(status);
+CREATE INDEX IF NOT EXISTS ix_business_vendors_status ON business_vendors(status);
+CREATE INDEX IF NOT EXISTS ix_supplier_quotations_purchase_id ON supplier_quotations(purchase_id);
+CREATE INDEX IF NOT EXISTS ix_supplier_invoices_vendor_id ON supplier_invoices(vendor_id);
+CREATE INDEX IF NOT EXISTS ix_supplier_invoices_due_date ON supplier_invoices(due_date);
+CREATE INDEX IF NOT EXISTS ix_supplier_invoices_status ON supplier_invoices(status);
+CREATE INDEX IF NOT EXISTS ix_supplier_payments_invoice_id ON supplier_payments(invoice_id);
+CREATE INDEX IF NOT EXISTS ix_supplier_payments_status ON supplier_payments(status);
+CREATE INDEX IF NOT EXISTS ix_business_documents_record ON business_documents(record_type, record_id);
 

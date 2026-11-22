@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from importlib import import_module
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from backend.database import MIGRATION_DATABASE_URL, schema_engine
 from backend.models import Base
@@ -26,6 +26,7 @@ MIGRATIONS = (
     "add_security_hardening",
     "add_business_office",
     "store_uploads_in_database",
+    "add_procurement_finance",
 )
 
 
@@ -39,7 +40,16 @@ def _run_registered_migrations() -> list[tuple[str, bool]]:
     # existing database this only creates missing tables; it never replaces or
     # rewrites existing ones, so the ordered migrations can safely add columns
     # and constraints afterwards.
-    Base.metadata.create_all(bind=schema_engine)
+    # ``MetaData.create_all(checkfirst=True)`` performs one remote catalog
+    # lookup per table.  That is needlessly expensive on a hosted database and
+    # can make a Render release appear stuck.  Inspect once, then create only
+    # the missing tables in dependency order without repeating existence
+    # checks.
+    existing_tables = set(inspect(schema_engine).get_table_names())
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            table.create(bind=schema_engine, checkfirst=False)
+            existing_tables.add(table.name)
     results: list[tuple[str, bool]] = []
     for name in MIGRATIONS:
         module = import_module(f"backend.migrations.{name}")
