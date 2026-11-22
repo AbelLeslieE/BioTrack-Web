@@ -1023,7 +1023,6 @@ function openReportsScheduleDialog(){
     document.body.appendChild(overlay);
     overlay.querySelector(".reports-schedule-close").onclick=closeReportsScheduleDialog;
     overlay.querySelector("#cancelReportSchedule").onclick=closeReportsScheduleDialog;
-    overlay.addEventListener("click",event=>{if(event.target===overlay)closeReportsScheduleDialog();});
     overlay.querySelector("#reportsScheduleForm").onsubmit=saveReportSchedule;
 }
 

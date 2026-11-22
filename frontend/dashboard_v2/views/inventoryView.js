@@ -450,7 +450,6 @@ function openInventoryModal(item = null) {
         </section>`;
 
     document.body.appendChild(overlay);
-    overlay.addEventListener("click", event => { if (event.target === overlay) closeInventoryModal(); });
     overlay.querySelector(".modal-close").addEventListener("click", closeInventoryModal);
     overlay.querySelector("#cancelInventoryModal").addEventListener("click", closeInventoryModal);
     overlay.querySelector("#inventoryItemForm").addEventListener("submit", event => {

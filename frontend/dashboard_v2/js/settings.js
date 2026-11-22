@@ -128,7 +128,6 @@ function initializeProfileEditor() {
         const close = () => overlay.remove();
         overlay.querySelector(".profile-edit-close").onclick = close;
         overlay.querySelector(".profile-edit-cancel").onclick = close;
-        overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
         overlay.querySelector("#profileEditForm").onsubmit = async event => {
             event.preventDefault();
             const saveButton = event.submitter;
@@ -487,7 +486,6 @@ async function openMfaDialog() {
     const close = () => overlay.remove();
     overlay.querySelector(".profile-edit-close").onclick = close;
     overlay.querySelector(".mfa-cancel").onclick = close;
-    overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
 
     const form = overlay.querySelector("#mfaSettingsForm");
     form.onsubmit = async event => {

@@ -185,7 +185,7 @@ function showRegisterUser() {
     const modalRoot = document.getElementById("userModal");
     if (!modalRoot) return;
     modalRoot.innerHTML = `
-        <div class="user-modal-backdrop" role="presentation" onclick="if(event.target===this) closeUserModal()">
+        <div class="user-modal-backdrop" role="presentation">
             <section class="user-editor-modal" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
                 <header><span class="user-modal-icon"><i data-lucide="${currentUser ? "user-cog" : "user-plus"}"></i></span><div><h2 id="userModalTitle">${currentUser ? "Edit user" : "Register a new user"}</h2><p>${currentUser ? "Update account details and access." : "Create a staff account and assign its access role."}</p></div><button type="button" class="user-modal-close" onclick="closeUserModal()" aria-label="Close"><i data-lucide="x"></i></button></header>
                 <form class="user-editor-form" onsubmit="event.preventDefault();registerUser()">

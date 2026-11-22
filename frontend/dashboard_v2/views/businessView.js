@@ -482,7 +482,7 @@ async function advancePurchase(event, id, status) {
     } catch (error) { const box = document.getElementById("businessFormError"); if (box) { box.textContent = error.message; box.hidden = false; } }
 }
 
-function closeBusinessModal(event) { if (event && event.target !== event.currentTarget) return; const modal = document.getElementById("businessModal"); if (modal) modal.innerHTML = ""; }
+function closeBusinessModal(event) { if (event) return; const modal = document.getElementById("businessModal"); if (modal) modal.innerHTML = ""; }
 function downloadBusinessReport() { window.location.href = "/api/business/report.csv"; }
 function downloadVendorOutstanding() { window.location.href = "/api/business/vendor-outstanding.csv"; }
 function businessFiscalYear() { const now = new Date(); const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1; return `${year}-${String(year + 1).slice(-2)}`; }

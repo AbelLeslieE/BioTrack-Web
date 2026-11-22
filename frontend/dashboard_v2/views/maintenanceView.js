@@ -421,7 +421,6 @@ function openDowntimeEditor(ticket, currentHours) {
                 <footer><button type="button" class="downtime-cancel-btn" onclick="closeDowntimeEditor()">Cancel</button><button type="submit" class="downtime-save-btn"><i data-lucide="check"></i> Save downtime</button></footer>
             </form>
         </section>`;
-    modal.addEventListener("click", event => { if (event.target === modal) closeDowntimeEditor(); });
     modal.querySelector("form").addEventListener("submit", event => saveDowntimeOverride(event, ticket));
     document.body.appendChild(modal);
     document.body.classList.add("has-modal-open");

@@ -42,9 +42,6 @@
         overlay.innerHTML = content;
         document.body.appendChild(overlay);
         document.body.classList.add("asset-management-dialog-open");
-        overlay.addEventListener("mousedown", event => {
-            if (event.target === overlay) close();
-        });
         overlay.querySelectorAll("[data-close-relocation]").forEach(button => button.addEventListener("click", close));
         escapeHandler = event => {
             if (event.key === "Escape") close();

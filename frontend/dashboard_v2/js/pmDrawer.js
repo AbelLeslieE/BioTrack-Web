@@ -9,9 +9,6 @@ function initializePMDrawer() {
     if (!pmDrawerOverlay()) return;
     document.getElementById("pmDrawerClose")?.addEventListener("click", closePMDrawer);
     document.getElementById("pmCancelButton")?.addEventListener("click", closePMDrawer);
-    pmDrawerOverlay().addEventListener("click", event => {
-        if (event.target === pmDrawerOverlay()) closePMDrawer();
-    });
     document.getElementById("pmScheduleButton")?.addEventListener("click", savePMSchedule);
     document.getElementById("pmDepartment")?.addEventListener("change", event => populateDepartmentAssets(event.target.value));
     document.getElementById("pmEquipment")?.addEventListener("change", event => setPMFrequencyFromAsset(event.target.value));

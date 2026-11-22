@@ -227,7 +227,6 @@ function openAssetImportDialog(excelInput) {
 
     overlay.querySelector(".asset-management-close").onclick = closeDialog;
     overlay.querySelector("#cancelAssetImport").onclick = closeDialog;
-    overlay.addEventListener("click", event => { if (event.target === overlay) closeDialog(); });
     teamSelect.onchange = () => { continueButton.disabled = !teamSelect.value; };
     continueButton.onclick = () => {
         if (!teamSelect.value) return;
@@ -729,7 +728,6 @@ function openAssetDuplicateReview() {
     document.body.classList.add("asset-management-dialog-open");
     overlay.querySelector(".asset-management-close").onclick = closeAssetManagementDialog;
     overlay.querySelector("#cancelDuplicateReview").onclick = closeAssetManagementDialog;
-    overlay.addEventListener("click", event => { if (event.target === overlay) closeAssetManagementDialog(); });
     overlay.querySelector("#removeDuplicateAssets").onclick = () => {
         const duplicateIds = [...overlay.querySelectorAll(".asset-duplicate-choice:checked")]
             .map(input => Number(input.value));

@@ -36,7 +36,7 @@ function openSpareRequestEditor() {
     engineerStoreMode = "Internal";
     const modal = document.createElement("div"); modal.id = "spareRequestEditor"; modal.className = "store-modal-backdrop";
     modal.innerHTML = `<section class="store-modal spare-request-modal" role="dialog" aria-modal="true" aria-labelledby="requestSpareTitle"><header><div><span>Send to Central Store</span><h2 id="requestSpareTitle">Request spare parts</h2></div><button onclick="closeSpareRequestEditor()" aria-label="Close"><i data-lucide="x"></i></button></header><div class="request-mode-switch"><button class="is-active" type="button" onclick="setSpareRequestMode('Internal',this)"><i data-lucide="warehouse"></i><b>Internal stock</b><small>Choose from Central Store</small></button><button type="button" onclick="setSpareRequestMode('External',this)"><i data-lucide="shopping-cart"></i><b>External item</b><small>Describe a new requirement</small></button></div><form id="spareRequestForm" onsubmit="submitSpareRequest(event)"><div id="spareRequestFields"></div><footer><button type="button" class="is-ghost" onclick="closeSpareRequestEditor()">Cancel</button><button class="store-primary" type="submit"><i data-lucide="send"></i>Send request</button></footer></form></section>`;
-    modal.addEventListener("click", event => { if (event.target === modal) closeSpareRequestEditor(); }); document.body.appendChild(modal); renderSpareRequestFields(); if (window.lucide) lucide.createIcons();
+    document.body.appendChild(modal); renderSpareRequestFields(); if (window.lucide) lucide.createIcons();
 }
 
 function closeSpareRequestEditor() { document.getElementById("spareRequestEditor")?.remove(); }

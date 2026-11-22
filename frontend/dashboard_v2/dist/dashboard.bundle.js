@@ -323,9 +323,6 @@
         overlay.innerHTML = content;
         document.body.appendChild(overlay);
         document.body.classList.add("asset-management-dialog-open");
-        overlay.addEventListener("mousedown", event => {
-            if (event.target === overlay) close();
-        });
         overlay.querySelectorAll("[data-close-relocation]").forEach(button => button.addEventListener("click", close));
         escapeHandler = event => {
             if (event.key === "Escape") close();
@@ -3203,7 +3200,6 @@ function openDowntimeEditor(ticket, currentHours) {
                 <footer><button type="button" class="downtime-cancel-btn" onclick="closeDowntimeEditor()">Cancel</button><button type="submit" class="downtime-save-btn"><i data-lucide="check"></i> Save downtime</button></footer>
             </form>
         </section>`;
-    modal.addEventListener("click", event => { if (event.target === modal) closeDowntimeEditor(); });
     modal.querySelector("form").addEventListener("submit", event => saveDowntimeOverride(event, ticket));
     document.body.appendChild(modal);
     document.body.classList.add("has-modal-open");
@@ -4478,7 +4474,6 @@ function openAssetImportDialog(excelInput) {
 
     overlay.querySelector(".asset-management-close").onclick = closeDialog;
     overlay.querySelector("#cancelAssetImport").onclick = closeDialog;
-    overlay.addEventListener("click", event => { if (event.target === overlay) closeDialog(); });
     teamSelect.onchange = () => { continueButton.disabled = !teamSelect.value; };
     continueButton.onclick = () => {
         if (!teamSelect.value) return;
@@ -4980,7 +4975,6 @@ function openAssetDuplicateReview() {
     document.body.classList.add("asset-management-dialog-open");
     overlay.querySelector(".asset-management-close").onclick = closeAssetManagementDialog;
     overlay.querySelector("#cancelDuplicateReview").onclick = closeAssetManagementDialog;
-    overlay.addEventListener("click", event => { if (event.target === overlay) closeAssetManagementDialog(); });
     overlay.querySelector("#removeDuplicateAssets").onclick = () => {
         const duplicateIds = [...overlay.querySelectorAll(".asset-duplicate-choice:checked")]
             .map(input => Number(input.value));
@@ -8064,7 +8058,6 @@ function openInventoryModal(item = null) {
         </section>`;
 
     document.body.appendChild(overlay);
-    overlay.addEventListener("click", event => { if (event.target === overlay) closeInventoryModal(); });
     overlay.querySelector(".modal-close").addEventListener("click", closeInventoryModal);
     overlay.querySelector("#cancelInventoryModal").addEventListener("click", closeInventoryModal);
     overlay.querySelector("#inventoryItemForm").addEventListener("submit", event => {
@@ -8399,7 +8392,6 @@ function openCatalogueEditor(itemId = null) {
     modal.id = "catalogueEditor";
     modal.className = "store-modal-backdrop";
     modal.innerHTML = `<section class="store-modal" role="dialog" aria-modal="true" aria-labelledby="catalogueTitle"><header><div><span>${item ? "Update stock record" : "New master item"}</span><h2 id="catalogueTitle">${item ? "Edit catalogue item" : "Add catalogue item"}</h2></div><button onclick="closeCatalogueEditor()" aria-label="Close"><i data-lucide="x"></i></button></header><form id="catalogueForm" onsubmit="saveCatalogueItem(event,${item ? Number(item.id) : "null"})"><div class="store-form-grid">${storeCatalogueField("item_code", "Item code", item?.item_code, true)}${storeCatalogueField("item_name", "Spare-part name", item?.item_name, true)}${storeCatalogueField("category", "Category", item?.category)}${storeCatalogueField("manufacturer", "Manufacturer", item?.manufacturer)}${storeCatalogueField("supplier", "Supplier", item?.supplier)}${storeCatalogueField("unit", "Unit", item?.unit || "pieces", true)}${storeCatalogueField("current_stock", "Current stock", item?.current_stock ?? 0, true, "number", "0")}${storeCatalogueField("minimum_stock", "Minimum stock", item?.minimum_stock ?? 5, true, "number", "0")}${storeCatalogueField("maximum_stock", "Maximum stock", item?.maximum_stock ?? 100, true, "number", "0")}${storeCatalogueField("purchase_price", "Unit price (₹)", item?.purchase_price ?? 0, true, "number", "0", "0.01")}${storeCatalogueField("location", "Store location", item?.location || "Central Store", true)}${storeCatalogueField("rack", "Rack / bin", item?.rack)}</div><footer><button type="button" class="is-ghost" onclick="closeCatalogueEditor()">Cancel</button><button class="store-primary" type="submit"><i data-lucide="save"></i>Save item</button></footer></form></section>`;
-    modal.addEventListener("click", event => { if (event.target === modal) closeCatalogueEditor(); });
     document.body.appendChild(modal);
     if (window.lucide) lucide.createIcons();
 }
@@ -8908,7 +8900,7 @@ async function advancePurchase(event, id, status) {
     } catch (error) { const box = document.getElementById("businessFormError"); if (box) { box.textContent = error.message; box.hidden = false; } }
 }
 
-function closeBusinessModal(event) { if (event && event.target !== event.currentTarget) return; const modal = document.getElementById("businessModal"); if (modal) modal.innerHTML = ""; }
+function closeBusinessModal(event) { if (event) return; const modal = document.getElementById("businessModal"); if (modal) modal.innerHTML = ""; }
 function downloadBusinessReport() { window.location.href = "/api/business/report.csv"; }
 function downloadVendorOutstanding() { window.location.href = "/api/business/vendor-outstanding.csv"; }
 function businessFiscalYear() { const now = new Date(); const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1; return `${year}-${String(year + 1).slice(-2)}`; }
@@ -8959,7 +8951,7 @@ function openSpareRequestEditor() {
     engineerStoreMode = "Internal";
     const modal = document.createElement("div"); modal.id = "spareRequestEditor"; modal.className = "store-modal-backdrop";
     modal.innerHTML = `<section class="store-modal spare-request-modal" role="dialog" aria-modal="true" aria-labelledby="requestSpareTitle"><header><div><span>Send to Central Store</span><h2 id="requestSpareTitle">Request spare parts</h2></div><button onclick="closeSpareRequestEditor()" aria-label="Close"><i data-lucide="x"></i></button></header><div class="request-mode-switch"><button class="is-active" type="button" onclick="setSpareRequestMode('Internal',this)"><i data-lucide="warehouse"></i><b>Internal stock</b><small>Choose from Central Store</small></button><button type="button" onclick="setSpareRequestMode('External',this)"><i data-lucide="shopping-cart"></i><b>External item</b><small>Describe a new requirement</small></button></div><form id="spareRequestForm" onsubmit="submitSpareRequest(event)"><div id="spareRequestFields"></div><footer><button type="button" class="is-ghost" onclick="closeSpareRequestEditor()">Cancel</button><button class="store-primary" type="submit"><i data-lucide="send"></i>Send request</button></footer></form></section>`;
-    modal.addEventListener("click", event => { if (event.target === modal) closeSpareRequestEditor(); }); document.body.appendChild(modal); renderSpareRequestFields(); if (window.lucide) lucide.createIcons();
+    document.body.appendChild(modal); renderSpareRequestFields(); if (window.lucide) lucide.createIcons();
 }
 
 function closeSpareRequestEditor() { document.getElementById("spareRequestEditor")?.remove(); }
@@ -9096,7 +9088,6 @@ function openVendorContractModal(id = null) {
     document.body.appendChild(modal);
     modal.querySelector(".vendor-modal-close").onclick = closeVendorModal;
     modal.querySelector(".vendor-cancel").onclick = closeVendorModal;
-    modal.addEventListener("click", event => { if (event.target === modal) closeVendorModal(); });
     modal.querySelector("form").addEventListener("submit", event => saveVendorContract(event, item?.id));
     window.lucide?.createIcons();
 }
@@ -9144,7 +9135,6 @@ function openVendorHistory(id) {
     </section>`;
     document.body.appendChild(modal);
     modal.querySelector(".vendor-modal-close").onclick = closeVendorModal;
-    modal.addEventListener("click", event => { if (event.target === modal) closeVendorModal(); });
     modal.querySelector("form").addEventListener("submit", event => saveVendorHistory(event, id));
     window.lucide?.createIcons();
 }
@@ -9294,7 +9284,6 @@ function initializeProfileEditor() {
         const close = () => overlay.remove();
         overlay.querySelector(".profile-edit-close").onclick = close;
         overlay.querySelector(".profile-edit-cancel").onclick = close;
-        overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
         overlay.querySelector("#profileEditForm").onsubmit = async event => {
             event.preventDefault();
             const saveButton = event.submitter;
@@ -9653,7 +9642,6 @@ async function openMfaDialog() {
     const close = () => overlay.remove();
     overlay.querySelector(".profile-edit-close").onclick = close;
     overlay.querySelector(".mfa-cancel").onclick = close;
-    overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
 
     const form = overlay.querySelector("#mfaSettingsForm");
     form.onsubmit = async event => {
@@ -11130,9 +11118,6 @@ function initializePMDrawer() {
     if (!pmDrawerOverlay()) return;
     document.getElementById("pmDrawerClose")?.addEventListener("click", closePMDrawer);
     document.getElementById("pmCancelButton")?.addEventListener("click", closePMDrawer);
-    pmDrawerOverlay().addEventListener("click", event => {
-        if (event.target === pmDrawerOverlay()) closePMDrawer();
-    });
     document.getElementById("pmScheduleButton")?.addEventListener("click", savePMSchedule);
     document.getElementById("pmDepartment")?.addEventListener("change", event => populateDepartmentAssets(event.target.value));
     document.getElementById("pmEquipment")?.addEventListener("change", event => setPMFrequencyFromAsset(event.target.value));
@@ -13238,7 +13223,6 @@ function openReportsScheduleDialog(){
     document.body.appendChild(overlay);
     overlay.querySelector(".reports-schedule-close").onclick=closeReportsScheduleDialog;
     overlay.querySelector("#cancelReportSchedule").onclick=closeReportsScheduleDialog;
-    overlay.addEventListener("click",event=>{if(event.target===overlay)closeReportsScheduleDialog();});
     overlay.querySelector("#reportsScheduleForm").onsubmit=saveReportSchedule;
 }
 
@@ -13571,7 +13555,7 @@ function showRegisterUser() {
     const modalRoot = document.getElementById("userModal");
     if (!modalRoot) return;
     modalRoot.innerHTML = `
-        <div class="user-modal-backdrop" role="presentation" onclick="if(event.target===this) closeUserModal()">
+        <div class="user-modal-backdrop" role="presentation">
             <section class="user-editor-modal" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
                 <header><span class="user-modal-icon"><i data-lucide="${currentUser ? "user-cog" : "user-plus"}"></i></span><div><h2 id="userModalTitle">${currentUser ? "Edit user" : "Register a new user"}</h2><p>${currentUser ? "Update account details and access." : "Create a staff account and assign its access role."}</p></div><button type="button" class="user-modal-close" onclick="closeUserModal()" aria-label="Close"><i data-lucide="x"></i></button></header>
                 <form class="user-editor-form" onsubmit="event.preventDefault();registerUser()">
@@ -16171,9 +16155,6 @@ async function openAssetEditor(assetId) {
             dialog = document.createElement("dialog");
             dialog.id = "assetEditDialog";
             dialog.className = "asset-edit-dialog";
-            dialog.addEventListener("click", event => {
-                if (event.target === dialog) dialog.close();
-            });
             document.body.appendChild(dialog);
         }
 

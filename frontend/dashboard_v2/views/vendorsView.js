@@ -108,7 +108,6 @@ function openVendorContractModal(id = null) {
     document.body.appendChild(modal);
     modal.querySelector(".vendor-modal-close").onclick = closeVendorModal;
     modal.querySelector(".vendor-cancel").onclick = closeVendorModal;
-    modal.addEventListener("click", event => { if (event.target === modal) closeVendorModal(); });
     modal.querySelector("form").addEventListener("submit", event => saveVendorContract(event, item?.id));
     window.lucide?.createIcons();
 }
@@ -156,7 +155,6 @@ function openVendorHistory(id) {
     </section>`;
     document.body.appendChild(modal);
     modal.querySelector(".vendor-modal-close").onclick = closeVendorModal;
-    modal.addEventListener("click", event => { if (event.target === modal) closeVendorModal(); });
     modal.querySelector("form").addEventListener("submit", event => saveVendorHistory(event, id));
     window.lucide?.createIcons();
 }

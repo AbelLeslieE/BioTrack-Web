@@ -199,9 +199,6 @@ async function openAssetEditor(assetId) {
             dialog = document.createElement("dialog");
             dialog.id = "assetEditDialog";
             dialog.className = "asset-edit-dialog";
-            dialog.addEventListener("click", event => {
-                if (event.target === dialog) dialog.close();
-            });
             document.body.appendChild(dialog);
         }
 
