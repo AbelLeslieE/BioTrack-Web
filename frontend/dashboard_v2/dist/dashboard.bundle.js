@@ -8426,6 +8426,8 @@ async function saveCatalogueItem(event, itemId) {
 /* source: dashboard_v2/views/businessView.js */
 let businessData = null;
 let businessActiveTab = "overview";
+const businessQuoteDefaultWeights = { price: 40, warranty: 30, delivery: 20, payment_terms: 10 };
+let businessQuoteWeights = { ...businessQuoteDefaultWeights };
 
 function renderBusinessPortal() {
     pageContent.innerHTML = `
@@ -8697,14 +8699,75 @@ async function submitBusinessForm(event) {
     } finally { button.disabled = false; }
 }
 
+function evaluateBusinessQuotations(quotations, weights = businessQuoteWeights) {
+    if (!quotations.length) return [];
+    const totalWeight = Object.values(weights).reduce((sum, value) => sum + Math.max(Number(value) || 0, 0), 0) || 1;
+    const totals = quotations.map(item => Math.max(Number(item.total_amount) || 0, 0));
+    const warranties = quotations.map(item => Math.max(Number(item.warranty_months) || 0, 0));
+    const deliveries = quotations.map(item => Math.max(Number(item.delivery_days) || 0, 0));
+    const terms = quotations.map(item => Math.max(Number(item.vendor_payment_terms_days) || 0, 0));
+    const minimumTotal = Math.min(...totals);
+    const maximumWarranty = Math.max(...warranties);
+    const minimumDelivery = Math.min(...deliveries);
+    const maximumTerms = Math.max(...terms);
+    const scored = quotations.map(item => {
+        const total = Math.max(Number(item.total_amount) || 0, 0);
+        const warranty = Math.max(Number(item.warranty_months) || 0, 0);
+        const delivery = Math.max(Number(item.delivery_days) || 0, 0);
+        const paymentTerms = Math.max(Number(item.vendor_payment_terms_days) || 0, 0);
+        const criteria = {
+            price: total === 0 && minimumTotal === 0 ? 100 : (total === 0 ? 0 : minimumTotal / total * 100),
+            warranty: maximumWarranty === 0 ? 100 : warranty / maximumWarranty * 100,
+            delivery: (minimumDelivery + 1) / (delivery + 1) * 100,
+            payment_terms: maximumTerms === 0 ? 100 : paymentTerms / maximumTerms * 100
+        };
+        const score = Object.entries(criteria).reduce((sum, [key, value]) => sum + value * Math.max(Number(weights[key]) || 0, 0), 0) / totalWeight;
+        const reasons = [];
+        if (total === minimumTotal) reasons.push("lowest price");
+        if (warranty === maximumWarranty) reasons.push("longest warranty");
+        if (delivery === minimumDelivery) reasons.push("fastest delivery");
+        if (paymentTerms === maximumTerms) reasons.push("best payment credit");
+        const dominatesCount = quotations.filter(other => {
+            if (other.id === item.id) return false;
+            const otherTotal = Math.max(Number(other.total_amount) || 0, 0);
+            const otherWarranty = Math.max(Number(other.warranty_months) || 0, 0);
+            const otherDelivery = Math.max(Number(other.delivery_days) || 0, 0);
+            const otherTerms = Math.max(Number(other.vendor_payment_terms_days) || 0, 0);
+            const noWorse = total <= otherTotal && warranty >= otherWarranty && delivery <= otherDelivery && paymentTerms >= otherTerms;
+            return noWorse && (total < otherTotal || warranty > otherWarranty || delivery < otherDelivery || paymentTerms > otherTerms);
+        }).length;
+        return { ...item, evaluation_score: score, criteria_scores: criteria, evaluation_reasons: reasons, dominates_count: dominatesCount };
+    });
+    scored.sort((left, right) => right.evaluation_score - left.evaluation_score || Number(left.total_amount) - Number(right.total_amount) || Number(right.warranty_months) - Number(left.warranty_months));
+    return scored.map((item, index) => ({ ...item, evaluation_rank: index + 1, is_recommended: index === 0 }));
+}
+
+function updateBusinessQuoteWeight(purchaseId, key, value) {
+    if (!(key in businessQuoteWeights)) return;
+    businessQuoteWeights[key] = Math.max(Number(value) || 0, 0);
+    openQuotationComparison(purchaseId);
+}
+
+function resetBusinessQuoteWeights(purchaseId) {
+    businessQuoteWeights = { ...businessQuoteDefaultWeights };
+    openQuotationComparison(purchaseId);
+}
+
 function openQuotationComparison(purchaseId) {
     const purchase = (businessData?.purchases || []).find(row => row.id === Number(purchaseId));
     const quotations = (businessData?.quotations || []).filter(row => row.purchase_id === Number(purchaseId));
+    const evaluated = evaluateBusinessQuotations(quotations);
+    const best = evaluated[0];
+    const runnerUp = evaluated[1];
+    const advantage = best && runnerUp && runnerUp.evaluation_score > 0 ? (best.evaluation_score - runnerUp.evaluation_score) / runnerUp.evaluation_score * 100 : 0;
     const role = String(localStorage.getItem("role") || "").toLowerCase();
     const isManager = ["manager", "admin"].includes(role);
     const modal = document.getElementById("businessModal");
     if (!purchase || !modal) return;
-    modal.innerHTML = `<div class="business-modal-backdrop" onclick="closeBusinessModal(event)"><section class="business-modal business-comparison-modal" role="dialog" aria-modal="true"><header><span><i data-lucide="scale"></i></span><div><h2>Quotation comparison</h2><p>${businessEscape(purchase.request_number)} · ${businessEscape(purchase.item_name)}</p></div><button type="button" onclick="closeBusinessModal()"><i data-lucide="x"></i></button></header><div class="business-comparison-toolbar"><div><strong>${quotations.length} quotation${quotations.length === 1 ? "" : "s"}</strong><small>Compare total price, delivery, warranty and payment terms.</small></div><button class="business-primary" type="button" onclick="openBusinessForm('quotation', ${purchase.id})"><i data-lucide="plus"></i> Add quotation</button></div><div class="business-table-scroll"><table class="business-table"><thead><tr><th>Vendor</th><th>Quotation</th><th>Total</th><th>Delivery</th><th>Warranty</th><th>Terms</th><th>Status</th><th>Action</th></tr></thead><tbody>${quotations.length ? quotations.map(item => `<tr class="${item.is_lowest ? "is-best-quote" : ""}"><td><strong>${businessEscape(item.vendor_name)}</strong>${item.is_lowest ? "<small>Lowest evaluated total</small>" : ""}</td><td>${businessEscape(item.quote_number)}<small>${businessDate(item.quote_date)}</small></td><td><strong>${businessMoney(item.total_amount)}</strong><small>${businessMoney(item.unit_price)} each</small></td><td>${item.delivery_days} days</td><td>${item.warranty_months} months</td><td>${businessEscape(item.payment_terms || "—")}</td><td><span class="business-status is-${businessStatusClass(item.status)}">${businessEscape(item.status)}</span></td><td><span class="business-action-stack">${isManager && item.status !== "Selected" ? `<button class="business-row-action" type="button" onclick="selectBusinessQuotation(${item.id}, ${purchase.id})">Select</button>` : ""}<button class="business-row-action" type="button" onclick="openBusinessDocuments('quotation', ${item.id})">Documents</button></span></td></tr>`).join("") : businessTableEmpty(8, "No quotations collected", "Add at least one supplier quotation for comparison.")}</tbody></table></div></section></div>`;
+    const recommendation = best ? `<section class="business-quote-recommendation"><div class="business-quote-score"><span>${best.evaluation_score.toFixed(1)}</span><small>/ 100</small></div><div><span class="business-recommendation-label"><i data-lucide="sparkles"></i> Best overall value</span><h3>${businessEscape(best.vendor_name)}</h3><p>${runnerUp ? `<strong>${advantage.toFixed(1)}% stronger overall</strong> than ${businessEscape(runnerUp.vendor_name)} under the priorities below.` : "Add another quotation to calculate a relative advantage."} ${best.evaluation_reasons.length ? `Strongest on ${businessEscape(best.evaluation_reasons.join(", "))}.` : "The recommendation is based on the combined weighted score."}</p>${best.dominates_count ? `<small>This quotation is no worse on every measured criterion and is better on at least one criterion than ${best.dominates_count} other quotation${best.dominates_count === 1 ? "" : "s"}.</small>` : ""}</div></section>` : `<section class="business-quote-recommendation is-empty"><div><h3>No recommendation yet</h3><p>Add at least two supplier quotations to compare their value.</p></div></section>`;
+    const controls = [["price", "Price"], ["warranty", "Warranty"], ["delivery", "Delivery speed"], ["payment_terms", "Payment credit"]].map(([key, label]) => `<label><span>${label}</span><input type="number" min="0" max="100" step="5" value="${businessQuoteWeights[key]}" onchange="updateBusinessQuoteWeight(${purchase.id}, '${key}', this.value)"><small>weight</small></label>`).join("");
+    const rows = evaluated.length ? evaluated.map(item => `<tr class="${item.is_recommended ? "is-recommended-quote" : (item.is_lowest ? "is-best-quote" : "")}"><td><span class="business-quote-rank">#${item.evaluation_rank}</span><strong>${businessEscape(item.vendor_name)}</strong>${item.is_recommended ? "<small class=\"business-best-label\">Recommended best value</small>" : (item.is_lowest ? "<small>Lowest price</small>" : "")}</td><td>${businessEscape(item.quote_number)}<small>${businessDate(item.quote_date)}</small></td><td><strong>${businessMoney(item.total_amount)}</strong><small>${businessMoney(item.unit_price)} each · Score ${item.criteria_scores.price.toFixed(0)}</small></td><td>${item.delivery_days} days<small>Score ${item.criteria_scores.delivery.toFixed(0)}</small></td><td>${item.warranty_months} months<small>Score ${item.criteria_scores.warranty.toFixed(0)}</small></td><td>${item.vendor_payment_terms_days} days<small>Score ${item.criteria_scores.payment_terms.toFixed(0)} · ${businessEscape(item.payment_terms || "Vendor credit period")}</small></td><td><strong class="business-value-score">${item.evaluation_score.toFixed(1)}</strong><small>${item.evaluation_reasons.length ? businessEscape(item.evaluation_reasons.join(" · ")) : "Weighted value"}</small></td><td><span class="business-action-stack">${isManager && item.status !== "Selected" ? `<button class="business-row-action" type="button" onclick="selectBusinessQuotation(${item.id}, ${purchase.id})">Select</button>` : `<span class="business-status is-${businessStatusClass(item.status)}">${businessEscape(item.status)}</span>`}<button class="business-row-action" type="button" onclick="openBusinessDocuments('quotation', ${item.id})">Documents</button></span></td></tr>`).join("") : businessTableEmpty(8, "No quotations collected", "Add at least one supplier quotation for comparison.");
+    modal.innerHTML = `<div class="business-modal-backdrop" onclick="closeBusinessModal(event)"><section class="business-modal business-comparison-modal" role="dialog" aria-modal="true"><header><span><i data-lucide="scale"></i></span><div><h2>Quotation value comparison</h2><p>${businessEscape(purchase.request_number)} · ${businessEscape(purchase.item_name)}</p></div><button type="button" onclick="closeBusinessModal()"><i data-lucide="x"></i></button></header><div class="business-comparison-toolbar"><div><strong>${quotations.length} quotation${quotations.length === 1 ? "" : "s"} evaluated</strong><small>Ranked by price, warranty, delivery speed and supplier credit terms.</small></div><button class="business-primary" type="button" onclick="openBusinessForm('quotation', ${purchase.id})"><i data-lucide="plus"></i> Add quotation</button></div>${recommendation}<section class="business-quote-weights"><div><strong>Evaluation priorities</strong><small>Change the weights to match this purchase. The score recalculates immediately.</small></div><div class="business-weight-grid">${controls}</div><button type="button" onclick="resetBusinessQuoteWeights(${purchase.id})">Reset balanced weights</button></section><div class="business-quote-safety"><i data-lucide="shield-alert"></i><span><strong>Decision support, not automatic approval.</strong> Confirm that every quotation meets the clinical and technical specification before selecting the commercial recommendation.</span></div><div class="business-table-scroll"><table class="business-table business-quote-table"><thead><tr><th>Rank & vendor</th><th>Quotation</th><th>Total price</th><th>Delivery</th><th>Warranty</th><th>Credit terms</th><th>Value score</th><th>Decision</th></tr></thead><tbody>${rows}</tbody></table></div></section></div>`;
     if (window.lucide) lucide.createIcons();
 }
 

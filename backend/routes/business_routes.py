@@ -62,6 +62,13 @@ router = APIRouter(
 
 
 MONEY = Decimal("0.01")
+QUOTE_SCORE = Decimal("0.01")
+QUOTATION_EVALUATION_WEIGHTS = {
+    "price": Decimal("40"),
+    "warranty": Decimal("30"),
+    "delivery": Decimal("20"),
+    "payment_terms": Decimal("10"),
+}
 
 
 def _money(value) -> Decimal:
@@ -148,8 +155,98 @@ def _vendor_row(row: BusinessVendor, outstanding: Decimal = Decimal("0")) -> dic
     }
 
 
-def _quotation_row(row: SupplierQuotation, vendor: BusinessVendor | None = None, lowest: Decimal | None = None) -> dict:
-    return {
+def _quotation_evaluations(
+    quotations: list[SupplierQuotation],
+    vendors: dict[int, BusinessVendor],
+) -> dict[int, dict]:
+    """Rank comparable quotations using a transparent best-value score."""
+    evaluations: dict[int, dict] = {}
+    grouped: dict[int, list[SupplierQuotation]] = {}
+    for quotation in quotations:
+        grouped.setdefault(quotation.purchase_id, []).append(quotation)
+
+    for purchase_quotations in grouped.values():
+        minimum_total = min((_money(row.total_amount) for row in purchase_quotations), default=Decimal("0"))
+        maximum_warranty = max((row.warranty_months or 0 for row in purchase_quotations), default=0)
+        minimum_delivery = min((max(row.delivery_days or 0, 0) for row in purchase_quotations), default=0)
+        maximum_terms = max((max(vendors.get(row.vendor_id).payment_terms_days if vendors.get(row.vendor_id) else 0, 0) for row in purchase_quotations), default=0)
+
+        scored: list[tuple[SupplierQuotation, Decimal, dict[str, Decimal]]] = []
+        for row in purchase_quotations:
+            total = _money(row.total_amount)
+            warranty = max(row.warranty_months or 0, 0)
+            delivery = max(row.delivery_days or 0, 0)
+            terms = max(vendors.get(row.vendor_id).payment_terms_days if vendors.get(row.vendor_id) else 0, 0)
+            price_score = Decimal("100") if total == 0 and minimum_total == 0 else (Decimal("0") if total == 0 else minimum_total / total * 100)
+            warranty_score = Decimal("100") if maximum_warranty == 0 else Decimal(warranty) / Decimal(maximum_warranty) * 100
+            delivery_score = Decimal(minimum_delivery + 1) / Decimal(delivery + 1) * 100
+            terms_score = Decimal("100") if maximum_terms == 0 else Decimal(terms) / Decimal(maximum_terms) * 100
+            criteria = {
+                "price": price_score.quantize(QUOTE_SCORE, rounding=ROUND_HALF_UP),
+                "warranty": warranty_score.quantize(QUOTE_SCORE, rounding=ROUND_HALF_UP),
+                "delivery": delivery_score.quantize(QUOTE_SCORE, rounding=ROUND_HALF_UP),
+                "payment_terms": terms_score.quantize(QUOTE_SCORE, rounding=ROUND_HALF_UP),
+            }
+            score = sum((criteria[key] * weight for key, weight in QUOTATION_EVALUATION_WEIGHTS.items()), Decimal("0")) / Decimal("100")
+            scored.append((row, score.quantize(QUOTE_SCORE, rounding=ROUND_HALF_UP), criteria))
+
+        scored.sort(key=lambda item: (-item[1], _money(item[0].total_amount), -(item[0].warranty_months or 0), item[0].delivery_days or 0, item[0].id))
+        best_score = scored[0][1] if scored else Decimal("0")
+        runner_up_score = scored[1][1] if len(scored) > 1 else None
+        for rank, (row, score, criteria) in enumerate(scored, start=1):
+            vendor = vendors.get(row.vendor_id)
+            terms = max(vendor.payment_terms_days if vendor else 0, 0)
+            reasons: list[str] = []
+            if _money(row.total_amount) == minimum_total:
+                reasons.append("Lowest total price")
+            if (row.warranty_months or 0) == maximum_warranty:
+                reasons.append("Longest warranty")
+            if max(row.delivery_days or 0, 0) == minimum_delivery:
+                reasons.append("Fastest delivery")
+            if terms == maximum_terms:
+                reasons.append("Best payment credit period")
+
+            dominates_count = 0
+            for other in purchase_quotations:
+                if other.id == row.id:
+                    continue
+                other_vendor = vendors.get(other.vendor_id)
+                other_terms = max(other_vendor.payment_terms_days if other_vendor else 0, 0)
+                no_worse = (
+                    _money(row.total_amount) <= _money(other.total_amount)
+                    and (row.warranty_months or 0) >= (other.warranty_months or 0)
+                    and max(row.delivery_days or 0, 0) <= max(other.delivery_days or 0, 0)
+                    and terms >= other_terms
+                )
+                strictly_better = (
+                    _money(row.total_amount) < _money(other.total_amount)
+                    or (row.warranty_months or 0) > (other.warranty_months or 0)
+                    or max(row.delivery_days or 0, 0) < max(other.delivery_days or 0, 0)
+                    or terms > other_terms
+                )
+                dominates_count += int(no_worse and strictly_better)
+
+            if rank == 1 and runner_up_score is not None:
+                advantage = Decimal("0") if runner_up_score == 0 else (best_score - runner_up_score) / runner_up_score * 100
+            elif rank > 1:
+                advantage = Decimal("0") if score == 0 else (best_score - score) / score * 100
+            else:
+                advantage = Decimal("0")
+            evaluations[row.id] = {
+                "evaluation_score": score,
+                "evaluation_rank": rank,
+                "is_recommended": rank == 1,
+                "advantage_percent": advantage.quantize(QUOTE_SCORE, rounding=ROUND_HALF_UP),
+                "criteria_scores": criteria,
+                "evaluation_reasons": reasons,
+                "dominates_count": dominates_count,
+                "evaluation_weights": QUOTATION_EVALUATION_WEIGHTS,
+            }
+    return evaluations
+
+
+def _quotation_row(row: SupplierQuotation, vendor: BusinessVendor | None = None, lowest: Decimal | None = None, evaluation: dict | None = None) -> dict:
+    result = {
         "id": row.id,
         "purchase_id": row.purchase_id,
         "vendor_id": row.vendor_id,
@@ -166,11 +263,14 @@ def _quotation_row(row: SupplierQuotation, vendor: BusinessVendor | None = None,
         "delivery_days": row.delivery_days,
         "warranty_months": row.warranty_months,
         "payment_terms": row.payment_terms,
+        "vendor_payment_terms_days": vendor.payment_terms_days if vendor else 0,
         "notes": row.notes,
         "status": row.status,
         "is_lowest": lowest is not None and _money(row.total_amount) == _money(lowest),
         "selected_at": _iso(row.selected_at),
     }
+    result.update(evaluation or {})
+    return result
 
 
 def _invoice_row(row: SupplierInvoice, vendor: BusinessVendor | None = None, purchase: PurchaseRequest | None = None) -> dict:
@@ -352,6 +452,7 @@ def business_dashboard(fiscal_year: str | None = None, db: Session = Depends(get
         current = quote_lowest.get(quotation.purchase_id)
         if current is None or _money(quotation.total_amount) < current:
             quote_lowest[quotation.purchase_id] = _money(quotation.total_amount)
+    quote_evaluations = _quotation_evaluations(quotations, vendor_map)
 
     budget_rows = [_budget_row(row, purchases, transactions, paid_by_purchase) for row in budgets]
     paid_expenses = [row for row in transactions if row.transaction_type == "Expense" and row.status == "Paid"]
@@ -394,7 +495,7 @@ def business_dashboard(fiscal_year: str | None = None, db: Session = Depends(get
         "policies": [_policy_row(row) for row in policies],
         "claims": [_claim_row(row, policy_map.get(row.policy_id)) for row in claims[:100]],
         "vendors": [_vendor_row(row, vendor_outstanding.get(row.id, Decimal("0"))) for row in vendors],
-        "quotations": [_quotation_row(row, vendor_map.get(row.vendor_id), quote_lowest.get(row.purchase_id)) for row in quotations[:250]],
+        "quotations": [_quotation_row(row, vendor_map.get(row.vendor_id), quote_lowest.get(row.purchase_id), quote_evaluations.get(row.id)) for row in quotations[:250]],
         "invoices": [_invoice_row(row, vendor_map.get(row.vendor_id), purchase_map.get(row.purchase_id)) for row in invoices[:250]],
         "payments": [_payment_row(row, invoice_map.get(row.invoice_id), vendor_map.get(invoice_map[row.invoice_id].vendor_id) if row.invoice_id in invoice_map else None) for row in payments[:250]],
         "document_counts": {
@@ -593,7 +694,8 @@ def create_quotation(purchase_id: int, data: QuotationInput, request: WebRequest
     db.refresh(row)
     quotations = db.query(SupplierQuotation).filter(SupplierQuotation.purchase_id == purchase.id).all()
     lowest = min((_money(item.total_amount) for item in quotations), default=total)
-    return _quotation_row(row, vendor, lowest)
+    vendors = {item.id: item for item in db.query(BusinessVendor).filter(BusinessVendor.id.in_([item.vendor_id for item in quotations])).all()}
+    return _quotation_row(row, vendor, lowest, _quotation_evaluations(quotations, vendors).get(row.id))
 
 
 @router.patch("/quotations/{quotation_id}/select", dependencies=[Depends(require_roles("Manager"))])
@@ -615,7 +717,10 @@ def select_quotation(quotation_id: int, request: WebRequest, db: Session = Depen
     purchase.total_amount = row.total_amount
     record_security_event(db, "business.quotation.selected", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="supplier_quotation", target_id=row.quote_number, details={"purchase": purchase.request_number, "vendor": vendor.vendor_name, "total": row.total_amount}, commit=False)
     db.commit()
-    return _quotation_row(row, vendor, row.total_amount)
+    quotations = db.query(SupplierQuotation).filter(SupplierQuotation.purchase_id == purchase.id).all()
+    vendors = {item.id: item for item in db.query(BusinessVendor).filter(BusinessVendor.id.in_([item.vendor_id for item in quotations])).all()}
+    lowest = min((_money(item.total_amount) for item in quotations), default=_money(row.total_amount))
+    return _quotation_row(row, vendor, lowest, _quotation_evaluations(quotations, vendors).get(row.id))
 
 
 @router.post("/invoices")

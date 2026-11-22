@@ -108,6 +108,10 @@ class BusinessOfficeTests(unittest.TestCase):
         quote_a = create_quotation(purchase["id"], QuotationInput(vendor_id=vendor_a["id"], quote_number="QA-1", quote_date=today, quantity=Decimal("2"), unit_price=Decimal("10000.10"), tax_amount=Decimal("3600.04"), discount_amount=Decimal("100.00"), delivery_days=14, warranty_months=24), None, self.db, self.business_user)
         quote_b = create_quotation(purchase["id"], QuotationInput(vendor_id=vendor_b["id"], quote_number="QB-1", quote_date=today, quantity=Decimal("2"), unit_price=Decimal("11000.00"), tax_amount=Decimal("3960.00"), delivery_days=7, warranty_months=36), None, self.db, self.business_user)
         self.assertEqual(quote_a["total_amount"], Decimal("23500.24"))
+        self.assertTrue(quote_b["is_recommended"])
+        self.assertEqual(quote_b["evaluation_rank"], 1)
+        self.assertGreater(quote_b["evaluation_score"], Decimal("90"))
+        self.assertIn("Longest warranty", quote_b["evaluation_reasons"])
         selected = select_quotation(quote_a["id"], None, self.db, self.manager)
         self.assertEqual(selected["status"], "Selected")
         self.assertLess(quote_a["total_amount"], quote_b["total_amount"])
@@ -144,6 +148,11 @@ class BusinessOfficeTests(unittest.TestCase):
         dashboard = business_dashboard("2026-27", self.db)
         self.assertEqual(dashboard["summary"]["supplier_outstanding"], Decimal("0.00"))
         self.assertEqual(next(row for row in dashboard["quotations"] if row["id"] == quote_a["id"])["status"], "Selected")
+        evaluated_a = next(row for row in dashboard["quotations"] if row["id"] == quote_a["id"])
+        evaluated_b = next(row for row in dashboard["quotations"] if row["id"] == quote_b["id"])
+        self.assertTrue(evaluated_b["is_recommended"])
+        self.assertGreater(evaluated_b["evaluation_score"], evaluated_a["evaluation_score"])
+        self.assertGreater(evaluated_b["advantage_percent"], Decimal("20"))
 
     def test_invoice_document_is_stored_in_database(self):
         vendor = create_vendor(VendorInput(vendor_code="DOC-V", vendor_name="Document Vendor"), None, self.db, self.business_user)

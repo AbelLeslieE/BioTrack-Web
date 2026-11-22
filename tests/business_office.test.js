@@ -40,9 +40,18 @@ test("supplier workflow covers vendors quotations invoices partial payments and 
     const route = read("backend/routes/business_routes.py");
     const view = read("frontend/dashboard_v2/views/businessView.js");
     for (const name of ["BusinessVendor", "SupplierQuotation", "SupplierInvoice", "SupplierPayment", "BusinessDocument"]) assert.match(model, new RegExp(`class ${name}`));
-    for (const phrase of ["Quotation comparison", "Vendor master", "Supplier invoices", "Payment approval queue", "Outstanding report", "Supporting documents"]) assert.match(view, new RegExp(phrase));
+    for (const phrase of ["Quotation value comparison", "Vendor master", "Supplier invoices", "Payment approval queue", "Outstanding report", "Supporting documents"]) assert.match(view, new RegExp(phrase));
     assert.match(route, /vendor-outstanding\.csv/);
     assert.match(route, /Pending Approval/);
     assert.match(route, /source_type="supplier_payment"/);
     assert.match(model, /Numeric\(18, 2\)/);
+});
+
+test("quotation comparison recommends best overall value with adjustable priorities", () => {
+    const route = read("backend/routes/business_routes.py");
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    for (const criterion of ["price", "warranty", "delivery", "payment_terms"]) assert.match(route, new RegExp(`"${criterion}"`));
+    for (const phrase of ["Best overall value", "stronger overall", "Evaluation priorities", "Decision support, not automatic approval", "evaluateBusinessQuotations"]) assert.match(view, new RegExp(phrase));
+    assert.match(view, /businessQuoteDefaultWeights/);
+    assert.match(view, /dominatesCount/);
 });
