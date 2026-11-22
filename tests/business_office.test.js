@@ -55,3 +55,13 @@ test("quotation comparison recommends best overall value with adjustable priorit
     assert.match(view, /businessQuoteDefaultWeights/);
     assert.match(view, /dominatesCount/);
 });
+
+test("business summary keeps long currency values readable", () => {
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    const css = read("frontend/dashboard_v2/css/business.css");
+    assert.match(view, /amount\.length > 18 \? "is-very-long"/);
+    assert.match(view, /title="\$\{businessEscape\(amount\)\}"/);
+    assert.match(css, /business-summary-card>div\{min-width:0;flex:1\}/);
+    assert.match(css, /business-summary-card strong\.is-long/);
+    assert.match(css, /@media\(max-width:480px\)\{\.business-summary-grid\{grid-template-columns:1fr\}/);
+});
