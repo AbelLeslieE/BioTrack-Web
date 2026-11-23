@@ -105,6 +105,8 @@ test("native accounting and GST are exposed inside the BioTrack Business Office"
     const route = read("backend/routes/accounting_routes.py");
     const service = read("backend/services/accounting_service.py");
     const migration = read("backend/migrations/add_native_accounting.py");
+    const businessRoute = read("backend/routes/business_routes.py");
+    const posting = read("backend/services/accounting_posting_service.py");
     assert.match(view, /businessTabButton\("accounting", "book-open-check", "Accounting & GST"\)/);
     assert.match(view, /\/api\/finance\/dashboard/);
     assert.match(view, /function openGSTCalculator\(\)/);
@@ -119,5 +121,9 @@ test("native accounting and GST are exposed inside the BioTrack Business Office"
     assert.match(route, /@router\.get\("\/general-ledger\/\{company_id\}"\)/);
     assert.match(service, /ROUND_HALF_UP/);
     assert.match(service, /Journal entry is not balanced/);
+    assert.match(businessRoute, /post_approved_supplier_invoice/);
+    assert.match(businessRoute, /post_completed_supplier_payment/);
+    assert.match(posting, /source_type="supplier_invoice"/);
+    assert.match(posting, /source_type="supplier_payment"/);
     for (const table of ["finance_companies", "finance_accounts", "finance_journal_entries", "finance_journal_lines"]) assert.match(migration, new RegExp(table));
 });

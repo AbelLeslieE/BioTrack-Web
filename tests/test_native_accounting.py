@@ -7,7 +7,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.models import Base
-from backend.models.accounting import FinanceAccount, FinanceCompany, FinanceJournalEntry
+from backend.models.accounting import FinanceAccount, FinanceCompany, FinanceJournalEntry, FinanceJournalLine
+from backend.models.business import BusinessVendor, PurchaseRequest, SupplierInvoice, SupplierPayment
 from backend.models.user import User
 from backend.routes.accounting_routes import (
     create_finance_company,
@@ -28,6 +29,7 @@ from backend.schemas.accounting_schema import (
     JournalEntryInput,
     JournalLineInput,
 )
+from backend.services.accounting_posting_service import post_approved_supplier_invoice, post_completed_supplier_payment
 
 
 class NativeAccountingTests(unittest.TestCase):
@@ -161,6 +163,44 @@ class NativeAccountingTests(unittest.TestCase):
             )
         self.assertEqual(locked.exception.status_code, 409)
         self.assertEqual(self.db.query(FinanceJournalEntry).count(), 0)
+
+    def test_supplier_invoice_and_payment_post_idempotent_balanced_journals(self):
+        company = self._company()
+        initialize_finance_company(company["id"], None, self.db, self.manager)
+        vendor = BusinessVendor(vendor_code="VEN-001", vendor_name="Medical Supplier", created_by="business")
+        purchase = PurchaseRequest(
+            request_number="PUR-001", department="Biomedical", category="Medical Equipment", item_name="Monitor",
+            quantity=1, unit="unit", unit_cost=Decimal("1180.00"), total_amount=Decimal("1180.00"),
+            justification="Replacement", status="Approved", requested_by_username="business", requested_by_name="Officer",
+        )
+        self.db.add_all([vendor, purchase])
+        self.db.flush()
+        invoice = SupplierInvoice(
+            purchase_id=purchase.id, vendor_id=vendor.id, invoice_number="INV-001", invoice_date=date(2026, 11, 23),
+            due_date=date(2026, 12, 23), subtotal_amount=Decimal("1000.00"), tax_amount=Decimal("180.00"),
+            total_amount=Decimal("1180.00"), approved_amount=Decimal("1180.00"), status="Approved",
+            created_by="business", approved_by="manager",
+        )
+        self.db.add(invoice)
+        self.db.flush()
+        first = post_approved_supplier_invoice(self.db, invoice, purchase, vendor, "manager")
+        duplicate = post_approved_supplier_invoice(self.db, invoice, purchase, vendor, "manager")
+        self.assertEqual(first.id, duplicate.id)
+        self.assertEqual(first.total_debit, Decimal("1180.00"))
+        invoice_lines = self.db.query(FinanceJournalLine).filter(FinanceJournalLine.journal_entry_id == first.id).all()
+        self.assertEqual(sum((line.debit for line in invoice_lines), Decimal("0")), Decimal("1180.00"))
+        self.assertEqual(len(invoice_lines), 3)
+
+        payment = SupplierPayment(
+            invoice_id=invoice.id, reference_number="PAYREQ-001", amount=Decimal("500.00"),
+            requested_payment_date=date(2026, 11, 23), paid_date=date(2026, 11, 24), status="Paid",
+            requested_by="business", approved_by="manager", completed_by="business", bank_reference="UTR-001",
+        )
+        self.db.add(payment)
+        self.db.flush()
+        paid = post_completed_supplier_payment(self.db, payment, invoice, vendor, "business")
+        self.assertEqual(paid.total_debit, Decimal("500.00"))
+        self.assertEqual(self.db.query(FinanceJournalEntry).count(), 2)
 
 
 if __name__ == "__main__":

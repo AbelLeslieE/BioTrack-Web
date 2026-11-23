@@ -51,6 +51,11 @@ from backend.schemas.business_schema import (
     VendorInput,
 )
 from backend.services.attachment_service import optimize_attachment
+from backend.services.accounting_posting_service import (
+    AccountingPostingError,
+    post_approved_supplier_invoice,
+    post_completed_supplier_payment,
+)
 from backend.services.security_service import record_security_event
 
 
@@ -828,7 +833,13 @@ def decide_supplier_invoice(invoice_id: int, data: InvoiceDecision, request: Web
     row.approved_by = current_user.username
     row.approval_note = data.note
     row.approved_at = datetime.now()
-    record_security_event(db, f"business.invoice.{data.decision.casefold()}", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="supplier_invoice", target_id=row.invoice_number, details={"approved_amount": approved}, commit=False)
+    journal = None
+    if data.decision == "Approved":
+        try:
+            journal = post_approved_supplier_invoice(db, row, db.get(PurchaseRequest, row.purchase_id), db.get(BusinessVendor, row.vendor_id), current_user.username)
+        except AccountingPostingError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+    record_security_event(db, f"business.invoice.{data.decision.casefold()}", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="supplier_invoice", target_id=row.invoice_number, details={"approved_amount": approved, "journal_reference": journal.reference_number if journal else None}, commit=False)
     db.commit()
     return _invoice_row(row, db.get(BusinessVendor, row.vendor_id), db.get(PurchaseRequest, row.purchase_id))
 
@@ -885,6 +896,11 @@ def complete_supplier_payment(payment_id: int, data: PaymentCompletion, request:
     row.completed_at = datetime.now()
     invoice.paid_amount = _money(invoice.paid_amount) + _money(row.amount)
     invoice.status = "Paid" if _money(invoice.paid_amount) >= _money(invoice.approved_amount) else "Partially Paid"
+    try:
+        post_approved_supplier_invoice(db, invoice, purchase, vendor, current_user.username)
+        journal = post_completed_supplier_payment(db, row, invoice, vendor, current_user.username)
+    except AccountingPostingError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     transaction = BusinessTransaction(
         reference_number=_reference("PAY"), transaction_type="Expense", category=purchase.category,
         department=purchase.department, counterparty=vendor.vendor_name,
@@ -899,7 +915,7 @@ def complete_supplier_payment(payment_id: int, data: PaymentCompletion, request:
     if related and all(item.status == "Paid" for item in related) and _money(sum((item.approved_amount for item in related), Decimal("0"))) >= _money(purchase.total_amount):
         purchase.status = "Paid"
         purchase.paid_at = datetime.now()
-    record_security_event(db, "business.payment.completed", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="supplier_payment", target_id=row.reference_number, details={"invoice": invoice.invoice_number, "amount": row.amount, "bank_reference": data.bank_reference}, commit=False)
+    record_security_event(db, "business.payment.completed", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="supplier_payment", target_id=row.reference_number, details={"invoice": invoice.invoice_number, "amount": row.amount, "bank_reference": data.bank_reference, "journal_reference": journal.reference_number if journal else None}, commit=False)
     db.commit()
     return _payment_row(row, invoice, vendor)
 
