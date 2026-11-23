@@ -56,6 +56,7 @@ DEFAULT_ACCOUNTS = (
     ("1200", "Input GST Credit", "Asset", "Debit", "INPUT_GST"),
     ("1300", "Medical Equipment and Other Assets", "Asset", "Debit", "FIXED_ASSETS"),
     ("1310", "Accumulated Depreciation", "Asset", "Credit", "ACCUMULATED_DEPRECIATION"),
+    ("1320", "Accumulated Impairment", "Asset", "Credit", "ACCUMULATED_IMPAIRMENT"),
     ("2000", "Accounts Payable", "Liability", "Credit", "ACCOUNTS_PAYABLE"),
     ("2100", "Output CGST Payable", "Liability", "Credit", "OUTPUT_CGST"),
     ("2110", "Output SGST Payable", "Liability", "Credit", "OUTPUT_SGST"),
@@ -63,6 +64,7 @@ DEFAULT_ACCOUNTS = (
     ("2200", "Tax Deducted at Source Payable", "Liability", "Credit", "TDS_PAYABLE"),
     ("3000", "Capital and General Fund", "Equity", "Credit", "GENERAL_FUND"),
     ("3100", "Retained Earnings", "Equity", "Credit", "RETAINED_EARNINGS"),
+    ("3200", "Asset Revaluation Reserve", "Equity", "Credit", "ASSET_REVALUATION_RESERVE"),
     ("4000", "Insurance and Institutional Income", "Income", "Credit", "INSTITUTIONAL_INCOME"),
     ("4100", "Other Hospital Income", "Income", "Credit", "OTHER_INCOME"),
     ("5000", "Medical Equipment and Supply Expense", "Expense", "Debit", "PURCHASE_EXPENSE"),
@@ -70,6 +72,7 @@ DEFAULT_ACCOUNTS = (
     ("5200", "Administrative and Operating Expense", "Expense", "Debit", "OPERATING_EXPENSE"),
     ("5300", "Depreciation Expense", "Expense", "Debit", "DEPRECIATION_EXPENSE"),
     ("5310", "Asset Disposal Gain or Loss", "Expense", "Debit", "ASSET_DISPOSAL_GAIN_LOSS"),
+    ("5320", "Asset Impairment Expense", "Expense", "Debit", "ASSET_IMPAIRMENT_EXPENSE"),
 )
 
 

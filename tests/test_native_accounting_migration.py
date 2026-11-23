@@ -69,7 +69,11 @@ class NativeAccountingMigrationTests(unittest.TestCase):
             environment = os.environ.copy()
             environment["DATABASE_URL"] = database_url
             environment["DATABASE_URL_UNPOOLED"] = database_url
-            for module in ("backend.migrations.add_native_accounting", "backend.migrations.add_native_asset_accounting"):
+            for module in (
+                "backend.migrations.add_native_accounting",
+                "backend.migrations.add_native_asset_accounting",
+                "backend.migrations.add_asset_lifecycle_events",
+            ):
                 first = subprocess.run([sys.executable, "-m", module], cwd=project_root, env=environment, capture_output=True, text=True, check=False)
                 second = subprocess.run([sys.executable, "-m", module], cwd=project_root, env=environment, capture_output=True, text=True, check=False)
                 self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
@@ -78,7 +82,7 @@ class NativeAccountingMigrationTests(unittest.TestCase):
             connection = sqlite3.connect(database_path)
             try:
                 tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-                self.assertTrue({"finance_asset_categories", "finance_asset_records", "finance_depreciation_schedules"}.issubset(tables))
+                self.assertTrue({"finance_asset_categories", "finance_asset_records", "finance_depreciation_schedules", "finance_asset_events"}.issubset(tables))
             finally:
                 connection.close()
 

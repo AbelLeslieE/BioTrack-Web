@@ -173,3 +173,17 @@ test("fixed asset accounting links BioTrack equipment to depreciation journals",
     assert.match(view, /function openAssetCapitalizationForm/);
     assert.match(view, /function postAssetDepreciation/);
 });
+
+test("fixed asset lifecycle supports impairment revaluation transfer and disposal", () => {
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    const route = read("backend/routes/asset_accounting_routes.py");
+    const model = read("backend/models/accounting.py");
+    assert.match(model, /class FinanceAssetEvent/);
+    for (const endpoint of ["impair", "revalue", "transfer", "dispose"]) {
+        assert.match(route, new RegExp(`@router\\.post\\(\"/\\{asset_id\\}/${endpoint}\"`));
+    }
+    for (const source of ["asset_impairment", "asset_revaluation", "asset_disposal"]) assert.match(route, new RegExp(`source_type=\"${source}\"`));
+    assert.match(view, /function openAssetLifecycleForm/);
+    assert.match(view, /function submitAssetLifecycle/);
+    assert.match(view, /Lifecycle event history/);
+});

@@ -31,6 +31,7 @@ MIGRATIONS = (
     "add_native_accounting",
     "add_native_banking",
     "add_native_asset_accounting",
+    "add_asset_lifecycle_events",
 )
 
 

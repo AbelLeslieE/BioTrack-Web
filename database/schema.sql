@@ -916,6 +916,27 @@ CREATE TABLE IF NOT EXISTS finance_depreciation_schedules (
     FOREIGN KEY (journal_entry_id) REFERENCES finance_journal_entries(id) ON DELETE RESTRICT
 );
 
+CREATE TABLE IF NOT EXISTS finance_asset_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    finance_asset_id INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    event_date DATE NOT NULL,
+    amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    proceeds NUMERIC(18,2) NOT NULL DEFAULT 0,
+    carrying_value_before NUMERIC(18,2) NOT NULL DEFAULT 0,
+    carrying_value_after NUMERIC(18,2) NOT NULL DEFAULT 0,
+    from_cost_center_id INTEGER,
+    to_cost_center_id INTEGER,
+    journal_entry_id INTEGER UNIQUE,
+    reason TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (finance_asset_id) REFERENCES finance_asset_records(id) ON DELETE CASCADE,
+    FOREIGN KEY (from_cost_center_id) REFERENCES finance_cost_centers(id) ON DELETE RESTRICT,
+    FOREIGN KEY (to_cost_center_id) REFERENCES finance_cost_centers(id) ON DELETE RESTRICT,
+    FOREIGN KEY (journal_entry_id) REFERENCES finance_journal_entries(id) ON DELETE RESTRICT
+);
+
 CREATE INDEX IF NOT EXISTS ix_assets_service_team ON assets(service_team);
 CREATE INDEX IF NOT EXISTS ix_asset_relocation_requests_asset_id ON asset_relocation_requests(asset_id);
 CREATE INDEX IF NOT EXISTS ix_asset_relocation_requests_status ON asset_relocation_requests(status);

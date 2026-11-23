@@ -54,4 +54,5 @@ from backend.models.accounting import (
     FinanceAssetCategory,
     FinanceAssetRecord,
     FinanceDepreciationSchedule,
+    FinanceAssetEvent,
 )

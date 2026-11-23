@@ -238,3 +238,22 @@ class FinanceDepreciationSchedule(Base):
     posted_by = Column(String(80))
     posted_at = Column(DateTime)
 
+
+class FinanceAssetEvent(Base):
+    __tablename__ = "finance_asset_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    finance_asset_id = Column(Integer, ForeignKey("finance_asset_records.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_type = Column(String(30), nullable=False, index=True)
+    event_date = Column(Date, nullable=False, index=True)
+    amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    proceeds = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    carrying_value_before = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    carrying_value_after = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    from_cost_center_id = Column(Integer, ForeignKey("finance_cost_centers.id", ondelete="RESTRICT"), index=True)
+    to_cost_center_id = Column(Integer, ForeignKey("finance_cost_centers.id", ondelete="RESTRICT"), index=True)
+    journal_entry_id = Column(Integer, ForeignKey("finance_journal_entries.id", ondelete="RESTRICT"), unique=True, index=True)
+    reason = Column(Text, nullable=False)
+    created_by = Column(String(80), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+

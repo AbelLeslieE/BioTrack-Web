@@ -247,3 +247,28 @@ class AssetCapitalizationInput(AccountingModel):
             raise ValueError("Written Down Value depreciation requires a positive annual rate.")
         return self
 
+
+class AssetImpairmentInput(AccountingModel):
+    event_date: date
+    impairment_amount: Decimal = Field(gt=0, le=10_000_000_000)
+    reason: str = Field(min_length=3, max_length=3000)
+
+
+class AssetRevaluationInput(AccountingModel):
+    event_date: date
+    new_carrying_value: Decimal = Field(gt=0, le=10_000_000_000)
+    reason: str = Field(min_length=3, max_length=3000)
+
+
+class AssetDisposalInput(AccountingModel):
+    disposal_date: date
+    proceeds: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
+    reason: str = Field(min_length=3, max_length=3000)
+
+
+class AssetTransferInput(AccountingModel):
+    event_date: date
+    from_cost_center_id: int | None = None
+    to_cost_center_id: int
+    reason: str = Field(min_length=3, max_length=3000)
+
