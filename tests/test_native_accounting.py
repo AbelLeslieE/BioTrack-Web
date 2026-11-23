@@ -13,7 +13,9 @@ from backend.routes.accounting_routes import (
     create_finance_company,
     create_journal_entry,
     decide_journal_entry,
+    financial_statements,
     finance_dashboard,
+    general_ledger,
     initialize_finance_company,
     preview_gst,
     trial_balance,
@@ -112,6 +114,14 @@ class NativeAccountingTests(unittest.TestCase):
         self.assertEqual(report["total_debit"], Decimal("1180.00"))
         self.assertEqual(report["total_credit"], Decimal("1180.00"))
         self.assertEqual(finance_dashboard(self.db)["summary"]["posted_value"], Decimal("1180.00"))
+
+        statements = financial_statements(company["id"], None, None, self.db)
+        self.assertEqual(statements["profit_and_loss"]["total_expenses"], Decimal("1180.00"))
+        self.assertEqual(statements["profit_and_loss"]["surplus_or_deficit"], Decimal("-1180.00"))
+        self.assertEqual(statements["balance_sheet"]["total_liabilities"], Decimal("1180.00"))
+        ledger = general_ledger(company["id"], None, None, None, self.db)
+        self.assertEqual(ledger["entry_count"], 2)
+        self.assertEqual({item["reference_number"] for item in ledger["entries"]}, {journal["reference_number"]})
 
     def test_unbalanced_and_locked_period_journals_are_rejected(self):
         company = self._company(lock_date=date(2026, 10, 31))

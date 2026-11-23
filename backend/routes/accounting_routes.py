@@ -1,10 +1,10 @@
 """Native BioTrack accounting API with balanced journals and GST previews."""
 
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request as WebRequest
+from fastapi import APIRouter, Depends, HTTPException, Query, Request as WebRequest
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -414,4 +414,154 @@ def trial_balance(company_id: int, db: Session = Depends(get_db)):
         "total_credit": money(total_credit),
         "balanced": money(total_debit) == money(total_credit),
     }
+
+
+def _account_balances(db: Session, company_id: int, date_from: date | None = None, date_to: date | None = None):
+    query = db.query(
+        FinanceJournalLine.account_id,
+        func.coalesce(func.sum(FinanceJournalLine.debit), 0),
+        func.coalesce(func.sum(FinanceJournalLine.credit), 0),
+    ).join(FinanceJournalEntry, FinanceJournalEntry.id == FinanceJournalLine.journal_entry_id).filter(
+        FinanceJournalEntry.company_id == company_id,
+        FinanceJournalEntry.status == "Submitted",
+    )
+    if date_from:
+        query = query.filter(FinanceJournalEntry.entry_date >= date_from)
+    if date_to:
+        query = query.filter(FinanceJournalEntry.entry_date <= date_to)
+    return {account_id: (money(debit), money(credit)) for account_id, debit, credit in query.group_by(FinanceJournalLine.account_id).all()}
+
+
+@router.get("/financial-statements/{company_id}")
+def financial_statements(
+    company_id: int,
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    company = db.get(FinanceCompany, company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Finance company not found.")
+    period_start = date_from or company.fiscal_year_start
+    period_end = date_to or company.fiscal_year_end
+    if period_end < period_start:
+        raise HTTPException(status_code=422, detail="Statement end date cannot be before its start date.")
+    accounts = db.query(FinanceAccount).filter(FinanceAccount.company_id == company.id).order_by(FinanceAccount.account_code).all()
+    period_balances = _account_balances(db, company.id, period_start, period_end)
+    closing_balances = _account_balances(db, company.id, None, period_end)
+
+    profit_loss = {"income": [], "expenses": []}
+    balance_sheet = {"assets": [], "liabilities": [], "equity": []}
+    total_income = Decimal("0.00")
+    total_expenses = Decimal("0.00")
+    total_assets = Decimal("0.00")
+    total_liabilities = Decimal("0.00")
+    total_equity = Decimal("0.00")
+    cumulative_income = Decimal("0.00")
+    cumulative_expenses = Decimal("0.00")
+
+    for account in accounts:
+        period_debit, period_credit = period_balances.get(account.id, (Decimal("0.00"), Decimal("0.00")))
+        closing_debit, closing_credit = closing_balances.get(account.id, (Decimal("0.00"), Decimal("0.00")))
+        period_amount = money(period_debit - period_credit) if account.normal_balance == "Debit" else money(period_credit - period_debit)
+        closing_amount = money(closing_debit - closing_credit) if account.normal_balance == "Debit" else money(closing_credit - closing_debit)
+        item = {"account_id": account.id, "account_code": account.account_code, "account_name": account.account_name, "amount": period_amount}
+        closing_item = {**item, "amount": closing_amount}
+        if account.account_type == "Income" and period_amount:
+            profit_loss["income"].append(item)
+            total_income += period_amount
+        elif account.account_type == "Expense" and period_amount:
+            profit_loss["expenses"].append(item)
+            total_expenses += period_amount
+        if account.account_type == "Income":
+            cumulative_income += closing_amount
+        elif account.account_type == "Expense":
+            cumulative_expenses += closing_amount
+        elif account.account_type == "Asset" and closing_amount:
+            balance_sheet["assets"].append(closing_item)
+            total_assets += closing_amount
+        elif account.account_type == "Liability" and closing_amount:
+            balance_sheet["liabilities"].append(closing_item)
+            total_liabilities += closing_amount
+        elif account.account_type == "Equity" and closing_amount:
+            balance_sheet["equity"].append(closing_item)
+            total_equity += closing_amount
+
+    surplus = money(total_income - total_expenses)
+    cumulative_earnings = money(cumulative_income - cumulative_expenses)
+    equity_with_surplus = money(total_equity + cumulative_earnings)
+    return {
+        "company": _company_row(company),
+        "period": {"from": _iso(period_start), "to": _iso(period_end)},
+        "profit_and_loss": {
+            **profit_loss,
+            "total_income": money(total_income),
+            "total_expenses": money(total_expenses),
+            "surplus_or_deficit": surplus,
+        },
+        "balance_sheet": {
+            **balance_sheet,
+            "current_period_surplus": surplus,
+            "cumulative_earnings": cumulative_earnings,
+            "total_assets": money(total_assets),
+            "total_liabilities": money(total_liabilities),
+            "total_equity_before_surplus": money(total_equity),
+            "total_equity_and_surplus": equity_with_surplus,
+            "liabilities_and_equity": money(total_liabilities + equity_with_surplus),
+            "balanced": money(total_assets) == money(total_liabilities + equity_with_surplus),
+        },
+        "basis": "Submitted journals only; assets and liabilities are cumulative through the statement end date.",
+    }
+
+
+@router.get("/general-ledger/{company_id}")
+def general_ledger(
+    company_id: int,
+    account_id: int | None = Query(default=None),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    company = db.get(FinanceCompany, company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Finance company not found.")
+    accounts = {row.id: row for row in db.query(FinanceAccount).filter(FinanceAccount.company_id == company.id).all()}
+    if account_id and account_id not in accounts:
+        raise HTTPException(status_code=404, detail="Ledger account not found for this company.")
+    query = db.query(FinanceJournalLine, FinanceJournalEntry).join(
+        FinanceJournalEntry, FinanceJournalEntry.id == FinanceJournalLine.journal_entry_id
+    ).filter(FinanceJournalEntry.company_id == company.id, FinanceJournalEntry.status == "Submitted")
+    if account_id:
+        query = query.filter(FinanceJournalLine.account_id == account_id)
+    if date_from:
+        query = query.filter(FinanceJournalEntry.entry_date >= date_from)
+    if date_to:
+        query = query.filter(FinanceJournalEntry.entry_date <= date_to)
+    rows = query.order_by(FinanceJournalLine.account_id, FinanceJournalEntry.entry_date, FinanceJournalEntry.id, FinanceJournalLine.line_number).all()
+    running: dict[int, Decimal] = {}
+    if date_from:
+        opening = _account_balances(db, company.id, None, date_from - timedelta(days=1))
+        for target_id, (debit, credit) in opening.items():
+            if target_id in accounts and (not account_id or target_id == account_id):
+                target = accounts[target_id]
+                running[target_id] = money(debit - credit) if target.normal_balance == "Debit" else money(credit - debit)
+    entries = []
+    for line, journal in rows:
+        account = accounts[line.account_id]
+        movement = money(line.debit - line.credit) if account.normal_balance == "Debit" else money(line.credit - line.debit)
+        running[account.id] = money(running.get(account.id, Decimal("0.00")) + movement)
+        entries.append({
+            "journal_id": journal.id,
+            "reference_number": journal.reference_number,
+            "entry_date": _iso(journal.entry_date),
+            "entry_type": journal.entry_type,
+            "narration": journal.narration,
+            "account_id": account.id,
+            "account_code": account.account_code,
+            "account_name": account.account_name,
+            "debit": money(line.debit),
+            "credit": money(line.credit),
+            "running_balance": running[account.id],
+        })
+    return {"company": _company_row(company), "entries": entries, "entry_count": len(entries), "opening_balances_included": bool(date_from)}
 
