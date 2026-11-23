@@ -22,6 +22,7 @@ from backend.models.accounting import (
     FinanceJournalLine,
     FinanceTaxTemplate,
 )
+from backend.models.business import BusinessVendor, InsuranceClaimBatch, InsurancePolicy, SupplierInvoice
 from backend.models.user import User
 from backend.schemas.accounting_schema import (
     AccountInput,
@@ -773,4 +774,69 @@ def general_ledger(
             "running_balance": running[account.id],
         })
     return {"company": _company_row(company), "entries": entries, "entry_count": len(entries), "opening_balances_included": bool(date_from)}
+
+
+def _aging_bucket(days_overdue: int) -> str:
+    if days_overdue <= 0:
+        return "Current"
+    if days_overdue <= 30:
+        return "1-30"
+    if days_overdue <= 60:
+        return "31-60"
+    if days_overdue <= 90:
+        return "61-90"
+    return "90+"
+
+
+@router.get("/aging")
+def payable_receivable_aging(as_of: date | None = Query(default=None), db: Session = Depends(get_db)):
+    report_date = as_of or date.today()
+    vendors = {row.id: row for row in db.query(BusinessVendor).all()}
+    policies = {row.id: row for row in db.query(InsurancePolicy).all()}
+    buckets = ("Current", "1-30", "31-60", "61-90", "90+")
+    ap_totals = {key: Decimal("0.00") for key in buckets}
+    ar_totals = {key: Decimal("0.00") for key in buckets}
+    payables = []
+    receivables = []
+
+    invoices = db.query(SupplierInvoice).filter(SupplierInvoice.status.in_(["Approved", "Partially Paid", "Paid"])).order_by(SupplierInvoice.due_date).all()
+    for invoice in invoices:
+        outstanding = money(max(money(invoice.approved_amount) - money(invoice.paid_amount), Decimal("0")))
+        if not outstanding:
+            continue
+        overdue_days = (report_date - invoice.due_date).days
+        bucket = _aging_bucket(overdue_days)
+        ap_totals[bucket] += outstanding
+        vendor = vendors.get(invoice.vendor_id)
+        payables.append({
+            "id": invoice.id, "reference": invoice.invoice_number, "counterparty": vendor.vendor_name if vendor else "Unknown vendor",
+            "due_date": _iso(invoice.due_date), "days_overdue": max(overdue_days, 0), "bucket": bucket,
+            "original_amount": money(invoice.approved_amount), "outstanding_amount": outstanding,
+        })
+
+    claims = db.query(InsuranceClaimBatch).filter(InsuranceClaimBatch.approved_amount > InsuranceClaimBatch.received_amount).order_by(InsuranceClaimBatch.expected_payment_date).all()
+    for claim in claims:
+        outstanding = money(max(money(claim.approved_amount) - money(claim.received_amount), Decimal("0")))
+        if not outstanding:
+            continue
+        policy = policies.get(claim.policy_id)
+        due_date = claim.expected_payment_date or (claim.service_period_end + timedelta(days=policy.payment_due_days if policy else 30))
+        overdue_days = (report_date - due_date).days
+        bucket = _aging_bucket(overdue_days)
+        ar_totals[bucket] += outstanding
+        receivables.append({
+            "id": claim.id, "reference": claim.batch_reference, "counterparty": policy.provider_name if policy else "Unknown payer",
+            "due_date": _iso(due_date), "days_overdue": max(overdue_days, 0), "bucket": bucket,
+            "original_amount": money(claim.approved_amount), "outstanding_amount": outstanding,
+        })
+    return {
+        "as_of": _iso(report_date),
+        "payables": payables,
+        "receivables": receivables,
+        "ap_buckets": {key: money(value) for key, value in ap_totals.items()},
+        "ar_buckets": {key: money(value) for key, value in ar_totals.items()},
+        "total_payable": money(sum(ap_totals.values(), Decimal("0"))),
+        "total_receivable": money(sum(ar_totals.values(), Decimal("0"))),
+        "scope": "Supplier invoices and aggregate institutional payer claims only; no patient billing data.",
+    }
 

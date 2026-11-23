@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.models import Base
 from backend.models.accounting import FinanceAccount, FinanceBankTransaction, FinanceCompany, FinanceJournalEntry, FinanceJournalLine
-from backend.models.business import BusinessVendor, PurchaseRequest, SupplierInvoice, SupplierPayment
+from backend.models.business import BusinessVendor, InsuranceClaimBatch, InsurancePolicy, PurchaseRequest, SupplierInvoice, SupplierPayment
 from backend.models.user import User
 from backend.routes.accounting_routes import (
     create_finance_company,
@@ -22,6 +22,7 @@ from backend.routes.accounting_routes import (
     import_bank_transactions,
     initialize_finance_company,
     preview_gst,
+    payable_receivable_aging,
     bank_reconciliation_suggestions,
     reconcile_bank_transaction,
     reverse_journal_entry,
@@ -256,6 +257,40 @@ class NativeAccountingTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as backward:
             advance_period_lock(company["id"], PeriodLockInput(lock_date=date(2026, 8, 31), note="Attempt reopen"), None, self.db, self.manager)
         self.assertEqual(backward.exception.status_code, 409)
+
+    def test_payable_and_institutional_receivable_aging_buckets(self):
+        vendor = BusinessVendor(vendor_code="VEN-AGING", vendor_name="Aging Vendor", created_by="business")
+        purchase = PurchaseRequest(
+            request_number="PUR-AGING", department="Hospital-wide", category="Supplies", item_name="Supplies",
+            quantity=1, unit="lot", unit_cost=1000, total_amount=1000, justification="Operations", status="Approved",
+            requested_by_username="business", requested_by_name="Officer",
+        )
+        policy = InsurancePolicy(
+            provider_name="Institutional Payer", policy_name="Corporate Agreement", policy_code="CORP-1",
+            payer_type="Corporate", coverage_model="Package Rate", valid_from=date(2026, 4, 1), valid_to=date(2027, 3, 31),
+            payment_due_days=30, created_by="business",
+        )
+        self.db.add_all([vendor, purchase, policy])
+        self.db.flush()
+        self.db.add_all([
+            SupplierInvoice(
+                purchase_id=purchase.id, vendor_id=vendor.id, invoice_number="AGING-INV", invoice_date=date(2026, 9, 1),
+                due_date=date(2026, 9, 30), subtotal_amount=1000, total_amount=1000, approved_amount=800,
+                paid_amount=300, status="Partially Paid", created_by="business",
+            ),
+            InsuranceClaimBatch(
+                batch_reference="AGING-CLAIM", policy_id=policy.id, service_period_start=date(2026, 8, 1),
+                service_period_end=date(2026, 8, 31), claim_count=5, claimed_amount=1200, approved_amount=1000,
+                received_amount=250, deductions_amount=200, status="Partially Paid", expected_payment_date=date(2026, 10, 15),
+                created_by="business",
+            ),
+        ])
+        self.db.commit()
+        report = payable_receivable_aging(date(2026, 11, 23), self.db)
+        self.assertEqual(report["total_payable"], Decimal("500.00"))
+        self.assertEqual(report["ap_buckets"]["31-60"], Decimal("500.00"))
+        self.assertEqual(report["total_receivable"], Decimal("750.00"))
+        self.assertEqual(report["ar_buckets"]["31-60"], Decimal("750.00"))
 
 
 if __name__ == "__main__":

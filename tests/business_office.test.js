@@ -150,3 +150,13 @@ test("accounting governance supports immutable reversals and forward-only period
     assert.match(view, /function openJournalReversal/);
     assert.match(view, /function openPeriodLockForm/);
 });
+
+test("payable and institutional receivable aging excludes patient billing", () => {
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    const route = read("backend/routes/accounting_routes.py");
+    assert.match(route, /@router\.get\("\/aging"\)/);
+    for (const bucket of ["Current", "1-30", "31-60", "61-90", "90+"]) assert.match(route, new RegExp(bucket.replace("+", "\\+")));
+    assert.match(view, /function openAgingReport/);
+    assert.match(view, /AP \/ AR aging/);
+    assert.match(route, /aggregate institutional payer claims only; no patient billing data/i);
+});
