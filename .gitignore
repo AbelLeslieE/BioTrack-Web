@@ -29,3 +29,6 @@ node_modules/
 # Testing
 .pytest_cache/
 .neon
+
+# Local-only ERPNext experiment state (kept on its dedicated feature branch)
+integrations/erpnext/.local/

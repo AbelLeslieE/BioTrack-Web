@@ -18,6 +18,7 @@ function renderBusinessPortal() {
           ${businessTabButton("quotations", "scale", "Quotations")}
           ${businessTabButton("suppliers", "handshake", "Vendors & invoices")}
           ${businessTabButton("budgets", "wallet-cards", "Budgets & payments")}
+          ${businessTabButton("accounting", "book-open-check", "Accounting & GST")}
           ${businessTabButton("insurance", "shield-plus", "Insurance operations")}
           ${businessTabButton("reports", "file-chart-column", "Reports")}
         </nav>
@@ -34,10 +35,14 @@ function businessTabButton(tab, icon, label) {
 
 async function loadBusinessPortal() {
     try {
-        const response = await fetch("/api/business/dashboard", { cache: "no-store" });
+        const [response, financeResponse] = await Promise.all([
+            fetch("/api/business/dashboard", { cache: "no-store" }),
+            fetch("/api/finance/dashboard", { cache: "no-store" })
+        ]);
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.detail || "The Business Office data could not be loaded.");
-        businessData = payload;
+        const financePayload = await financeResponse.json().catch(() => ({}));
+        businessData = { ...payload, accounting: financeResponse.ok ? financePayload : { error: businessErrorMessage(financePayload.detail || "Accounting data is unavailable.") } };
         showBusinessTab(businessActiveTab);
     } catch (error) {
         const workspace = document.getElementById("businessWorkspace");
@@ -50,7 +55,7 @@ function showBusinessTab(tab) {
     businessActiveTab = tab;
     document.querySelectorAll("[data-business-tab]").forEach(button => button.classList.toggle("is-active", button.dataset.businessTab === tab));
     if (!businessData) return;
-    const renderers = { overview: renderBusinessOverview, purchases: renderBusinessPurchases, quotations: renderBusinessQuotations, suppliers: renderBusinessSuppliers, budgets: renderBusinessBudgets, insurance: renderBusinessInsurance, reports: renderBusinessReports };
+    const renderers = { overview: renderBusinessOverview, purchases: renderBusinessPurchases, quotations: renderBusinessQuotations, suppliers: renderBusinessSuppliers, budgets: renderBusinessBudgets, accounting: renderBusinessAccounting, insurance: renderBusinessInsurance, reports: renderBusinessReports };
     const workspace = document.getElementById("businessWorkspace");
     if (workspace) workspace.innerHTML = (renderers[tab] || renderBusinessOverview)();
     if (window.lucide) lucide.createIcons();
@@ -219,6 +224,31 @@ function renderBusinessBudgets() {
       </tbody></table></div></section>`;
 }
 
+function renderBusinessAccounting() {
+    const finance = businessData.accounting || {};
+    if (finance.error) return `<div class="business-empty"><i data-lucide="triangle-alert"></i><strong>Accounting workspace is unavailable</strong><p>${businessEscape(finance.error)}</p><button type="button" onclick="loadBusinessPortal()">Try again</button></div>`;
+    const summary = finance.summary || {};
+    const companies = finance.companies || [];
+    const accounts = finance.accounts || [];
+    const journals = finance.journals || [];
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    const isManager = ["manager", "admin"].includes(role);
+    const company = companies[0];
+    const companyAccounts = company ? accounts.filter(item => item.company_id === company.id) : [];
+    return `
+      <section class="business-section-heading"><div><span class="business-eyebrow">Native BioTrack ledger</span><h2>Accounting and GST</h2><p>Maintain the hospital chart of accounts, calculate GST with exact decimals and post balanced journal entries without a separate ERP service.</p></div><div class="business-heading-actions">${company ? `<button type="button" onclick="openGSTCalculator()"><i data-lucide="calculator"></i> GST calculator</button><button type="button" onclick="openTrialBalance(${company.id})"><i data-lucide="scale"></i> Trial balance</button><button class="business-primary" type="button" onclick="openJournalEntry()"><i data-lucide="plus"></i> New journal</button>` : (isManager ? `<button class="business-primary" type="button" onclick="openFinanceCompanyForm()"><i data-lucide="building-2"></i> Set up company books</button>` : "")}</div></section>
+      <section class="business-summary-grid">
+        ${businessCountMetric("building-2", "Finance companies", summary.companies || 0, "blue", company?.legal_name || "Not configured")}
+        ${businessCountMetric("list-tree", "Ledger accounts", summary.accounts || 0, "violet")}
+        ${businessMetric("book-check", "Submitted journal value", summary.posted_value || 0, "green")}
+        ${businessCountMetric("clipboard-clock", "Draft journals", summary.draft_journals || 0, "orange", `${summary.submitted_journals || 0} submitted`)}
+      </section>
+      ${!company ? `<section class="business-panel business-accounting-welcome"><header><div><span class="business-eyebrow">One-time setup</span><h2>Create the hospital books</h2><p>A Manager enters the legal entity and GST state once. BioTrack then creates a safe default hospital chart of accounts and cost centre.</p></div></header><div class="business-accounting-note"><i data-lucide="shield-check"></i><div><strong>Existing Business Office data stays unchanged</strong><p>This ledger is additive. Vendors, quotations, budgets, maintenance and assets continue to use their current workflows.</p></div></div></section>` : `
+      <section class="business-panel business-table-panel"><header><div><span class="business-eyebrow">${businessEscape(company.company_code)}</span><h2>${businessEscape(company.legal_name)}</h2><p>FY ${businessDate(company.fiscal_year_start)} – ${businessDate(company.fiscal_year_end)} · GSTIN ${businessEscape(company.gstin || "not recorded")}</p></div>${isManager && !companyAccounts.length ? `<button type="button" onclick="initializeFinanceCompany(${company.id})">Create default accounts <i data-lucide="sparkles"></i></button>` : ""}</header><div class="business-table-scroll"><table class="business-table"><thead><tr><th>Code</th><th>Account</th><th>Type</th><th>Normal balance</th><th>Status</th></tr></thead><tbody>${companyAccounts.length ? companyAccounts.map(item => `<tr><td><strong>${businessEscape(item.account_code)}</strong></td><td><strong>${businessEscape(item.account_name)}</strong><small>${businessEscape(item.system_key || "Manual account")}</small></td><td>${businessEscape(item.account_type)}</td><td>${businessEscape(item.normal_balance)}</td><td><span class="business-status is-${businessStatusClass(item.status)}">${businessEscape(item.status)}</span></td></tr>`).join("") : businessTableEmpty(5, "Chart of accounts not initialized", isManager ? "Create the default accounts to begin journal posting." : "Ask a Manager to initialize the hospital chart of accounts.")}</tbody></table></div></section>
+      <section class="business-panel business-table-panel"><header><div><h2>Journal register</h2><p>Only balanced, approved entries affect the trial balance.</p></div></header><div class="business-table-scroll"><table class="business-table"><thead><tr><th>Reference</th><th>Date</th><th>Type</th><th>Narration</th><th>Debit / credit</th><th>Status</th><th>Action</th></tr></thead><tbody>${journals.length ? journals.map(item => `<tr><td><strong>${businessEscape(item.reference_number)}</strong></td><td>${businessDate(item.entry_date)}</td><td>${businessEscape(item.entry_type)}</td><td>${businessEscape(item.narration)}</td><td><strong>${businessMoney(item.total_debit)}</strong><small>Balanced credit ${businessMoney(item.total_credit)}</small></td><td><span class="business-status is-${businessStatusClass(item.status)}">${businessEscape(item.status)}</span></td><td>${isManager && item.status === "Draft" ? `<span class="business-action-stack"><button class="business-row-action" type="button" onclick="decideJournal(${item.id}, 'Submit')">Submit</button><button class="business-row-action" type="button" onclick="decideJournal(${item.id}, 'Reject')">Reject</button></span>` : `<span class="business-muted">${businessEscape(item.approved_by || item.created_by || "Recorded")}</span>`}</td></tr>`).join("") : businessTableEmpty(7, "No journal entries", companyAccounts.length ? "Create a balanced entry to begin the accounting register." : "Initialize the chart of accounts first.")}</tbody></table></div></section>`}
+      <section class="business-privacy-note"><i data-lucide="badge-check"></i><div><strong>Accounting controls built into BioTrack</strong><p>Entries use exact decimal values, enforce debit = credit, respect books start and lock dates, require Manager submission, and retain security audit events. GST previews support intra-state CGST/SGST and inter-state IGST; statutory filing remains an accountant-reviewed process.</p></div></section>`;
+}
+
 function renderBusinessInsurance() {
     const policies = businessData.policies || [];
     const claims = businessData.claims || [];
@@ -247,10 +277,134 @@ function renderBusinessReports() {
 }
 
 function businessMetric(icon, label, value, tone, detail = "") { const amount = businessMoney(value); const sizeClass = amount.length > 18 ? "is-very-long" : amount.length > 13 ? "is-long" : ""; return `<article class="business-summary-card is-${tone}"><span><i data-lucide="${icon}"></i></span><div><small>${label}</small><strong class="${sizeClass}" title="${businessEscape(amount)}">${amount}</strong>${detail ? `<em>${detail}</em>` : ""}</div></article>`; }
+function businessCountMetric(icon, label, value, tone, detail = "") { return `<article class="business-summary-card is-${tone}"><span><i data-lucide="${icon}"></i></span><div><small>${businessEscape(label)}</small><strong>${businessNumber(value)}</strong>${detail ? `<em>${businessEscape(detail)}</em>` : ""}</div></article>`; }
 function businessPosition(label, value, total, tone) { const percent = Number(total) > 0 ? Math.max(0, Math.min(100, Number(value || 0) / Number(total) * 100)) : 0; return `<div><span><strong>${label}</strong><em>${businessMoney(value)}</em></span><i class="is-${tone}"><b style="width:${percent}%"></b></i></div>`; }
 function businessValue(icon, label, value) { return `<article><span><i data-lucide="${icon}"></i></span><div><small>${label}</small><strong>${businessMoney(value)}</strong></div></article>`; }
 function businessInlineEmpty(message) { return `<div class="business-inline-empty"><i data-lucide="chart-no-axes-column"></i><span>${businessEscape(message)}</span></div>`; }
 function businessTableEmpty(colspan, title, message) { return `<tr><td colspan="${colspan}"><div class="business-table-empty"><i data-lucide="inbox"></i><strong>${businessEscape(title)}</strong><p>${businessEscape(message)}</p></div></td></tr>`; }
+
+function openFinanceModal(title, icon, subtitle, body) {
+    const modal = document.getElementById("businessModal");
+    if (!modal) return null;
+    modal.innerHTML = `<div class="business-modal-backdrop" onclick="closeBusinessModal(event)"><section class="business-modal" role="dialog" aria-modal="true" aria-labelledby="businessModalTitle"><header><span><i data-lucide="${icon}"></i></span><div><h2 id="businessModalTitle">${businessEscape(title)}</h2><p>${businessEscape(subtitle)}</p></div><button type="button" onclick="closeBusinessModal()" aria-label="Close"><i data-lucide="x"></i></button></header>${body}</section></div>`;
+    if (window.lucide) lucide.createIcons();
+    modal.querySelector("input, select, textarea")?.focus();
+    return modal;
+}
+
+function openFinanceCompanyForm() {
+    const today = new Date();
+    const year = today.getMonth() < 3 ? today.getFullYear() - 1 : today.getFullYear();
+    const start = `${year}-04-01`;
+    const end = `${year + 1}-03-31`;
+    openFinanceModal("Set up hospital books", "building-2", "One legal entity, fiscal calendar and GST registration.", `<form onsubmit="submitFinanceCompany(event)"><div class="business-form-grid">${businessField("Company code *", "company_code", "text", "HOSP", "Short unique code")}${businessField("Legal name *", "legal_name", "text", "", "Registered hospital name")}${businessField("State code *", "state_code", "text", "", "Two-digit GST state code", "pattern=\"[0-9]{2}\" maxlength=\"2\"")}${businessField("GSTIN", "gstin", "text", "", "15-character GSTIN", "maxlength=\"15\"")}${businessField("Fiscal year start *", "fiscal_year_start", "date", start)}${businessField("Fiscal year end *", "fiscal_year_end", "date", end)}${businessField("Books start date *", "books_start_date", "date", start)}${businessField("Base currency *", "base_currency", "text", "INR", "", "maxlength=\"3\"")}</div><div id="businessFormError" class="business-form-error" hidden></div><footer><button type="button" onclick="closeBusinessModal()">Cancel</button><button class="business-primary" type="submit"><i data-lucide="check"></i> Create and initialize</button></footer></form>`);
+}
+
+async function submitFinanceCompany(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector("button[type='submit']");
+    const errorBox = document.getElementById("businessFormError");
+    const payload = Object.fromEntries(new FormData(form).entries());
+    button.disabled = true;
+    errorBox.hidden = true;
+    try {
+        const response = await fetch("/api/finance/companies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, country: "India", status: "Active" }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        const initialize = await fetch(`/api/finance/companies/${result.id}/initialize`, { method: "POST" });
+        const initialized = await initialize.json().catch(() => ({}));
+        if (!initialize.ok) throw new Error(businessErrorMessage(initialized.detail));
+        closeBusinessModal();
+        businessNotify("success", "Books created", `${initialized.accounts_created || 0} default hospital accounts are ready.`);
+        await loadBusinessPortal();
+    } catch (error) {
+        errorBox.textContent = error.message;
+        errorBox.hidden = false;
+    } finally { button.disabled = false; }
+}
+
+async function initializeFinanceCompany(companyId) {
+    try {
+        const response = await fetch(`/api/finance/companies/${companyId}/initialize`, { method: "POST" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        businessNotify("success", "Chart initialized", `${result.accounts_created || 0} accounts were created.`);
+        await loadBusinessPortal();
+    } catch (error) { businessNotify("error", "Initialization failed", error.message); }
+}
+
+function openGSTCalculator() {
+    openFinanceModal("GST calculator", "calculator", "Exact-decimal preview for one invoice line. Add the verified result to the relevant transaction or journal.", `<form onsubmit="calculateFinanceGST(event)"><div class="business-form-grid">${businessField("Supplier state code *", "supplier_state_code", "text", "", "Two digits", "pattern=\"[0-9]{2}\" maxlength=\"2\"")}${businessField("Place of supply code *", "place_of_supply_code", "text", "", "Two digits", "pattern=\"[0-9]{2}\" maxlength=\"2\"")}${businessField("Description *", "description", "text")}${businessField("HSN / SAC", "hsn_sac", "text")}${businessField("Quantity *", "quantity", "number", "1", "", "min=\"0.001\" step=\"0.001\"")}${businessField("Unit price (INR) *", "unit_price", "number", "", "", "min=\"0\" step=\"0.01\"")}${businessField("Discount", "discount_amount", "number", "0", "", "min=\"0\" step=\"0.01\"")}${businessField("GST rate (%) *", "gst_rate", "number", "18", "", "min=\"0\" max=\"100\" step=\"0.01\"")}${businessField("Cess rate (%)", "cess_rate", "number", "0", "", "min=\"0\" max=\"100\" step=\"0.01\"")}<label><span>Price basis</span><select name="tax_inclusive"><option value="false">Tax exclusive</option><option value="true">Tax inclusive</option></select></label></div><div id="businessGSTResult"></div><div id="businessFormError" class="business-form-error" hidden></div><footer><button type="button" onclick="closeBusinessModal()">Close</button><button class="business-primary" type="submit"><i data-lucide="calculator"></i> Calculate GST</button></footer></form>`);
+}
+
+async function calculateFinanceGST(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = Object.fromEntries(new FormData(form).entries());
+    const errorBox = document.getElementById("businessFormError");
+    errorBox.hidden = true;
+    const payload = { supplier_state_code: values.supplier_state_code, place_of_supply_code: values.place_of_supply_code, reverse_charge: false, lines: [{ description: values.description, hsn_sac: values.hsn_sac, quantity: values.quantity, unit_price: values.unit_price, discount_amount: values.discount_amount, gst_rate: values.gst_rate, cess_rate: values.cess_rate, tax_inclusive: values.tax_inclusive === "true" }] };
+    try {
+        const response = await fetch("/api/finance/gst/calculate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        const totals = result.totals || {};
+        const output = document.getElementById("businessGSTResult");
+        output.innerHTML = `<section class="business-gst-result"><header><strong>${businessEscape(result.tax_regime)} GST</strong><span>${businessEscape(result.calculation_engine)}</span></header><div>${businessGSTValue("Taxable value", totals.taxable_amount)}${businessGSTValue("CGST", totals.cgst_amount)}${businessGSTValue("SGST", totals.sgst_amount)}${businessGSTValue("IGST", totals.igst_amount)}${businessGSTValue("Cess", totals.cess_amount)}${businessGSTValue("Grand total", totals.grand_total, true)}</div><p>Preview only. Verify HSN/SAC, rate, place of supply, input-credit eligibility and filing treatment with the hospital accountant.</p></section>`;
+    } catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; }
+}
+
+function businessGSTValue(label, value, total = false) { return `<span class="${total ? "is-total" : ""}"><small>${businessEscape(label)}</small><strong>${businessMoney(value)}</strong></span>`; }
+
+function openJournalEntry() {
+    const finance = businessData.accounting || {};
+    const company = (finance.companies || [])[0];
+    const accounts = (finance.accounts || []).filter(item => item.company_id === company?.id && item.status === "Active" && !item.is_group && item.allow_direct_posting);
+    if (!company || accounts.length < 2) return businessNotify("error", "Journal unavailable", "Initialize at least two posting accounts first.");
+    const options = accounts.map(item => [item.id, `${item.account_code} · ${item.account_name}`]);
+    openFinanceModal("New journal entry", "book-plus", "A balanced draft is created first; a Manager must submit it.", `<form onsubmit="submitJournalEntry(event)" data-company-id="${company.id}"><div class="business-form-grid">${businessField("Entry date *", "entry_date", "date", new Date().toISOString().slice(0, 10))}${businessSelect("Entry type *", "entry_type", [["Journal", "Journal"], ["Purchase", "Purchase"], ["Payment", "Payment"], ["Receipt", "Receipt"], ["Adjustment", "Adjustment"]])}${businessTextarea("Narration *", "narration", "Explain the business event and supporting reference", true)}<div class="business-form-context"><strong>Debit line</strong><span>Value received or expense / asset increase</span></div>${businessSelect("Debit account *", "debit_account_id", options)}${businessField("Debit amount (INR) *", "debit_amount", "number", "", "", "min=\"0.01\" step=\"0.01\"")}<div class="business-form-context"><strong>Credit line</strong><span>Value given or liability / income increase</span></div>${businessSelect("Credit account *", "credit_account_id", options)}${businessField("Credit amount (INR) *", "credit_amount", "number", "", "Must equal the debit", "min=\"0.01\" step=\"0.01\"")}</div><div id="businessFormError" class="business-form-error" hidden></div><footer><button type="button" onclick="closeBusinessModal()">Cancel</button><button class="business-primary" type="submit"><i data-lucide="check"></i> Save balanced draft</button></footer></form>`);
+}
+
+async function submitJournalEntry(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = Object.fromEntries(new FormData(form).entries());
+    const errorBox = document.getElementById("businessFormError");
+    const button = form.querySelector("button[type='submit']");
+    const payload = { company_id: Number(form.dataset.companyId), entry_date: values.entry_date, entry_type: values.entry_type, narration: values.narration, lines: [{ account_id: Number(values.debit_account_id), debit: values.debit_amount, credit: "0", description: values.narration }, { account_id: Number(values.credit_account_id), debit: "0", credit: values.credit_amount, description: values.narration }] };
+    button.disabled = true;
+    errorBox.hidden = true;
+    try {
+        const response = await fetch("/api/finance/journals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        closeBusinessModal();
+        businessNotify("success", "Journal draft saved", `${result.reference_number} is awaiting Manager submission.`);
+        await loadBusinessPortal();
+    } catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; }
+    finally { button.disabled = false; }
+}
+
+async function decideJournal(journalId, decision) {
+    try {
+        const response = await fetch(`/api/finance/journals/${journalId}/decision`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decision, note: decision === "Submit" ? "Reviewed and submitted from BioTrack Business Office." : "Rejected from BioTrack Business Office." }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        businessNotify("success", `Journal ${decision === "Submit" ? "submitted" : "rejected"}`, result.reference_number);
+        await loadBusinessPortal();
+    } catch (error) { businessNotify("error", "Journal decision failed", error.message); }
+}
+
+async function openTrialBalance(companyId) {
+    try {
+        const response = await fetch(`/api/finance/trial-balance/${companyId}`, { cache: "no-store" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        const rows = (result.rows || []).filter(item => Number(item.debit) || Number(item.credit));
+        openFinanceModal("Trial balance", "scale", `${result.company.legal_name} · submitted journals only`, `<div class="business-trial-balance"><div class="business-table-scroll"><table class="business-table"><thead><tr><th>Account</th><th>Debit</th><th>Credit</th><th>Net</th></tr></thead><tbody>${rows.length ? rows.map(item => `<tr><td><strong>${businessEscape(item.account_code)} · ${businessEscape(item.account_name)}</strong></td><td>${businessMoney(item.debit)}</td><td>${businessMoney(item.credit)}</td><td>${businessMoney(item.net_balance)}</td></tr>`).join("") : businessTableEmpty(4, "No submitted balances", "Submit an approved journal to populate the trial balance.")}</tbody><tfoot><tr><th>Total</th><th>${businessMoney(result.total_debit)}</th><th>${businessMoney(result.total_credit)}</th><th>${result.balanced ? "Balanced" : "Out of balance"}</th></tr></tfoot></table></div><footer><button type="button" onclick="closeBusinessModal()">Close</button></footer></div>`);
+    } catch (error) { businessNotify("error", "Trial balance unavailable", error.message); }
+}
 
 function openBusinessForm(kind, recordId = null) {
     const modal = document.getElementById("businessModal");

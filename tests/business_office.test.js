@@ -99,3 +99,21 @@ test("business summary keeps long currency values readable", () => {
     assert.match(css, /business-summary-card strong\.is-long/);
     assert.match(css, /@media\(max-width:480px\)\{\.business-summary-grid\{grid-template-columns:1fr\}/);
 });
+
+test("native accounting and GST are exposed inside the BioTrack Business Office", () => {
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    const route = read("backend/routes/accounting_routes.py");
+    const service = read("backend/services/accounting_service.py");
+    const migration = read("backend/migrations/add_native_accounting.py");
+    assert.match(view, /businessTabButton\("accounting", "book-open-check", "Accounting & GST"\)/);
+    assert.match(view, /\/api\/finance\/dashboard/);
+    assert.match(view, /function openGSTCalculator\(\)/);
+    assert.match(view, /function openJournalEntry\(\)/);
+    assert.match(view, /function openTrialBalance\(companyId\)/);
+    assert.match(route, /@router\.post\("\/gst\/calculate"\)/);
+    assert.match(route, /@router\.post\("\/journals"\)/);
+    assert.match(route, /@router\.get\("\/trial-balance\/\{company_id\}"\)/);
+    assert.match(service, /ROUND_HALF_UP/);
+    assert.match(service, /Journal entry is not balanced/);
+    for (const table of ["finance_companies", "finance_accounts", "finance_journal_entries", "finance_journal_lines"]) assert.match(migration, new RegExp(table));
+});

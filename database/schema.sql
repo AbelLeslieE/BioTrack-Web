@@ -696,6 +696,119 @@ CREATE TABLE IF NOT EXISTS business_documents (
     uploaded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS finance_companies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_code TEXT NOT NULL UNIQUE,
+    legal_name TEXT NOT NULL,
+    base_currency TEXT NOT NULL DEFAULT 'INR',
+    country TEXT NOT NULL DEFAULT 'India',
+    state_code TEXT NOT NULL,
+    gstin TEXT NOT NULL DEFAULT '',
+    fiscal_year_start DATE NOT NULL,
+    fiscal_year_end DATE NOT NULL,
+    books_start_date DATE NOT NULL,
+    lock_date DATE,
+    status TEXT NOT NULL DEFAULT 'Active',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS finance_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    parent_id INTEGER,
+    account_code TEXT NOT NULL,
+    account_name TEXT NOT NULL,
+    account_type TEXT NOT NULL,
+    normal_balance TEXT NOT NULL,
+    system_key TEXT,
+    is_group BOOLEAN NOT NULL DEFAULT 0,
+    allow_direct_posting BOOLEAN NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'Active',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (company_id, account_code),
+    UNIQUE (company_id, system_key),
+    FOREIGN KEY (company_id) REFERENCES finance_companies(id) ON DELETE RESTRICT,
+    FOREIGN KEY (parent_id) REFERENCES finance_accounts(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS finance_cost_centers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    cost_center_code TEXT NOT NULL,
+    cost_center_name TEXT NOT NULL,
+    department TEXT NOT NULL DEFAULT 'Hospital-wide',
+    status TEXT NOT NULL DEFAULT 'Active',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (company_id, cost_center_code),
+    FOREIGN KEY (company_id) REFERENCES finance_companies(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS finance_tax_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    template_code TEXT NOT NULL,
+    template_name TEXT NOT NULL,
+    gst_rate NUMERIC(7,4) NOT NULL DEFAULT 0,
+    cess_rate NUMERIC(7,4) NOT NULL DEFAULT 0,
+    hsn_sac TEXT NOT NULL DEFAULT '',
+    supply_type TEXT NOT NULL DEFAULT 'Goods',
+    input_credit_eligible BOOLEAN NOT NULL DEFAULT 1,
+    reverse_charge BOOLEAN NOT NULL DEFAULT 0,
+    valid_from DATE NOT NULL,
+    valid_to DATE,
+    status TEXT NOT NULL DEFAULT 'Active',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (company_id, template_code),
+    FOREIGN KEY (company_id) REFERENCES finance_companies(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS finance_journal_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    reference_number TEXT NOT NULL UNIQUE,
+    entry_date DATE NOT NULL,
+    entry_type TEXT NOT NULL DEFAULT 'Journal',
+    narration TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Draft',
+    source_type TEXT,
+    source_id INTEGER,
+    reversal_of_id INTEGER,
+    review_note TEXT NOT NULL DEFAULT '',
+    total_debit NUMERIC(18,2) NOT NULL DEFAULT 0,
+    total_credit NUMERIC(18,2) NOT NULL DEFAULT 0,
+    created_by TEXT NOT NULL,
+    approved_by TEXT,
+    submitted_by TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    submitted_at TIMESTAMP,
+    UNIQUE (source_type, source_id),
+    FOREIGN KEY (company_id) REFERENCES finance_companies(id) ON DELETE RESTRICT,
+    FOREIGN KEY (reversal_of_id) REFERENCES finance_journal_entries(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS finance_journal_lines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    journal_entry_id INTEGER NOT NULL,
+    line_number INTEGER NOT NULL,
+    account_id INTEGER NOT NULL,
+    cost_center_id INTEGER,
+    description TEXT NOT NULL DEFAULT '',
+    party_type TEXT NOT NULL DEFAULT '',
+    party_reference TEXT NOT NULL DEFAULT '',
+    debit NUMERIC(18,2) NOT NULL DEFAULT 0,
+    credit NUMERIC(18,2) NOT NULL DEFAULT 0,
+    tax_component TEXT NOT NULL DEFAULT '',
+    FOREIGN KEY (journal_entry_id) REFERENCES finance_journal_entries(id) ON DELETE CASCADE,
+    FOREIGN KEY (account_id) REFERENCES finance_accounts(id) ON DELETE RESTRICT,
+    FOREIGN KEY (cost_center_id) REFERENCES finance_cost_centers(id) ON DELETE RESTRICT
+);
+
 CREATE INDEX IF NOT EXISTS ix_assets_service_team ON assets(service_team);
 CREATE INDEX IF NOT EXISTS ix_asset_relocation_requests_asset_id ON asset_relocation_requests(asset_id);
 CREATE INDEX IF NOT EXISTS ix_asset_relocation_requests_status ON asset_relocation_requests(status);

@@ -42,3 +42,11 @@ from backend.models.business import (
     SupplierPayment,
     SupplierQuotation,
 )
+from backend.models.accounting import (
+    FinanceAccount,
+    FinanceCompany,
+    FinanceCostCenter,
+    FinanceJournalEntry,
+    FinanceJournalLine,
+    FinanceTaxTemplate,
+)

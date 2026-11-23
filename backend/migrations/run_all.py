@@ -28,6 +28,7 @@ MIGRATIONS = (
     "store_uploads_in_database",
     "add_procurement_finance",
     "add_quotation_details",
+    "add_native_accounting",
 )
 
 
