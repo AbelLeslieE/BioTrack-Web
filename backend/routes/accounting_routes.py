@@ -2,6 +2,7 @@
 
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+import hashlib
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request as WebRequest
@@ -13,6 +14,8 @@ from backend.auth import get_current_user, require_roles
 from backend.database import get_db
 from backend.models.accounting import (
     FinanceAccount,
+    FinanceBankAccount,
+    FinanceBankTransaction,
     FinanceCompany,
     FinanceCostCenter,
     FinanceJournalEntry,
@@ -22,6 +25,9 @@ from backend.models.accounting import (
 from backend.models.user import User
 from backend.schemas.accounting_schema import (
     AccountInput,
+    BankAccountInput,
+    BankReconciliationDecision,
+    BankTransactionImport,
     CompanyInput,
     CostCenterInput,
     GSTCalculationInput,
@@ -145,6 +151,8 @@ def finance_dashboard(db: Session = Depends(get_db)):
     cost_centers = db.query(FinanceCostCenter).order_by(FinanceCostCenter.cost_center_code).all()
     taxes = db.query(FinanceTaxTemplate).order_by(FinanceTaxTemplate.template_code).all()
     journals = db.query(FinanceJournalEntry).order_by(FinanceJournalEntry.entry_date.desc(), FinanceJournalEntry.id.desc()).limit(100).all()
+    bank_accounts = db.query(FinanceBankAccount).order_by(FinanceBankAccount.account_name).all()
+    bank_transactions = db.query(FinanceBankTransaction).order_by(FinanceBankTransaction.transaction_date.desc(), FinanceBankTransaction.id.desc()).limit(250).all()
     submitted_debit = db.query(func.coalesce(func.sum(FinanceJournalEntry.total_debit), 0)).filter(FinanceJournalEntry.status == "Submitted").scalar()
     return {
         "summary": {
@@ -155,6 +163,8 @@ def finance_dashboard(db: Session = Depends(get_db)):
             "draft_journals": sum(row.status == "Draft" for row in journals),
             "submitted_journals": sum(row.status == "Submitted" for row in journals),
             "posted_value": money(submitted_debit),
+            "bank_accounts": len(bank_accounts),
+            "unreconciled_bank_transactions": sum(row.status == "Unmatched" for row in bank_transactions),
         },
         "companies": [_company_row(row) for row in companies],
         "accounts": [_account_row(row) for row in accounts],
@@ -188,6 +198,25 @@ def finance_dashboard(db: Session = Depends(get_db)):
             for row in taxes
         ],
         "journals": [_journal_row(row) for row in journals],
+        "bank_accounts": [
+            {
+                "id": row.id, "company_id": row.company_id, "ledger_account_id": row.ledger_account_id,
+                "account_name": row.account_name, "bank_name": row.bank_name,
+                "masked_account_number": row.masked_account_number, "currency": row.currency,
+                "opening_balance": money(row.opening_balance), "status": row.status,
+            }
+            for row in bank_accounts
+        ],
+        "bank_transactions": [
+            {
+                "id": row.id, "bank_account_id": row.bank_account_id, "transaction_date": _iso(row.transaction_date),
+                "value_date": _iso(row.value_date), "external_reference": row.external_reference,
+                "description": row.description, "withdrawal": money(row.withdrawal), "deposit": money(row.deposit),
+                "status": row.status, "matched_journal_entry_id": row.matched_journal_entry_id,
+                "reconciliation_note": row.reconciliation_note, "reconciled_by": row.reconciled_by,
+            }
+            for row in bank_transactions
+        ],
     }
 
 
@@ -282,6 +311,111 @@ def create_tax_template(data: TaxTemplateInput, request: WebRequest, db: Session
     db.commit()
     db.refresh(row)
     return {"id": row.id, **data.model_dump()}
+
+
+@router.post("/bank-accounts", dependencies=[Depends(require_roles("Manager"))])
+def create_bank_account(data: BankAccountInput, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    company = db.get(FinanceCompany, data.company_id)
+    ledger = db.get(FinanceAccount, data.ledger_account_id)
+    if not company or not ledger or ledger.company_id != company.id or ledger.account_type != "Asset" or ledger.is_group:
+        raise HTTPException(status_code=422, detail="Select an active asset ledger account from the same company.")
+    row = FinanceBankAccount(**data.model_dump(), created_by=current_user.username)
+    db.add(row)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="That bank or ledger account is already configured.") from exc
+    record_security_event(db, "finance.bank_account.created", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="finance_bank_account", target_id=row.account_name, commit=False)
+    db.commit()
+    db.refresh(row)
+    return {"id": row.id, "account_name": row.account_name, "bank_name": row.bank_name, "ledger_account_id": row.ledger_account_id, "status": row.status}
+
+
+@router.post("/bank-transactions/import")
+def import_bank_transactions(data: BankTransactionImport, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    bank = db.get(FinanceBankAccount, data.bank_account_id)
+    if not bank or bank.status != "Active":
+        raise HTTPException(status_code=404, detail="Active bank account not found.")
+    created = []
+    duplicates = 0
+    for item in data.rows:
+        canonical = "|".join((str(bank.id), item.transaction_date.isoformat(), _iso(item.value_date) or "", item.external_reference, item.description, str(money(item.withdrawal)), str(money(item.deposit))))
+        import_key = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        if db.query(FinanceBankTransaction.id).filter(FinanceBankTransaction.import_key == import_key).first():
+            duplicates += 1
+            continue
+        row = FinanceBankTransaction(**item.model_dump(), bank_account_id=bank.id, import_key=import_key, imported_by=current_user.username)
+        db.add(row)
+        created.append(row)
+    record_security_event(db, "finance.bank_statement.imported", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="finance_bank_account", target_id=str(bank.id), details={"created": len(created), "duplicates": duplicates}, commit=False)
+    db.commit()
+    return {"created": len(created), "duplicates_skipped": duplicates}
+
+
+def _bank_journal_amount(db: Session, journal_id: int, ledger_account_id: int) -> tuple[Decimal, Decimal]:
+    result = db.query(
+        func.coalesce(func.sum(FinanceJournalLine.debit), 0),
+        func.coalesce(func.sum(FinanceJournalLine.credit), 0),
+    ).filter(FinanceJournalLine.journal_entry_id == journal_id, FinanceJournalLine.account_id == ledger_account_id).one()
+    return money(result[0]), money(result[1])
+
+
+@router.get("/bank-transactions/{transaction_id}/suggestions")
+def bank_reconciliation_suggestions(transaction_id: int, db: Session = Depends(get_db)):
+    transaction = db.get(FinanceBankTransaction, transaction_id)
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Bank transaction not found.")
+    bank = db.get(FinanceBankAccount, transaction.bank_account_id)
+    expected_debit, expected_credit = money(transaction.deposit), money(transaction.withdrawal)
+    journals = db.query(FinanceJournalEntry).join(
+        FinanceJournalLine, FinanceJournalLine.journal_entry_id == FinanceJournalEntry.id
+    ).filter(
+        FinanceJournalEntry.company_id == bank.company_id,
+        FinanceJournalEntry.status == "Submitted",
+        FinanceJournalEntry.entry_date >= transaction.transaction_date - timedelta(days=7),
+        FinanceJournalEntry.entry_date <= transaction.transaction_date + timedelta(days=7),
+        FinanceJournalLine.account_id == bank.ledger_account_id,
+    ).distinct().all()
+    suggestions = []
+    for journal in journals:
+        debit, credit = _bank_journal_amount(db, journal.id, bank.ledger_account_id)
+        if debit == expected_debit and credit == expected_credit:
+            suggestions.append({**_journal_row(journal), "date_difference_days": abs((journal.entry_date - transaction.transaction_date).days)})
+    suggestions.sort(key=lambda item: (item["date_difference_days"], item["entry_date"]))
+    return {"transaction_id": transaction.id, "suggestions": suggestions}
+
+
+@router.patch("/bank-transactions/{transaction_id}/reconcile", dependencies=[Depends(require_roles("Manager"))])
+def reconcile_bank_transaction(transaction_id: int, data: BankReconciliationDecision, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    transaction = db.get(FinanceBankTransaction, transaction_id)
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Bank transaction not found.")
+    bank = db.get(FinanceBankAccount, transaction.bank_account_id)
+    if data.action == "Match":
+        journal = db.get(FinanceJournalEntry, data.journal_entry_id)
+        if not journal or journal.company_id != bank.company_id or journal.status != "Submitted":
+            raise HTTPException(status_code=422, detail="Select a submitted journal from the same company.")
+        debit, credit = _bank_journal_amount(db, journal.id, bank.ledger_account_id)
+        if debit != money(transaction.deposit) or credit != money(transaction.withdrawal):
+            raise HTTPException(status_code=422, detail="The journal bank movement does not equal the statement transaction.")
+        other = db.query(FinanceBankTransaction).filter(FinanceBankTransaction.matched_journal_entry_id == journal.id, FinanceBankTransaction.id != transaction.id).first()
+        if other:
+            raise HTTPException(status_code=409, detail="That journal is already reconciled to another bank transaction.")
+        transaction.status = "Matched"
+        transaction.matched_journal_entry_id = journal.id
+    elif data.action == "Ignore":
+        transaction.status = "Ignored"
+        transaction.matched_journal_entry_id = None
+    else:
+        transaction.status = "Unmatched"
+        transaction.matched_journal_entry_id = None
+    transaction.reconciliation_note = data.note
+    transaction.reconciled_by = current_user.username
+    transaction.reconciled_at = datetime.now()
+    record_security_event(db, f"finance.bank_transaction.{data.action.casefold()}", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="finance_bank_transaction", target_id=str(transaction.id), details={"journal_entry_id": transaction.matched_journal_entry_id}, commit=False)
+    db.commit()
+    return {"id": transaction.id, "status": transaction.status, "matched_journal_entry_id": transaction.matched_journal_entry_id}
 
 
 @router.post("/gst/calculate")

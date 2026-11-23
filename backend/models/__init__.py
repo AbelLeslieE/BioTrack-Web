@@ -49,4 +49,6 @@ from backend.models.accounting import (
     FinanceJournalEntry,
     FinanceJournalLine,
     FinanceTaxTemplate,
+    FinanceBankAccount,
+    FinanceBankTransaction,
 )

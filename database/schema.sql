@@ -809,6 +809,44 @@ CREATE TABLE IF NOT EXISTS finance_journal_lines (
     FOREIGN KEY (cost_center_id) REFERENCES finance_cost_centers(id) ON DELETE RESTRICT
 );
 
+CREATE TABLE IF NOT EXISTS finance_bank_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    ledger_account_id INTEGER NOT NULL UNIQUE,
+    account_name TEXT NOT NULL,
+    bank_name TEXT NOT NULL,
+    masked_account_number TEXT NOT NULL DEFAULT '',
+    currency TEXT NOT NULL DEFAULT 'INR',
+    opening_balance NUMERIC(18,2) NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'Active',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (company_id, account_name),
+    FOREIGN KEY (company_id) REFERENCES finance_companies(id) ON DELETE RESTRICT,
+    FOREIGN KEY (ledger_account_id) REFERENCES finance_accounts(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS finance_bank_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bank_account_id INTEGER NOT NULL,
+    transaction_date DATE NOT NULL,
+    value_date DATE,
+    external_reference TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    withdrawal NUMERIC(18,2) NOT NULL DEFAULT 0,
+    deposit NUMERIC(18,2) NOT NULL DEFAULT 0,
+    import_key TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'Unmatched',
+    matched_journal_entry_id INTEGER,
+    reconciliation_note TEXT NOT NULL DEFAULT '',
+    imported_by TEXT NOT NULL,
+    reconciled_by TEXT,
+    imported_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reconciled_at TIMESTAMP,
+    FOREIGN KEY (bank_account_id) REFERENCES finance_bank_accounts(id) ON DELETE CASCADE,
+    FOREIGN KEY (matched_journal_entry_id) REFERENCES finance_journal_entries(id) ON DELETE RESTRICT
+);
+
 CREATE INDEX IF NOT EXISTS ix_assets_service_team ON assets(service_team);
 CREATE INDEX IF NOT EXISTS ix_asset_relocation_requests_asset_id ON asset_relocation_requests(asset_id);
 CREATE INDEX IF NOT EXISTS ix_asset_relocation_requests_status ON asset_relocation_requests(status);

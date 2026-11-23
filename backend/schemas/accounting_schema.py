@@ -145,3 +145,58 @@ class JournalDecision(AccountingModel):
     decision: str = Field(pattern="^(Submit|Reject)$")
     note: str = Field(default="", max_length=2000)
 
+
+class BankAccountInput(AccountingModel):
+    company_id: int
+    ledger_account_id: int
+    account_name: str = Field(min_length=2, max_length=160)
+    bank_name: str = Field(min_length=2, max_length=160)
+    masked_account_number: str = Field(default="", max_length=40)
+    currency: str = Field(default="INR", min_length=3, max_length=3)
+    opening_balance: Decimal = Field(default=Decimal("0"), ge=-10_000_000_000, le=10_000_000_000)
+    status: str = Field(default="Active", pattern="^(Active|Inactive)$")
+
+    @field_validator("currency")
+    @classmethod
+    def bank_currency(cls, value: str) -> str:
+        return value.upper()
+
+    @field_validator("masked_account_number")
+    @classmethod
+    def require_masked_account_number(cls, value: str) -> str:
+        if re.search(r"\d{5,}", value):
+            raise ValueError("Store only a masked bank account number with at most four visible consecutive digits.")
+        return value
+
+
+class BankTransactionInput(AccountingModel):
+    transaction_date: date
+    value_date: date | None = None
+    external_reference: str = Field(default="", max_length=120)
+    description: str = Field(default="", max_length=500)
+    withdrawal: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
+    deposit: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
+
+    @model_validator(mode="after")
+    def one_bank_side(self):
+        if (self.withdrawal > 0) == (self.deposit > 0):
+            raise ValueError("Each bank transaction must be either a withdrawal or a deposit.")
+        return self
+
+
+class BankTransactionImport(AccountingModel):
+    bank_account_id: int
+    rows: list[BankTransactionInput] = Field(min_length=1, max_length=2000)
+
+
+class BankReconciliationDecision(AccountingModel):
+    action: str = Field(pattern="^(Match|Unmatch|Ignore)$")
+    journal_entry_id: int | None = None
+    note: str = Field(default="", max_length=2000)
+
+    @model_validator(mode="after")
+    def match_requires_journal(self):
+        if self.action == "Match" and not self.journal_entry_id:
+            raise ValueError("Select a submitted journal entry to reconcile this transaction.")
+        return self
+

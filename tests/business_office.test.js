@@ -127,3 +127,15 @@ test("native accounting and GST are exposed inside the BioTrack Business Office"
     assert.match(posting, /source_type="supplier_payment"/);
     for (const table of ["finance_companies", "finance_accounts", "finance_journal_entries", "finance_journal_lines"]) assert.match(migration, new RegExp(table));
 });
+
+test("native banking imports and reconciles statement transactions", () => {
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    const route = read("backend/routes/accounting_routes.py");
+    const model = read("backend/models/accounting.py");
+    assert.match(view, /businessTabButton\("banking", "landmark", "Banking"\)/);
+    for (const name of ["FinanceBankAccount", "FinanceBankTransaction"]) assert.match(model, new RegExp(`class ${name}`));
+    assert.match(route, /@router\.post\("\/bank-transactions\/import"\)/);
+    assert.match(route, /@router\.get\("\/bank-transactions\/\{transaction_id\}\/suggestions"\)/);
+    assert.match(route, /@router\.patch\("\/bank-transactions\/\{transaction_id\}\/reconcile"/);
+    for (const name of ["openBankAccountForm", "openBankImportForm", "openBankReconciliation", "reconcileBankTransaction"]) assert.match(view, new RegExp(`function ${name}`));
+});

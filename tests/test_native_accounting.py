@@ -7,22 +7,30 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.models import Base
-from backend.models.accounting import FinanceAccount, FinanceCompany, FinanceJournalEntry, FinanceJournalLine
+from backend.models.accounting import FinanceAccount, FinanceBankTransaction, FinanceCompany, FinanceJournalEntry, FinanceJournalLine
 from backend.models.business import BusinessVendor, PurchaseRequest, SupplierInvoice, SupplierPayment
 from backend.models.user import User
 from backend.routes.accounting_routes import (
     create_finance_company,
+    create_bank_account,
     create_journal_entry,
     decide_journal_entry,
     financial_statements,
     finance_dashboard,
     general_ledger,
+    import_bank_transactions,
     initialize_finance_company,
     preview_gst,
+    bank_reconciliation_suggestions,
+    reconcile_bank_transaction,
     trial_balance,
 )
 from backend.schemas.accounting_schema import (
     CompanyInput,
+    BankAccountInput,
+    BankReconciliationDecision,
+    BankTransactionImport,
+    BankTransactionInput,
     GSTCalculationInput,
     GSTLineInput,
     JournalDecision,
@@ -201,6 +209,36 @@ class NativeAccountingTests(unittest.TestCase):
         paid = post_completed_supplier_payment(self.db, payment, invoice, vendor, "business")
         self.assertEqual(paid.total_debit, Decimal("500.00"))
         self.assertEqual(self.db.query(FinanceJournalEntry).count(), 2)
+
+    def test_bank_import_is_idempotent_and_reconciles_exact_amount(self):
+        company = self._company()
+        initialize_finance_company(company["id"], None, self.db, self.manager)
+        accounts = {row.system_key: row for row in self.db.query(FinanceAccount).filter(FinanceAccount.company_id == company["id"]).all()}
+        bank = create_bank_account(BankAccountInput(
+            company_id=company["id"], ledger_account_id=accounts["BANK"].id,
+            account_name="Operating Bank", bank_name="Test Bank", masked_account_number="****1234",
+        ), None, self.db, self.manager)
+        journal = create_journal_entry(JournalEntryInput(
+            company_id=company["id"], entry_date=date(2026, 11, 20), narration="Institutional receipt",
+            entry_type="Receipt", lines=[
+                JournalLineInput(account_id=accounts["BANK"].id, debit=Decimal("250.00")),
+                JournalLineInput(account_id=accounts["INSTITUTIONAL_INCOME"].id, credit=Decimal("250.00")),
+            ],
+        ), None, self.db, self.business_user)
+        decide_journal_entry(journal["id"], JournalDecision(decision="Submit"), None, self.db, self.manager)
+        payload = BankTransactionImport(bank_account_id=bank["id"], rows=[BankTransactionInput(
+            transaction_date=date(2026, 11, 21), external_reference="BANK-REF-1",
+            description="Hospital receipt", deposit=Decimal("250.00"),
+        )])
+        first = import_bank_transactions(payload, None, self.db, self.business_user)
+        second = import_bank_transactions(payload, None, self.db, self.business_user)
+        self.assertEqual(first, {"created": 1, "duplicates_skipped": 0})
+        self.assertEqual(second, {"created": 0, "duplicates_skipped": 1})
+        transaction = self.db.query(FinanceBankTransaction).one()
+        suggestions = bank_reconciliation_suggestions(transaction.id, self.db)
+        self.assertEqual([item["id"] for item in suggestions["suggestions"]], [journal["id"]])
+        matched = reconcile_bank_transaction(transaction.id, BankReconciliationDecision(action="Match", journal_entry_id=journal["id"]), None, self.db, self.manager)
+        self.assertEqual(matched["status"], "Matched")
 
 
 if __name__ == "__main__":

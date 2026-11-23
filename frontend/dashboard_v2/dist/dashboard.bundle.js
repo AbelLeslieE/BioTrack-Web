@@ -8437,6 +8437,7 @@ function renderBusinessPortal() {
           ${businessTabButton("suppliers", "handshake", "Vendors & invoices")}
           ${businessTabButton("budgets", "wallet-cards", "Budgets & payments")}
           ${businessTabButton("accounting", "book-open-check", "Accounting & GST")}
+          ${businessTabButton("banking", "landmark", "Banking")}
           ${businessTabButton("insurance", "shield-plus", "Insurance operations")}
           ${businessTabButton("reports", "file-chart-column", "Reports")}
         </nav>
@@ -8473,7 +8474,7 @@ function showBusinessTab(tab) {
     businessActiveTab = tab;
     document.querySelectorAll("[data-business-tab]").forEach(button => button.classList.toggle("is-active", button.dataset.businessTab === tab));
     if (!businessData) return;
-    const renderers = { overview: renderBusinessOverview, purchases: renderBusinessPurchases, quotations: renderBusinessQuotations, suppliers: renderBusinessSuppliers, budgets: renderBusinessBudgets, accounting: renderBusinessAccounting, insurance: renderBusinessInsurance, reports: renderBusinessReports };
+    const renderers = { overview: renderBusinessOverview, purchases: renderBusinessPurchases, quotations: renderBusinessQuotations, suppliers: renderBusinessSuppliers, budgets: renderBusinessBudgets, accounting: renderBusinessAccounting, banking: renderBusinessBanking, insurance: renderBusinessInsurance, reports: renderBusinessReports };
     const workspace = document.getElementById("businessWorkspace");
     if (workspace) workspace.innerHTML = (renderers[tab] || renderBusinessOverview)();
     if (window.lucide) lucide.createIcons();
@@ -8667,6 +8668,22 @@ function renderBusinessAccounting() {
       <section class="business-privacy-note"><i data-lucide="badge-check"></i><div><strong>Accounting controls built into BioTrack</strong><p>Entries use exact decimal values, enforce debit = credit, respect books start and lock dates, require Manager submission, and retain security audit events. GST previews support intra-state CGST/SGST and inter-state IGST; statutory filing remains an accountant-reviewed process.</p></div></section>`;
 }
 
+function renderBusinessBanking() {
+    const finance = businessData.accounting || {};
+    const companies = finance.companies || [];
+    const bankAccounts = finance.bank_accounts || [];
+    const transactions = finance.bank_transactions || [];
+    const summary = finance.summary || {};
+    const role = String(localStorage.getItem("role") || "").toLowerCase();
+    const isManager = ["manager", "admin"].includes(role);
+    const accountNames = Object.fromEntries(bankAccounts.map(item => [item.id, item.account_name]));
+    return `
+      <section class="business-section-heading"><div><span class="business-eyebrow">Banking and cash control</span><h2>Bank statement reconciliation</h2><p>Import real statement rows, prevent duplicate imports and match each movement to an exact submitted bank journal.</p></div><div class="business-heading-actions">${isManager && companies.length ? `<button type="button" onclick="openBankAccountForm()"><i data-lucide="landmark"></i> Add bank account</button>` : ""}${bankAccounts.length ? `<button class="business-primary" type="button" onclick="openBankImportForm()"><i data-lucide="upload"></i> Import statement</button>` : ""}</div></section>
+      <section class="business-insurance-summary"><article><span><i data-lucide="landmark"></i></span><div><small>Bank accounts</small><strong>${businessNumber(summary.bank_accounts || 0)}</strong></div></article><article><span><i data-lucide="list-checks"></i></span><div><small>Statement rows</small><strong>${businessNumber(transactions.length)}</strong></div></article><article><span><i data-lucide="circle-help"></i></span><div><small>Unreconciled</small><strong>${businessNumber(summary.unreconciled_bank_transactions || 0)}</strong></div></article><article><span><i data-lucide="badge-check"></i></span><div><small>Matched</small><strong>${businessNumber(transactions.filter(item => item.status === "Matched").length)}</strong></div></article></section>
+      <section class="business-panel business-table-panel"><header><div><h2>Configured bank accounts</h2><p>Each bank account is connected to one asset ledger account.</p></div></header><div class="business-table-scroll"><table class="business-table"><thead><tr><th>Account</th><th>Bank</th><th>Number</th><th>Currency</th><th>Opening balance</th><th>Status</th></tr></thead><tbody>${bankAccounts.length ? bankAccounts.map(item => `<tr><td><strong>${businessEscape(item.account_name)}</strong></td><td>${businessEscape(item.bank_name)}</td><td>${businessEscape(item.masked_account_number || "—")}</td><td>${businessEscape(item.currency)}</td><td>${businessMoney(item.opening_balance)}</td><td><span class="business-status is-${businessStatusClass(item.status)}">${businessEscape(item.status)}</span></td></tr>`).join("") : businessTableEmpty(6, "No bank account configured", isManager ? "Connect a bank account to the default Bank ledger." : "Ask a Manager to configure the hospital bank account.")}</tbody></table></div></section>
+      <section class="business-panel business-table-panel"><header><div><h2>Statement reconciliation</h2><p>Matching requires the same debit or credit movement in a submitted journal within the suggested date range.</p></div></header><div class="business-table-scroll"><table class="business-table"><thead><tr><th>Date / reference</th><th>Bank account</th><th>Description</th><th>Withdrawal</th><th>Deposit</th><th>Status</th><th>Action</th></tr></thead><tbody>${transactions.length ? transactions.map(item => `<tr><td>${businessDate(item.transaction_date)}<small>${businessEscape(item.external_reference || "No reference")}</small></td><td>${businessEscape(accountNames[item.bank_account_id] || "Bank account")}</td><td>${businessEscape(item.description || "—")}</td><td>${businessMoney(item.withdrawal)}</td><td>${businessMoney(item.deposit)}</td><td><span class="business-status is-${businessStatusClass(item.status)}">${businessEscape(item.status)}</span></td><td>${isManager && item.status !== "Matched" ? `<button class="business-row-action" type="button" onclick="openBankReconciliation(${item.id})">Reconcile</button>` : (isManager && item.status === "Matched" ? `<button class="business-row-action" type="button" onclick="reconcileBankTransaction(${item.id}, 'Unmatch')">Unmatch</button>` : `<span class="business-muted">${businessEscape(item.reconciled_by || "Pending")}</span>`)}</td></tr>`).join("") : businessTableEmpty(7, "No statement transactions", bankAccounts.length ? "Import statement rows to begin reconciliation." : "Configure a bank account first.")}</tbody></table></div></section>`;
+}
+
 function renderBusinessInsurance() {
     const policies = businessData.policies || [];
     const claims = businessData.claims || [];
@@ -8843,6 +8860,83 @@ async function openGeneralLedger(companyId) {
         if (!response.ok) throw new Error(businessErrorMessage(result.detail));
         openFinanceModal("General ledger", "book-open", `${result.company.legal_name} · ${result.entry_count} submitted posting lines`, `<div class="business-trial-balance"><div class="business-table-scroll"><table class="business-table"><thead><tr><th>Date / reference</th><th>Account</th><th>Narration</th><th>Debit</th><th>Credit</th><th>Running balance</th></tr></thead><tbody>${result.entries.length ? result.entries.map(item => `<tr><td>${businessDate(item.entry_date)}<small>${businessEscape(item.reference_number)}</small></td><td><strong>${businessEscape(item.account_code)}</strong><small>${businessEscape(item.account_name)}</small></td><td>${businessEscape(item.narration)}</td><td>${businessMoney(item.debit)}</td><td>${businessMoney(item.credit)}</td><td><strong>${businessMoney(item.running_balance)}</strong></td></tr>`).join("") : businessTableEmpty(6, "No ledger postings", "Submit an approved journal to populate the general ledger.")}</tbody></table></div><footer><button type="button" onclick="closeBusinessModal()">Close</button></footer></div>`);
     } catch (error) { businessNotify("error", "General ledger unavailable", error.message); }
+}
+
+function openBankAccountForm() {
+    const finance = businessData.accounting || {};
+    const company = (finance.companies || [])[0];
+    const ledgerAccounts = (finance.accounts || []).filter(item => item.company_id === company?.id && item.account_type === "Asset" && !item.is_group && item.status === "Active");
+    if (!company || !ledgerAccounts.length) return businessNotify("error", "Bank setup unavailable", "Initialize the chart of accounts first.");
+    openFinanceModal("Add bank account", "landmark", "Connect a real hospital bank account to its asset ledger.", `<form onsubmit="submitBankAccount(event)"><div class="business-form-grid">${businessSelect("Ledger account *", "ledger_account_id", ledgerAccounts.map(item => [item.id, `${item.account_code} · ${item.account_name}`]))}${businessField("Display name *", "account_name", "text", "Operating Bank")}${businessField("Bank name *", "bank_name", "text")}${businessField("Masked account number", "masked_account_number", "text", "", "Example: ****1234")}${businessField("Opening balance (INR)", "opening_balance", "number", "0", "", "step=\"0.01\"")}</div><div id="businessFormError" class="business-form-error" hidden></div><footer><button type="button" onclick="closeBusinessModal()">Cancel</button><button class="business-primary" type="submit"><i data-lucide="check"></i> Save bank account</button></footer><input type="hidden" name="company_id" value="${company.id}"></form>`);
+}
+
+async function submitBankAccount(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = Object.fromEntries(new FormData(form).entries());
+    const errorBox = document.getElementById("businessFormError");
+    try {
+        const response = await fetch("/api/finance/bank-accounts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...values, company_id: Number(values.company_id), ledger_account_id: Number(values.ledger_account_id), currency: "INR", status: "Active" }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        closeBusinessModal(); businessNotify("success", "Bank account configured", result.account_name); await loadBusinessPortal();
+    } catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; }
+}
+
+function openBankImportForm() {
+    const accounts = businessData.accounting?.bank_accounts || [];
+    openFinanceModal("Import bank statement", "upload", "Paste CSV rows in the documented order. Duplicate rows are safely skipped.", `<form onsubmit="submitBankImport(event)"><div class="business-form-grid">${businessSelect("Bank account *", "bank_account_id", accounts.map(item => [item.id, `${item.account_name} · ${item.bank_name}`]))}<div class="business-form-context"><strong>CSV columns</strong><span>date, reference, description, withdrawal, deposit</span></div>${businessTextarea("Statement rows *", "csv_rows", "2026-11-23,UTR123,Supplier payment,5000.00,0\n2026-11-24,NEFT456,Insurance receipt,0,12500.00", true)}</div><div id="businessFormError" class="business-form-error" hidden></div><footer><button type="button" onclick="closeBusinessModal()">Cancel</button><button class="business-primary" type="submit"><i data-lucide="upload"></i> Import rows</button></footer></form>`);
+}
+
+function parseBankCSVRow(line) {
+    const values = [];
+    let current = "", quoted = false;
+    for (let index = 0; index < line.length; index += 1) {
+        const character = line[index];
+        if (character === '"' && quoted && line[index + 1] === '"') { current += '"'; index += 1; }
+        else if (character === '"') quoted = !quoted;
+        else if (character === "," && !quoted) { values.push(current.trim()); current = ""; }
+        else current += character;
+    }
+    values.push(current.trim());
+    return values;
+}
+
+async function submitBankImport(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = Object.fromEntries(new FormData(form).entries());
+    const errorBox = document.getElementById("businessFormError");
+    try {
+        const lines = String(values.csv_rows || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+        const rows = lines.map((line, index) => {
+            const columns = parseBankCSVRow(line);
+            if (columns.length !== 5 || !/^\d{4}-\d{2}-\d{2}$/.test(columns[0])) throw new Error(`Row ${index + 1} must contain date, reference, description, withdrawal and deposit.`);
+            return { transaction_date: columns[0], external_reference: columns[1], description: columns[2], withdrawal: columns[3] || "0", deposit: columns[4] || "0" };
+        });
+        const response = await fetch("/api/finance/bank-transactions/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bank_account_id: Number(values.bank_account_id), rows }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        closeBusinessModal(); businessNotify("success", "Statement imported", `${result.created} rows added; ${result.duplicates_skipped} duplicates skipped.`); await loadBusinessPortal();
+    } catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; }
+}
+
+async function openBankReconciliation(transactionId) {
+    try {
+        const response = await fetch(`/api/finance/bank-transactions/${transactionId}/suggestions`, { cache: "no-store" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        openFinanceModal("Reconcile bank transaction", "list-checks", "Only exact bank-account movements within seven days are suggested.", `<div class="business-bank-suggestions">${result.suggestions.length ? result.suggestions.map(item => `<article><div><strong>${businessEscape(item.reference_number)}</strong><span>${businessDate(item.entry_date)} · ${businessEscape(item.narration)}</span><small>${businessMoney(item.total_debit)} · ${item.date_difference_days} day difference</small></div><button class="business-primary" type="button" onclick="reconcileBankTransaction(${transactionId}, 'Match', ${item.id})">Match</button></article>`).join("") : businessInlineEmpty("No exact submitted journal match was found. Create or submit the correct journal first.")}<footer><button type="button" onclick="reconcileBankTransaction(${transactionId}, 'Ignore')">Mark ignored</button><button type="button" onclick="closeBusinessModal()">Close</button></footer></div>`);
+    } catch (error) { businessNotify("error", "Reconciliation unavailable", error.message); }
+}
+
+async function reconcileBankTransaction(transactionId, action, journalEntryId = null) {
+    try {
+        const response = await fetch(`/api/finance/bank-transactions/${transactionId}/reconcile`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, journal_entry_id: journalEntryId, note: `${action} from BioTrack Banking.` }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(businessErrorMessage(result.detail));
+        closeBusinessModal(); businessNotify("success", "Reconciliation updated", `Transaction is now ${result.status}.`); await loadBusinessPortal();
+    } catch (error) { businessNotify("error", "Reconciliation failed", error.message); }
 }
 
 function openBusinessForm(kind, recordId = null) {

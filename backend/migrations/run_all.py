@@ -29,6 +29,7 @@ MIGRATIONS = (
     "add_procurement_finance",
     "add_quotation_details",
     "add_native_accounting",
+    "add_native_banking",
 )
 
 
