@@ -847,6 +847,75 @@ CREATE TABLE IF NOT EXISTS finance_bank_transactions (
     FOREIGN KEY (matched_journal_entry_id) REFERENCES finance_journal_entries(id) ON DELETE RESTRICT
 );
 
+CREATE TABLE IF NOT EXISTS finance_asset_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    category_code TEXT NOT NULL,
+    category_name TEXT NOT NULL,
+    fixed_asset_account_id INTEGER NOT NULL,
+    accumulated_depreciation_account_id INTEGER NOT NULL,
+    depreciation_expense_account_id INTEGER NOT NULL,
+    default_method TEXT NOT NULL DEFAULT 'Straight Line',
+    default_useful_life_months INTEGER NOT NULL DEFAULT 60,
+    default_annual_rate NUMERIC(7,4) NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'Active',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (company_id, category_code),
+    FOREIGN KEY (company_id) REFERENCES finance_companies(id) ON DELETE RESTRICT,
+    FOREIGN KEY (fixed_asset_account_id) REFERENCES finance_accounts(id) ON DELETE RESTRICT,
+    FOREIGN KEY (accumulated_depreciation_account_id) REFERENCES finance_accounts(id) ON DELETE RESTRICT,
+    FOREIGN KEY (depreciation_expense_account_id) REFERENCES finance_accounts(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS finance_asset_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    biotrack_asset_id INTEGER NOT NULL UNIQUE,
+    asset_number TEXT NOT NULL UNIQUE,
+    capitalization_date DATE NOT NULL,
+    available_for_use_date DATE NOT NULL,
+    gross_cost NUMERIC(18,2) NOT NULL,
+    salvage_value NUMERIC(18,2) NOT NULL DEFAULT 0,
+    depreciation_method TEXT NOT NULL DEFAULT 'Straight Line',
+    useful_life_months INTEGER NOT NULL,
+    annual_rate NUMERIC(7,4) NOT NULL DEFAULT 0,
+    accumulated_depreciation NUMERIC(18,2) NOT NULL DEFAULT 0,
+    net_book_value NUMERIC(18,2) NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Active',
+    capitalization_journal_id INTEGER,
+    disposal_date DATE,
+    disposal_proceeds NUMERIC(18,2) NOT NULL DEFAULT 0,
+    disposal_journal_id INTEGER,
+    notes TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES finance_companies(id) ON DELETE RESTRICT,
+    FOREIGN KEY (category_id) REFERENCES finance_asset_categories(id) ON DELETE RESTRICT,
+    FOREIGN KEY (biotrack_asset_id) REFERENCES assets(id) ON DELETE RESTRICT,
+    FOREIGN KEY (capitalization_journal_id) REFERENCES finance_journal_entries(id) ON DELETE RESTRICT,
+    FOREIGN KEY (disposal_journal_id) REFERENCES finance_journal_entries(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS finance_depreciation_schedules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    finance_asset_id INTEGER NOT NULL,
+    schedule_number INTEGER NOT NULL,
+    schedule_date DATE NOT NULL,
+    depreciation_amount NUMERIC(18,2) NOT NULL,
+    accumulated_depreciation NUMERIC(18,2) NOT NULL,
+    book_value_after NUMERIC(18,2) NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Planned',
+    journal_entry_id INTEGER UNIQUE,
+    posted_by TEXT,
+    posted_at TIMESTAMP,
+    UNIQUE (finance_asset_id, schedule_number),
+    FOREIGN KEY (finance_asset_id) REFERENCES finance_asset_records(id) ON DELETE CASCADE,
+    FOREIGN KEY (journal_entry_id) REFERENCES finance_journal_entries(id) ON DELETE RESTRICT
+);
+
 CREATE INDEX IF NOT EXISTS ix_assets_service_team ON assets(service_team);
 CREATE INDEX IF NOT EXISTS ix_asset_relocation_requests_asset_id ON asset_relocation_requests(asset_id);
 CREATE INDEX IF NOT EXISTS ix_asset_relocation_requests_status ON asset_relocation_requests(status);

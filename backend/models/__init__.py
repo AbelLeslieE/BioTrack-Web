@@ -51,4 +51,7 @@ from backend.models.accounting import (
     FinanceTaxTemplate,
     FinanceBankAccount,
     FinanceBankTransaction,
+    FinanceAssetCategory,
+    FinanceAssetRecord,
+    FinanceDepreciationSchedule,
 )

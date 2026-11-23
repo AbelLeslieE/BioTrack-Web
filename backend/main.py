@@ -35,6 +35,7 @@ from backend.routes.central_store_routes import router as central_store_router
 from backend.routes.security_routes import router as security_router
 from backend.routes.business_routes import router as business_router
 from backend.routes.accounting_routes import router as accounting_router
+from backend.routes.asset_accounting_routes import router as asset_accounting_router
 from backend.auth import get_current_user, validate_auth_config
 from backend.security_middleware import SecurityMiddleware
 from backend.storage import QR_DIRECTORY
@@ -147,6 +148,7 @@ app.include_router(central_store_router)
 app.include_router(security_router)
 app.include_router(business_router)
 app.include_router(accounting_router)
+app.include_router(asset_accounting_router)
 # ==========================================
 # ROUTES
 # ==========================================

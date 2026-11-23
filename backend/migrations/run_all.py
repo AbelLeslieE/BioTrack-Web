@@ -30,6 +30,7 @@ MIGRATIONS = (
     "add_quotation_details",
     "add_native_accounting",
     "add_native_banking",
+    "add_native_asset_accounting",
 )
 
 

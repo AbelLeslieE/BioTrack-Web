@@ -55,6 +55,7 @@ DEFAULT_ACCOUNTS = (
     ("1100", "Accounts Receivable", "Asset", "Debit", "ACCOUNTS_RECEIVABLE"),
     ("1200", "Input GST Credit", "Asset", "Debit", "INPUT_GST"),
     ("1300", "Medical Equipment and Other Assets", "Asset", "Debit", "FIXED_ASSETS"),
+    ("1310", "Accumulated Depreciation", "Asset", "Credit", "ACCUMULATED_DEPRECIATION"),
     ("2000", "Accounts Payable", "Liability", "Credit", "ACCOUNTS_PAYABLE"),
     ("2100", "Output CGST Payable", "Liability", "Credit", "OUTPUT_CGST"),
     ("2110", "Output SGST Payable", "Liability", "Credit", "OUTPUT_SGST"),
@@ -67,6 +68,8 @@ DEFAULT_ACCOUNTS = (
     ("5000", "Medical Equipment and Supply Expense", "Expense", "Debit", "PURCHASE_EXPENSE"),
     ("5100", "Repairs and Maintenance Expense", "Expense", "Debit", "MAINTENANCE_EXPENSE"),
     ("5200", "Administrative and Operating Expense", "Expense", "Debit", "OPERATING_EXPENSE"),
+    ("5300", "Depreciation Expense", "Expense", "Debit", "DEPRECIATION_EXPENSE"),
+    ("5310", "Asset Disposal Gain or Loss", "Expense", "Debit", "ASSET_DISPOSAL_GAIN_LOSS"),
 )
 
 

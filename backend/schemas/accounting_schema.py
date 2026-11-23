@@ -210,3 +210,40 @@ class JournalReversalInput(AccountingModel):
     reversal_date: date
     reason: str = Field(min_length=3, max_length=2000)
 
+
+class AssetCategoryInput(AccountingModel):
+    company_id: int
+    category_code: str = Field(min_length=1, max_length=30)
+    category_name: str = Field(min_length=2, max_length=160)
+    fixed_asset_account_id: int
+    accumulated_depreciation_account_id: int
+    depreciation_expense_account_id: int
+    default_method: str = Field(default="Straight Line", pattern="^(Straight Line|Written Down Value)$")
+    default_useful_life_months: int = Field(default=60, ge=1, le=1200)
+    default_annual_rate: Decimal = Field(default=Decimal("0"), ge=0, le=100)
+
+
+class AssetCapitalizationInput(AccountingModel):
+    company_id: int
+    category_id: int
+    biotrack_asset_id: int
+    capitalization_date: date
+    available_for_use_date: date
+    gross_cost: Decimal = Field(gt=0, le=10_000_000_000)
+    salvage_value: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
+    depreciation_method: str = Field(default="Straight Line", pattern="^(Straight Line|Written Down Value)$")
+    useful_life_months: int = Field(ge=1, le=1200)
+    annual_rate: Decimal = Field(default=Decimal("0"), ge=0, le=100)
+    opening_balance_posting: bool = False
+    notes: str = Field(default="", max_length=3000)
+
+    @model_validator(mode="after")
+    def validate_asset_values(self):
+        if self.salvage_value >= self.gross_cost:
+            raise ValueError("Salvage value must be lower than gross cost.")
+        if self.available_for_use_date < self.capitalization_date:
+            raise ValueError("Available-for-use date cannot be before capitalization.")
+        if self.depreciation_method == "Written Down Value" and self.annual_rate <= 0:
+            raise ValueError("Written Down Value depreciation requires a positive annual rate.")
+        return self
+

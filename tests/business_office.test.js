@@ -160,3 +160,16 @@ test("payable and institutional receivable aging excludes patient billing", () =
     assert.match(view, /AP \/ AR aging/);
     assert.match(route, /aggregate institutional payer claims only; no patient billing data/i);
 });
+
+test("fixed asset accounting links BioTrack equipment to depreciation journals", () => {
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    const route = read("backend/routes/asset_accounting_routes.py");
+    const model = read("backend/models/accounting.py");
+    assert.match(view, /businessTabButton\("fixedAssets", "monitor-cog", "Fixed assets"\)/);
+    for (const name of ["FinanceAssetCategory", "FinanceAssetRecord", "FinanceDepreciationSchedule"]) assert.match(model, new RegExp(`class ${name}`));
+    assert.match(route, /@router\.post\("\/capitalize"/);
+    assert.match(route, /@router\.post\("\/depreciation\/\{schedule_id\}\/post"/);
+    assert.match(route, /source_type="asset_depreciation"/);
+    assert.match(view, /function openAssetCapitalizationForm/);
+    assert.match(view, /function postAssetDepreciation/);
+});

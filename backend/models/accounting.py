@@ -174,3 +174,67 @@ class FinanceBankTransaction(Base):
     imported_at = Column(DateTime, nullable=False, default=datetime.now)
     reconciled_at = Column(DateTime)
 
+
+class FinanceAssetCategory(Base):
+    __tablename__ = "finance_asset_categories"
+    __table_args__ = (UniqueConstraint("company_id", "category_code", name="uq_finance_asset_category_code"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("finance_companies.id", ondelete="RESTRICT"), nullable=False, index=True)
+    category_code = Column(String(30), nullable=False)
+    category_name = Column(String(160), nullable=False)
+    fixed_asset_account_id = Column(Integer, ForeignKey("finance_accounts.id", ondelete="RESTRICT"), nullable=False)
+    accumulated_depreciation_account_id = Column(Integer, ForeignKey("finance_accounts.id", ondelete="RESTRICT"), nullable=False)
+    depreciation_expense_account_id = Column(Integer, ForeignKey("finance_accounts.id", ondelete="RESTRICT"), nullable=False)
+    default_method = Column(String(30), nullable=False, default="Straight Line")
+    default_useful_life_months = Column(Integer, nullable=False, default=60)
+    default_annual_rate = Column(Numeric(7, 4), nullable=False, default=Decimal("0.0000"))
+    status = Column(String(20), nullable=False, default="Active", index=True)
+    created_by = Column(String(80), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+
+
+class FinanceAssetRecord(Base):
+    __tablename__ = "finance_asset_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("finance_companies.id", ondelete="RESTRICT"), nullable=False, index=True)
+    category_id = Column(Integer, ForeignKey("finance_asset_categories.id", ondelete="RESTRICT"), nullable=False, index=True)
+    biotrack_asset_id = Column(Integer, ForeignKey("assets.id", ondelete="RESTRICT"), nullable=False, unique=True, index=True)
+    asset_number = Column(String(50), nullable=False, unique=True, index=True)
+    capitalization_date = Column(Date, nullable=False)
+    available_for_use_date = Column(Date, nullable=False)
+    gross_cost = Column(Numeric(18, 2), nullable=False)
+    salvage_value = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    depreciation_method = Column(String(30), nullable=False, default="Straight Line")
+    useful_life_months = Column(Integer, nullable=False)
+    annual_rate = Column(Numeric(7, 4), nullable=False, default=Decimal("0.0000"))
+    accumulated_depreciation = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    net_book_value = Column(Numeric(18, 2), nullable=False)
+    status = Column(String(30), nullable=False, default="Active", index=True)
+    capitalization_journal_id = Column(Integer, ForeignKey("finance_journal_entries.id", ondelete="RESTRICT"), index=True)
+    disposal_date = Column(Date)
+    disposal_proceeds = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    disposal_journal_id = Column(Integer, ForeignKey("finance_journal_entries.id", ondelete="RESTRICT"), index=True)
+    notes = Column(Text, nullable=False, default="")
+    created_by = Column(String(80), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+
+
+class FinanceDepreciationSchedule(Base):
+    __tablename__ = "finance_depreciation_schedules"
+    __table_args__ = (UniqueConstraint("finance_asset_id", "schedule_number", name="uq_finance_asset_schedule_number"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    finance_asset_id = Column(Integer, ForeignKey("finance_asset_records.id", ondelete="CASCADE"), nullable=False, index=True)
+    schedule_number = Column(Integer, nullable=False)
+    schedule_date = Column(Date, nullable=False, index=True)
+    depreciation_amount = Column(Numeric(18, 2), nullable=False)
+    accumulated_depreciation = Column(Numeric(18, 2), nullable=False)
+    book_value_after = Column(Numeric(18, 2), nullable=False)
+    status = Column(String(20), nullable=False, default="Planned", index=True)
+    journal_entry_id = Column(Integer, ForeignKey("finance_journal_entries.id", ondelete="RESTRICT"), unique=True, index=True)
+    posted_by = Column(String(80))
+    posted_at = Column(DateTime)
+
