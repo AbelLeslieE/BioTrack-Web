@@ -65,6 +65,31 @@ test("quotations have a dedicated Business Office module", () => {
     assert.match(view, /openBusinessQuotationModule\(\$\{item\.id\}\)/);
 });
 
+test("vendor numbers are assigned automatically", () => {
+    const schema = read("backend/schemas/business_schema.py");
+    const route = read("backend/routes/business_routes.py");
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    assert.doesNotMatch(schema, /class VendorInput[\s\S]*?vendor_code:/);
+    assert.match(route, /row\.vendor_code = f"VEN-\{row\.id:03d\}"/);
+    assert.match(view, /Assigned automatically when saved/);
+    assert.doesNotMatch(view, /businessField\("Vendor code \*"/);
+});
+
+test("quotations can be edited with complete commercial details", () => {
+    const model = read("backend/models/business.py");
+    const route = read("backend/routes/business_routes.py");
+    const migration = read("backend/migrations/add_quotation_details.py");
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    for (const field of ["installation_amount", "training_details", "tax_rate", "amc_annual_amount", "amc_terms", "additional_conditions"]) {
+        assert.match(model, new RegExp(field));
+        assert.match(migration, new RegExp(field));
+    }
+    assert.match(route, /@router\.put\("\/quotations\/\{quotation_id\}"\)/);
+    assert.match(view, /quotationUpdate: \{ title: "Edit supplier quotation"/);
+    assert.match(view, /function openQuotationDetails\(quotationId\)/);
+    for (const phrase of ["Quotation breakdown", "Vendor details", "Additional conditions", "Edit quotation"]) assert.match(view, new RegExp(phrase));
+});
+
 test("business summary keeps long currency values readable", () => {
     const view = read("frontend/dashboard_v2/views/businessView.js");
     const css = read("frontend/dashboard_v2/css/business.css");

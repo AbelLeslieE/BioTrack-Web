@@ -8,7 +8,7 @@ aggregate insurer claim batches only.
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, LargeBinary, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, LargeBinary, Numeric, String, Text, UniqueConstraint
 
 from backend.models.base import Base
 
@@ -175,6 +175,11 @@ class SupplierQuotation(Base):
     valid_until = Column(Date)
     quantity = Column(Numeric(18, 3), nullable=False, default=Decimal("1.000"))
     unit_price = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    installation_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    installation_details = Column(String(500), nullable=False, default="")
+    training_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    training_details = Column(String(1000), nullable=False, default="")
+    tax_rate = Column(Numeric(5, 2), nullable=False, default=Decimal("0.00"))
     tax_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
     discount_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
     freight_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
@@ -182,11 +187,17 @@ class SupplierQuotation(Base):
     delivery_days = Column(Integer, nullable=False, default=0)
     warranty_months = Column(Integer, nullable=False, default=0)
     payment_terms = Column(String(240), nullable=False, default="")
+    amc_annual_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    amc_years = Column(Integer, nullable=False, default=0)
+    amc_terms = Column(Text, nullable=False, default="")
+    training_included = Column(Boolean, nullable=False, default=False)
+    additional_conditions = Column(Text, nullable=False, default="")
     notes = Column(Text, nullable=False, default="")
     status = Column(String(20), nullable=False, default="Received", index=True)
     created_by = Column(String(80), nullable=False)
     selected_by = Column(String(80))
     created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
     selected_at = Column(DateTime)
 
 

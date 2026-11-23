@@ -31,6 +31,8 @@ from backend.routes.business_routes import (
     select_quotation,
     update_claim,
     update_purchase_status,
+    update_quotation,
+    update_vendor,
     upload_business_document,
 )
 from backend.schemas.business_schema import (
@@ -102,8 +104,10 @@ class BusinessOfficeTests(unittest.TestCase):
         today = date.today()
         budget = save_budget(BudgetInput(fiscal_year="2026-27", department="Radiology", category="Equipment", allocated_amount=Decimal("100000.00")), None, self.db, self.business_user)
         purchase = create_purchase(PurchaseInput(budget_id=budget["id"], department="Radiology", category="Equipment", item_name="Patient monitor", quantity=Decimal("2"), unit="units", unit_cost=Decimal("0"), justification="Replace unsupported monitors"), None, self.db, self.business_user)
-        vendor_a = create_vendor(VendorInput(vendor_code="VEN-A", vendor_name="Alpha Medical", payment_terms_days=30), None, self.db, self.business_user)
-        vendor_b = create_vendor(VendorInput(vendor_code="VEN-B", vendor_name="Beta Healthcare", payment_terms_days=45), None, self.db, self.business_user)
+        vendor_a = create_vendor(VendorInput(vendor_name="Alpha Medical", payment_terms_days=30), None, self.db, self.business_user)
+        vendor_b = create_vendor(VendorInput(vendor_name="Beta Healthcare", payment_terms_days=45), None, self.db, self.business_user)
+        self.assertEqual(vendor_a["vendor_code"], "VEN-001")
+        self.assertEqual(vendor_b["vendor_code"], "VEN-002")
 
         quote_a = create_quotation(purchase["id"], QuotationInput(vendor_id=vendor_a["id"], quote_number="QA-1", quote_date=today, quantity=Decimal("2"), unit_price=Decimal("10000.10"), tax_amount=Decimal("3600.04"), discount_amount=Decimal("100.00"), delivery_days=14, warranty_months=24), None, self.db, self.business_user)
         quote_b = create_quotation(purchase["id"], QuotationInput(vendor_id=vendor_b["id"], quote_number="QB-1", quote_date=today, quantity=Decimal("2"), unit_price=Decimal("11000.00"), tax_amount=Decimal("3960.00"), delivery_days=7, warranty_months=36), None, self.db, self.business_user)
@@ -155,7 +159,7 @@ class BusinessOfficeTests(unittest.TestCase):
         self.assertGreater(evaluated_b["advantage_percent"], Decimal("20"))
 
     def test_invoice_document_is_stored_in_database(self):
-        vendor = create_vendor(VendorInput(vendor_code="DOC-V", vendor_name="Document Vendor"), None, self.db, self.business_user)
+        vendor = create_vendor(VendorInput(vendor_name="Document Vendor"), None, self.db, self.business_user)
         buffer = BytesIO()
         Image.new("RGB", (80, 60), "white").save(buffer, format="PNG")
         buffer.seek(0)
@@ -164,6 +168,30 @@ class BusinessOfficeTests(unittest.TestCase):
         response = download_business_document(document["id"], self.db)
         self.assertTrue(response.body)
         self.assertEqual(response.media_type, "image/jpeg")
+
+    def test_quotation_details_can_be_edited_before_order(self):
+        today = date.today()
+        purchase = create_purchase(PurchaseInput(department="ICU", category="Equipment", item_name="Bedside monitor", quantity=2, unit="units", unit_cost=0, justification="Replace unsupported monitors"), None, self.db, self.business_user)
+        vendor = create_vendor(VendorInput(vendor_name="Clinical Systems", email="sales@example.test", phone="+91 90000 00000", address="Thrissur, Kerala"), None, self.db, self.business_user)
+        quotation = create_quotation(purchase["id"], QuotationInput(vendor_id=vendor["id"], quote_number="QT-DETAIL-1", quote_date=today, valid_until=today + timedelta(days=30), quantity=2, unit_price=100, installation_amount=50, installation_details="On-site installation", freight_amount=10, discount_amount=10, tax_rate=18, delivery_days=10, warranty_months=36, amc_annual_amount=25, amc_years=3, amc_terms="After warranty", training_included=True, training_details="Clinical user training", additional_conditions="30% advance\nBalance after installation"), None, self.db, self.business_user)
+        self.assertEqual(quotation["subtotal_amount"], Decimal("260.00"))
+        self.assertEqual(quotation["tax_amount"], Decimal("45.00"))
+        self.assertEqual(quotation["total_amount"], Decimal("295.00"))
+        self.assertEqual(quotation["vendor_address"], "Thrissur, Kerala")
+
+        updated = update_quotation(quotation["id"], QuotationInput(vendor_id=vendor["id"], quote_number="QT-DETAIL-1", quote_date=today, valid_until=today + timedelta(days=45), quantity=2, unit_price=100, installation_amount=100, installation_details="Installation and commissioning", freight_amount=20, discount_amount=20, tax_rate=18, delivery_days=7, warranty_months=48, amc_annual_amount=30, amc_years=4, amc_terms="Comprehensive AMC", training_included=True, training_details="Two training sessions", additional_conditions="40% advance\n60% after installation"), None, self.db, self.business_user)
+        self.assertEqual(updated["tax_amount"], Decimal("54.00"))
+        self.assertEqual(updated["total_amount"], Decimal("354.00"))
+        self.assertEqual(updated["warranty_months"], 48)
+        self.assertEqual(updated["additional_conditions"], "40% advance\n60% after installation")
+
+    def test_vendor_number_is_automatic_and_immutable(self):
+        vendor = create_vendor(VendorInput(vendor_name="Automatic Number Supplier"), None, self.db, self.business_user)
+        self.assertEqual(vendor["vendor_code"], "VEN-001")
+
+        updated = update_vendor(vendor["id"], VendorInput(vendor_name="Renamed Supplier", payment_terms_days=45), None, self.db, self.business_user)
+        self.assertEqual(updated["vendor_code"], "VEN-001")
+        self.assertEqual(updated["vendor_name"], "Renamed Supplier")
 
 
 if __name__ == "__main__":

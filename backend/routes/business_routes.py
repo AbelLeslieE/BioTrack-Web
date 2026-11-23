@@ -246,16 +246,31 @@ def _quotation_evaluations(
 
 
 def _quotation_row(row: SupplierQuotation, vendor: BusinessVendor | None = None, lowest: Decimal | None = None, evaluation: dict | None = None) -> dict:
+    subtotal = _money(row.quantity * row.unit_price + row.installation_amount + row.freight_amount + row.training_amount)
     result = {
         "id": row.id,
         "purchase_id": row.purchase_id,
         "vendor_id": row.vendor_id,
         "vendor_name": vendor.vendor_name if vendor else "Unknown vendor",
+        "vendor_code": vendor.vendor_code if vendor else "",
+        "vendor_contact_person": vendor.contact_person if vendor else "",
+        "vendor_email": vendor.email if vendor else "",
+        "vendor_phone": vendor.phone if vendor else "",
+        "vendor_address": vendor.address if vendor else "",
+        "vendor_tax_identifier": vendor.tax_identifier if vendor else "",
         "quote_number": row.quote_number,
         "quote_date": _iso(row.quote_date),
         "valid_until": _iso(row.valid_until),
         "quantity": row.quantity,
         "unit_price": _money(row.unit_price),
+        "line_amount": _money(row.quantity * row.unit_price),
+        "installation_amount": _money(row.installation_amount),
+        "installation_details": row.installation_details,
+        "training_amount": _money(row.training_amount),
+        "training_details": row.training_details,
+        "training_included": row.training_included,
+        "subtotal_amount": subtotal,
+        "tax_rate": _money(row.tax_rate),
         "tax_amount": _money(row.tax_amount),
         "discount_amount": _money(row.discount_amount),
         "freight_amount": _money(row.freight_amount),
@@ -263,11 +278,16 @@ def _quotation_row(row: SupplierQuotation, vendor: BusinessVendor | None = None,
         "delivery_days": row.delivery_days,
         "warranty_months": row.warranty_months,
         "payment_terms": row.payment_terms,
+        "amc_annual_amount": _money(row.amc_annual_amount),
+        "amc_years": row.amc_years,
+        "amc_terms": row.amc_terms,
+        "additional_conditions": row.additional_conditions,
         "vendor_payment_terms_days": vendor.payment_terms_days if vendor else 0,
         "notes": row.notes,
         "status": row.status,
         "is_lowest": lowest is not None and _money(row.total_amount) == _money(lowest),
         "selected_at": _iso(row.selected_at),
+        "updated_at": _iso(row.updated_at),
     }
     result.update(evaluation or {})
     return result
@@ -645,11 +665,10 @@ def update_purchase_status(purchase_id: int, data: PurchaseStatusUpdate, request
 
 @router.post("/vendors")
 def create_vendor(data: VendorInput, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    duplicate = db.query(BusinessVendor).filter(BusinessVendor.vendor_code == data.vendor_code).first()
-    if duplicate:
-        raise HTTPException(status_code=409, detail="That vendor code already exists.")
-    row = BusinessVendor(**data.model_dump(), created_by=current_user.username)
+    row = BusinessVendor(vendor_code=f"PENDING-{uuid4().hex}", **data.model_dump(), created_by=current_user.username)
     db.add(row)
+    db.flush()
+    row.vendor_code = f"VEN-{row.id:03d}"
     record_security_event(db, "business.vendor.created", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="business_vendor", target_id=row.vendor_code, commit=False)
     db.commit()
     db.refresh(row)
@@ -661,9 +680,6 @@ def update_vendor(vendor_id: int, data: VendorInput, request: WebRequest, db: Se
     row = db.get(BusinessVendor, vendor_id)
     if not row:
         raise HTTPException(status_code=404, detail="Vendor not found.")
-    duplicate = db.query(BusinessVendor).filter(BusinessVendor.vendor_code == data.vendor_code, BusinessVendor.id != vendor_id).first()
-    if duplicate:
-        raise HTTPException(status_code=409, detail="That vendor code already exists.")
     for key, value in data.model_dump().items():
         setattr(row, key, value)
     record_security_event(db, "business.vendor.updated", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="business_vendor", target_id=row.vendor_code, details={"status": row.status}, commit=False)
@@ -684,7 +700,13 @@ def create_quotation(purchase_id: int, data: QuotationInput, request: WebRequest
     if db.query(SupplierQuotation).filter(SupplierQuotation.vendor_id == data.vendor_id, SupplierQuotation.quote_number == data.quote_number).first():
         raise HTTPException(status_code=409, detail="That quotation number already exists for this vendor.")
     values = data.model_dump()
-    total = _money(data.quantity * data.unit_price + data.tax_amount + data.freight_amount - data.discount_amount)
+    subtotal = _money(data.quantity * data.unit_price + data.installation_amount + data.freight_amount + data.training_amount)
+    taxable = _money(subtotal - data.discount_amount)
+    if taxable < 0:
+        raise HTTPException(status_code=422, detail="Quotation discount cannot exceed the subtotal.")
+    tax = _money(data.tax_amount if data.tax_amount > 0 else taxable * data.tax_rate / Decimal("100"))
+    values["tax_amount"] = tax
+    total = _money(taxable + tax)
     if total < 0:
         raise HTTPException(status_code=422, detail="Quotation total cannot be negative.")
     row = SupplierQuotation(**values, purchase_id=purchase.id, total_amount=total, created_by=current_user.username)
@@ -695,6 +717,47 @@ def create_quotation(purchase_id: int, data: QuotationInput, request: WebRequest
     quotations = db.query(SupplierQuotation).filter(SupplierQuotation.purchase_id == purchase.id).all()
     lowest = min((_money(item.total_amount) for item in quotations), default=total)
     vendors = {item.id: item for item in db.query(BusinessVendor).filter(BusinessVendor.id.in_([item.vendor_id for item in quotations])).all()}
+    return _quotation_row(row, vendor, lowest, _quotation_evaluations(quotations, vendors).get(row.id))
+
+
+@router.put("/quotations/{quotation_id}")
+def update_quotation(quotation_id: int, data: QuotationInput, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    row = db.get(SupplierQuotation, quotation_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Quotation not found.")
+    purchase = db.get(PurchaseRequest, row.purchase_id)
+    if not purchase or purchase.status not in {"Submitted", "Approved"}:
+        raise HTTPException(status_code=409, detail="A quotation cannot be edited after the purchase is ordered.")
+    vendor = db.get(BusinessVendor, data.vendor_id)
+    if not vendor or vendor.status != "Active":
+        raise HTTPException(status_code=404, detail="Select an active vendor.")
+    duplicate = db.query(SupplierQuotation).filter(SupplierQuotation.vendor_id == data.vendor_id, SupplierQuotation.quote_number == data.quote_number, SupplierQuotation.id != quotation_id).first()
+    if duplicate:
+        raise HTTPException(status_code=409, detail="That quotation number already exists for this vendor.")
+    values = data.model_dump()
+    subtotal = _money(data.quantity * data.unit_price + data.installation_amount + data.freight_amount + data.training_amount)
+    taxable = _money(subtotal - data.discount_amount)
+    if taxable < 0:
+        raise HTTPException(status_code=422, detail="Quotation discount cannot exceed the subtotal.")
+    tax = _money(data.tax_amount if data.tax_amount > 0 else taxable * data.tax_rate / Decimal("100"))
+    total = _money(taxable + tax)
+    if total < 0:
+        raise HTTPException(status_code=422, detail="Quotation total cannot be negative.")
+    values["tax_amount"] = tax
+    for key, value in values.items():
+        setattr(row, key, value)
+    row.total_amount = total
+    row.updated_at = datetime.now()
+    if row.status == "Selected":
+        purchase.vendor_name = vendor.vendor_name
+        purchase.quantity = row.quantity
+        purchase.unit_cost = row.unit_price
+        purchase.total_amount = row.total_amount
+    record_security_event(db, "business.quotation.updated", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="supplier_quotation", target_id=row.quote_number, details={"purchase": purchase.request_number, "vendor": vendor.vendor_name, "total": total}, commit=False)
+    db.commit()
+    quotations = db.query(SupplierQuotation).filter(SupplierQuotation.purchase_id == purchase.id).all()
+    vendors = {item.id: item for item in db.query(BusinessVendor).filter(BusinessVendor.id.in_([item.vendor_id for item in quotations])).all()}
+    lowest = min((_money(item.total_amount) for item in quotations), default=total)
     return _quotation_row(row, vendor, lowest, _quotation_evaluations(quotations, vendors).get(row.id))
 
 

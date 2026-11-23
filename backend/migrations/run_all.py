@@ -27,6 +27,7 @@ MIGRATIONS = (
     "add_business_office",
     "store_uploads_in_database",
     "add_procurement_finance",
+    "add_quotation_details",
 )
 
 

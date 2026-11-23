@@ -118,7 +118,6 @@ class ClaimBatchUpdate(TrimmedModel):
 
 
 class VendorInput(TrimmedModel):
-    vendor_code: str = Field(min_length=2, max_length=40)
     vendor_name: str = Field(min_length=2, max_length=180)
     supplier_type: str = Field(default="General", max_length=80)
     tax_identifier: str = Field(default="", max_length=80)
@@ -140,12 +139,22 @@ class QuotationInput(TrimmedModel):
     valid_until: date | None = None
     quantity: Decimal = Field(gt=0, le=1_000_000)
     unit_price: Decimal = Field(ge=0, le=1_000_000_000)
+    installation_amount: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
+    installation_details: str = Field(default="", max_length=500)
+    training_amount: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
+    training_details: str = Field(default="", max_length=1000)
+    tax_rate: Decimal = Field(default=Decimal("0"), ge=0, le=100)
     tax_amount: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
     discount_amount: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
     freight_amount: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
     delivery_days: int = Field(default=0, ge=0, le=3650)
     warranty_months: int = Field(default=0, ge=0, le=240)
     payment_terms: str = Field(default="", max_length=240)
+    amc_annual_amount: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
+    amc_years: int = Field(default=0, ge=0, le=50)
+    amc_terms: str = Field(default="", max_length=3000)
+    training_included: bool = False
+    additional_conditions: str = Field(default="", max_length=5000)
     notes: str = Field(default="", max_length=3000)
 
     @model_validator(mode="after")
