@@ -33,6 +33,8 @@ from backend.schemas.accounting_schema import (
     GSTCalculationInput,
     JournalDecision,
     JournalEntryInput,
+    JournalReversalInput,
+    PeriodLockInput,
     TaxTemplateInput,
 )
 from backend.services.accounting_service import calculate_gst, money, validate_balanced_lines
@@ -153,7 +155,7 @@ def finance_dashboard(db: Session = Depends(get_db)):
     journals = db.query(FinanceJournalEntry).order_by(FinanceJournalEntry.entry_date.desc(), FinanceJournalEntry.id.desc()).limit(100).all()
     bank_accounts = db.query(FinanceBankAccount).order_by(FinanceBankAccount.account_name).all()
     bank_transactions = db.query(FinanceBankTransaction).order_by(FinanceBankTransaction.transaction_date.desc(), FinanceBankTransaction.id.desc()).limit(250).all()
-    submitted_debit = db.query(func.coalesce(func.sum(FinanceJournalEntry.total_debit), 0)).filter(FinanceJournalEntry.status == "Submitted").scalar()
+    submitted_debit = db.query(func.coalesce(func.sum(FinanceJournalEntry.total_debit), 0)).filter(FinanceJournalEntry.status.in_(["Submitted", "Reversed"])).scalar()
     return {
         "summary": {
             "companies": len(companies),
@@ -161,7 +163,7 @@ def finance_dashboard(db: Session = Depends(get_db)):
             "cost_centers": len(cost_centers),
             "tax_templates": len(taxes),
             "draft_journals": sum(row.status == "Draft" for row in journals),
-            "submitted_journals": sum(row.status == "Submitted" for row in journals),
+            "submitted_journals": sum(row.status in {"Submitted", "Reversed"} for row in journals),
             "posted_value": money(submitted_debit),
             "bank_accounts": len(bank_accounts),
             "unreconciled_bank_transactions": sum(row.status == "Unmatched" for row in bank_transactions),
@@ -255,6 +257,21 @@ def initialize_finance_company(company_id: int, request: WebRequest, db: Session
     record_security_event(db, "finance.company.initialized", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="finance_company", target_id=company.company_code, details={"accounts_created": created}, commit=False)
     db.commit()
     return {"status": "ok", "company": _company_row(company), "accounts_created": created}
+
+
+@router.patch("/companies/{company_id}/lock-date", dependencies=[Depends(require_roles("Manager"))])
+def advance_period_lock(company_id: int, data: PeriodLockInput, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    company = db.get(FinanceCompany, company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Finance company not found.")
+    if data.lock_date < company.books_start_date or data.lock_date > company.fiscal_year_end:
+        raise HTTPException(status_code=422, detail="Lock date must be within the configured books and fiscal year.")
+    if company.lock_date and data.lock_date <= company.lock_date:
+        raise HTTPException(status_code=409, detail="The period lock can only move forward. Reopening requires a controlled database recovery procedure.")
+    company.lock_date = data.lock_date
+    record_security_event(db, "finance.period.locked", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="finance_company", target_id=company.company_code, details={"lock_date": data.lock_date, "note": data.note}, commit=False)
+    db.commit()
+    return _company_row(company)
 
 
 @router.post("/accounts", dependencies=[Depends(require_roles("Manager"))])
@@ -518,6 +535,64 @@ def decide_journal_entry(journal_id: int, data: JournalDecision, request: WebReq
     return _journal_row(row, lines)
 
 
+@router.post("/journals/{journal_id}/reverse", dependencies=[Depends(require_roles("Manager"))])
+def reverse_journal_entry(journal_id: int, data: JournalReversalInput, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    original = db.get(FinanceJournalEntry, journal_id)
+    if not original:
+        raise HTTPException(status_code=404, detail="Journal entry not found.")
+    if original.status != "Submitted" or original.reversal_of_id:
+        raise HTTPException(status_code=409, detail="Only an unreversed submitted journal can be reversed.")
+    if db.query(FinanceJournalEntry).filter(FinanceJournalEntry.reversal_of_id == original.id).first():
+        raise HTTPException(status_code=409, detail="This journal already has a reversal.")
+    company = db.get(FinanceCompany, original.company_id)
+    if data.reversal_date < original.entry_date:
+        raise HTTPException(status_code=422, detail="Reversal date cannot be before the original journal date.")
+    if data.reversal_date < company.books_start_date or (company.lock_date and data.reversal_date <= company.lock_date):
+        raise HTTPException(status_code=409, detail="The reversal date is in a locked or unavailable accounting period.")
+    original_lines = db.query(FinanceJournalLine).filter(FinanceJournalLine.journal_entry_id == original.id).order_by(FinanceJournalLine.line_number).all()
+    reversal = FinanceJournalEntry(
+        company_id=original.company_id,
+        reference_number=f"REV-{data.reversal_date.year}-{uuid4().hex[:8].upper()}",
+        entry_date=data.reversal_date,
+        entry_type="Reversal",
+        narration=f"Reversal of {original.reference_number}: {data.reason}",
+        status="Submitted",
+        source_type="journal_reversal",
+        source_id=original.id,
+        reversal_of_id=original.id,
+        review_note=data.reason,
+        total_debit=original.total_credit,
+        total_credit=original.total_debit,
+        created_by=current_user.username,
+        approved_by=current_user.username,
+        submitted_by=current_user.username,
+        submitted_at=datetime.now(),
+    )
+    db.add(reversal)
+    db.flush()
+    reversal_lines = []
+    for item in original_lines:
+        line = FinanceJournalLine(
+            journal_entry_id=reversal.id, line_number=item.line_number, account_id=item.account_id,
+            cost_center_id=item.cost_center_id, description=f"Reversal: {item.description}",
+            party_type=item.party_type, party_reference=item.party_reference,
+            debit=money(item.credit), credit=money(item.debit), tax_component=item.tax_component,
+        )
+        db.add(line)
+        reversal_lines.append(line)
+    original.status = "Reversed"
+    original.review_note = f"Reversed by {reversal.reference_number}: {data.reason}"
+    for bank_transaction in db.query(FinanceBankTransaction).filter(FinanceBankTransaction.matched_journal_entry_id == original.id).all():
+        bank_transaction.status = "Unmatched"
+        bank_transaction.matched_journal_entry_id = None
+        bank_transaction.reconciliation_note = f"Previous match removed because {original.reference_number} was reversed."
+        bank_transaction.reconciled_by = current_user.username
+        bank_transaction.reconciled_at = datetime.now()
+    record_security_event(db, "finance.journal.reversed", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="finance_journal", target_id=original.reference_number, details={"reversal_reference": reversal.reference_number, "reason": data.reason}, commit=False)
+    db.commit()
+    return _journal_row(reversal, reversal_lines)
+
+
 @router.get("/trial-balance/{company_id}")
 def trial_balance(company_id: int, db: Session = Depends(get_db)):
     company = db.get(FinanceCompany, company_id)
@@ -530,7 +605,7 @@ def trial_balance(company_id: int, db: Session = Depends(get_db)):
         func.coalesce(func.sum(FinanceJournalLine.credit), 0),
     ).join(FinanceJournalEntry, FinanceJournalEntry.id == FinanceJournalLine.journal_entry_id).filter(
         FinanceJournalEntry.company_id == company.id,
-        FinanceJournalEntry.status == "Submitted",
+        FinanceJournalEntry.status.in_(["Submitted", "Reversed"]),
     ).group_by(FinanceJournalLine.account_id).all()
     totals = {account_id: (money(debit), money(credit)) for account_id, debit, credit in aggregates}
     rows = []
@@ -557,7 +632,7 @@ def _account_balances(db: Session, company_id: int, date_from: date | None = Non
         func.coalesce(func.sum(FinanceJournalLine.credit), 0),
     ).join(FinanceJournalEntry, FinanceJournalEntry.id == FinanceJournalLine.journal_entry_id).filter(
         FinanceJournalEntry.company_id == company_id,
-        FinanceJournalEntry.status == "Submitted",
+        FinanceJournalEntry.status.in_(["Submitted", "Reversed"]),
     )
     if date_from:
         query = query.filter(FinanceJournalEntry.entry_date >= date_from)
@@ -664,7 +739,7 @@ def general_ledger(
         raise HTTPException(status_code=404, detail="Ledger account not found for this company.")
     query = db.query(FinanceJournalLine, FinanceJournalEntry).join(
         FinanceJournalEntry, FinanceJournalEntry.id == FinanceJournalLine.journal_entry_id
-    ).filter(FinanceJournalEntry.company_id == company.id, FinanceJournalEntry.status == "Submitted")
+    ).filter(FinanceJournalEntry.company_id == company.id, FinanceJournalEntry.status.in_(["Submitted", "Reversed"]))
     if account_id:
         query = query.filter(FinanceJournalLine.account_id == account_id)
     if date_from:

@@ -139,3 +139,14 @@ test("native banking imports and reconciles statement transactions", () => {
     assert.match(route, /@router\.patch\("\/bank-transactions\/\{transaction_id\}\/reconcile"/);
     for (const name of ["openBankAccountForm", "openBankImportForm", "openBankReconciliation", "reconcileBankTransaction"]) assert.match(view, new RegExp(`function ${name}`));
 });
+
+test("accounting governance supports immutable reversals and forward-only period locks", () => {
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    const route = read("backend/routes/accounting_routes.py");
+    assert.match(route, /@router\.post\("\/journals\/\{journal_id\}\/reverse"/);
+    assert.match(route, /@router\.patch\("\/companies\/\{company_id\}\/lock-date"/);
+    assert.match(route, /original\.status = "Reversed"/);
+    assert.match(route, /period lock can only move forward/i);
+    assert.match(view, /function openJournalReversal/);
+    assert.match(view, /function openPeriodLockForm/);
+});

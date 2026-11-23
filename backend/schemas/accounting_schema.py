@@ -200,3 +200,13 @@ class BankReconciliationDecision(AccountingModel):
             raise ValueError("Select a submitted journal entry to reconcile this transaction.")
         return self
 
+
+class PeriodLockInput(AccountingModel):
+    lock_date: date
+    note: str = Field(min_length=3, max_length=2000)
+
+
+class JournalReversalInput(AccountingModel):
+    reversal_date: date
+    reason: str = Field(min_length=3, max_length=2000)
+

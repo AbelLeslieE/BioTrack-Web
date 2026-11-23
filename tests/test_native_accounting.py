@@ -13,6 +13,7 @@ from backend.models.user import User
 from backend.routes.accounting_routes import (
     create_finance_company,
     create_bank_account,
+    advance_period_lock,
     create_journal_entry,
     decide_journal_entry,
     financial_statements,
@@ -23,6 +24,7 @@ from backend.routes.accounting_routes import (
     preview_gst,
     bank_reconciliation_suggestions,
     reconcile_bank_transaction,
+    reverse_journal_entry,
     trial_balance,
 )
 from backend.schemas.accounting_schema import (
@@ -36,6 +38,8 @@ from backend.schemas.accounting_schema import (
     JournalDecision,
     JournalEntryInput,
     JournalLineInput,
+    JournalReversalInput,
+    PeriodLockInput,
 )
 from backend.services.accounting_posting_service import post_approved_supplier_invoice, post_completed_supplier_payment
 
@@ -132,6 +136,11 @@ class NativeAccountingTests(unittest.TestCase):
         ledger = general_ledger(company["id"], None, None, None, self.db)
         self.assertEqual(ledger["entry_count"], 2)
         self.assertEqual({item["reference_number"] for item in ledger["entries"]}, {journal["reference_number"]})
+        reversal = reverse_journal_entry(journal["id"], JournalReversalInput(reversal_date=date(2026, 11, 24), reason="Invoice cancelled"), None, self.db, self.manager)
+        self.assertEqual(reversal["status"], "Submitted")
+        self.assertEqual(self.db.get(FinanceJournalEntry, journal["id"]).status, "Reversed")
+        reversed_report = trial_balance(company["id"], self.db)
+        self.assertTrue(all(row["net_balance"] == Decimal("0.00") for row in reversed_report["rows"]))
 
     def test_unbalanced_and_locked_period_journals_are_rejected(self):
         company = self._company(lock_date=date(2026, 10, 31))
@@ -239,6 +248,14 @@ class NativeAccountingTests(unittest.TestCase):
         self.assertEqual([item["id"] for item in suggestions["suggestions"]], [journal["id"]])
         matched = reconcile_bank_transaction(transaction.id, BankReconciliationDecision(action="Match", journal_entry_id=journal["id"]), None, self.db, self.manager)
         self.assertEqual(matched["status"], "Matched")
+
+    def test_period_lock_only_moves_forward(self):
+        company = self._company()
+        locked = advance_period_lock(company["id"], PeriodLockInput(lock_date=date(2026, 9, 30), note="Quarter close approved"), None, self.db, self.manager)
+        self.assertEqual(locked["lock_date"], "2026-09-30")
+        with self.assertRaises(HTTPException) as backward:
+            advance_period_lock(company["id"], PeriodLockInput(lock_date=date(2026, 8, 31), note="Attempt reopen"), None, self.db, self.manager)
+        self.assertEqual(backward.exception.status_code, 409)
 
 
 if __name__ == "__main__":
