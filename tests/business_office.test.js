@@ -187,3 +187,18 @@ test("fixed asset lifecycle supports impairment revaluation transfer and disposa
     assert.match(view, /function submitAssetLifecycle/);
     assert.match(view, /Lifecycle event history/);
 });
+
+test("business module exposes complete setup and document workflows", () => {
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    const route = read("backend/routes/business_routes.py");
+    assert.match(view, /Manages hospital budgets, purchases, suppliers, accounting, assets and insurance/);
+    for (const name of ["openFinanceAccountForm", "openFinanceCostCenterForm", "openFinanceTaxTemplateForm", "submitFinanceMaster"]) {
+        assert.match(view, new RegExp(`function ${name}`));
+    }
+    assert.match(view, /debit_cost_center_id/);
+    assert.match(view, /budgetUpdate/);
+    for (const recordType of ["budget", "purchase", "transaction", "policy", "claim"]) {
+        assert.match(route, new RegExp(`"${recordType}":`));
+        assert.match(view, new RegExp(`openBusinessDocuments\\('${recordType}'`));
+    }
+});

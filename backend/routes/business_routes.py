@@ -1004,11 +1004,15 @@ def update_claim(claim_id: int, data: ClaimBatchUpdate, request: WebRequest, db:
 
 
 BUSINESS_DOCUMENT_RECORDS = {
+    "budget": BusinessBudget,
     "purchase": PurchaseRequest,
+    "transaction": BusinessTransaction,
     "vendor": BusinessVendor,
     "quotation": SupplierQuotation,
     "invoice": SupplierInvoice,
     "payment": SupplierPayment,
+    "policy": InsurancePolicy,
+    "claim": InsuranceClaimBatch,
 }
 BUSINESS_DOCUMENT_TYPES = {"Quotation", "Invoice", "Purchase Order", "Delivery Note", "Receipt", "Contract", "Tax Document", "Other"}
 
