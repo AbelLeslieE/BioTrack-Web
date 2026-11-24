@@ -12,10 +12,9 @@ from sqlalchemy.orm import Session
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from backend.models import Base
 from backend.routes.dashboard_routes import router as dashboard_router
 from backend.routes.log_routes import router as log_router
-from backend.database import get_db, schema_engine
+from backend.database import get_db
 from backend.routes.request_routes import router as request_router
 from backend.routes.auth_routes import router as auth_router
 from backend.routes.report_routes import router as report_router
@@ -37,13 +36,18 @@ from backend.routes.business_routes import router as business_router
 from backend.routes.accounting_routes import router as accounting_router
 from backend.routes.asset_accounting_routes import router as asset_accounting_router
 from backend.auth import get_current_user, validate_auth_config
+from backend.migrations.run_all import run_all as run_release_migrations
 from backend.security_middleware import SecurityMiddleware
 from backend.storage import QR_DIRECTORY
 # ==========================================
 # APPLICATION
 # ==========================================
 validate_auth_config()
-Base.metadata.create_all(bind=schema_engine)
+# Keep the database schema current even when a hosting service starts Uvicorn
+# directly instead of using the release command from render.yaml.  The runner
+# is idempotent and uses a PostgreSQL advisory lock, so overlapping deploy
+# instances cannot apply the same migration concurrently.
+run_release_migrations()
 create_default_admin()
 
 app = FastAPI(

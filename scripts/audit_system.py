@@ -138,8 +138,13 @@ def main() -> int:
         check(available, f"attachment compression dependency {package} is installed", failures)
 
     with tempfile.TemporaryDirectory(prefix="biotrack-audit-", ignore_cleanup_errors=True) as directory:
-        os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-        os.environ["DATABASE_URL_UNPOOLED"] = "sqlite:///:memory:"
+        # Use one temporary file rather than SQLite's per-connection in-memory
+        # databases.  Release migrations deliberately open independent schema
+        # connections, matching production, and must all inspect the same DB.
+        audit_database = Path(directory) / "audit.db"
+        audit_database_url = f"sqlite:///{audit_database.as_posix()}"
+        os.environ["DATABASE_URL"] = audit_database_url
+        os.environ["DATABASE_URL_UNPOOLED"] = audit_database_url
         os.environ["BIOTRACK_DATA_DIR"] = directory
         os.environ["JWT_SECRET_KEY"] = "x" * 40
         os.environ["COOKIE_SECURE"] = "false"

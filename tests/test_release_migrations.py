@@ -39,6 +39,30 @@ class ReleaseMigrationTests(unittest.TestCase):
                 self.assertIn(f"{migration}: already current", second.stdout)
             engine.dispose()
 
+    def test_application_startup_runs_the_release_migrations(self):
+        project_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory(prefix="biotrack-startup-") as directory:
+            database_path = Path(directory) / "startup.db"
+            database_url = f"sqlite:///{database_path.as_posix()}"
+            environment = os.environ.copy()
+            environment["DATABASE_URL"] = database_url
+            environment["DATABASE_URL_UNPOOLED"] = database_url
+
+            startup = subprocess.run(
+                [sys.executable, "-c", "import backend.main"],
+                cwd=project_root,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(startup.returncode, 0, startup.stdout + startup.stderr)
+            engine = create_engine(database_url)
+            inspector = inspect(engine)
+            self.assertEqual(set(inspector.get_table_names()), set(Base.metadata.tables))
+            engine.dispose()
+
 
 if __name__ == "__main__":
     unittest.main()
