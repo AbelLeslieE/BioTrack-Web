@@ -13,6 +13,13 @@
         request: "clipboard-list",
         relocation: "route",
         "ward-boy": "truck",
+        budget: "wallet-cards",
+        invoice: "receipt-text",
+        contract: "file-clock",
+        banking: "landmark",
+        insurance: "shield-alert",
+        purchase: "shopping-cart",
+        "three-way-match": "workflow",
     };
     let notifications = [];
     let refreshTimer = null;

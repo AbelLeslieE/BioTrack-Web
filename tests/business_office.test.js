@@ -202,3 +202,25 @@ test("business module exposes complete setup and document workflows", () => {
         assert.match(view, new RegExp(`openBusinessDocuments\\('${recordType}'`));
     }
 });
+
+test("procure-to-pay controls cover contracts forecasting alerts GST and TDS", () => {
+    const model = read("backend/models/business.py");
+    const route = read("backend/routes/business_routes.py");
+    const migration = read("backend/migrations/add_business_controls.py");
+    const view = read("frontend/dashboard_v2/views/businessView.js");
+    const css = read("frontend/dashboard_v2/css/business.css");
+    for (const name of ["PurchaseOrder", "GoodsReceipt", "BusinessContract", "SupplierTaxReconciliation"]) assert.match(model, new RegExp(`class ${name}`));
+    for (const endpoint of ["/purchase-orders", "/goods-receipts", "/contracts", "/invoices/{invoice_id}/match", "/invoices/{invoice_id}/tax-reconciliation"]) assert.match(route, new RegExp(endpoint.replace(/[{}]/g, "\\$&")));
+    for (const phrase of ["Controls & forecasts", "Live alerts", "Expected cash movements", "Purchase orders and goods receipts", "Supplier contracts and AMCs", "Invoice, GST and TDS control"]) assert.match(view, new RegExp(phrase));
+    assert.match(route, /Next 30 days/);
+    assert.match(route, /Days 31–60/);
+    assert.match(route, /Days 61–90/);
+    assert.match(route, /Unreconciled bank transaction/);
+    assert.match(route, /Large purchase/);
+    assert.match(view, /function refreshBusinessInvoiceMatch/);
+    assert.match(css, /business-control-kpis/);
+    assert.match(migration, /net_payable_amount/);
+    const notifications = read("backend/routes/dashboard_routes.py");
+    assert.match(notifications, /business_dashboard\(None, db\)/);
+    assert.match(notifications, /"businessPortal"/);
+});

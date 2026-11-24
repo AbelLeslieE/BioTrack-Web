@@ -34,10 +34,20 @@ class ProcurementFinanceMigrationTests(unittest.TestCase):
             self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
             self.assertIn("already applied", second.stdout)
 
+            controls_command = [sys.executable, "-m", "backend.migrations.add_business_controls"]
+            controls_first = subprocess.run(controls_command, cwd=project_root, env=environment, capture_output=True, text=True, check=False)
+            self.assertEqual(controls_first.returncode, 0, controls_first.stdout + controls_first.stderr)
+            controls_second = subprocess.run(controls_command, cwd=project_root, env=environment, capture_output=True, text=True, check=False)
+            self.assertEqual(controls_second.returncode, 0, controls_second.stdout + controls_second.stderr)
+            self.assertIn("already applied", controls_second.stdout)
+
             connection = sqlite3.connect(database_path)
             try:
                 tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 self.assertTrue({"business_vendors", "supplier_quotations", "supplier_invoices", "supplier_payments", "business_documents"}.issubset(tables))
+                self.assertTrue({"purchase_orders", "goods_receipts", "business_contracts", "supplier_tax_reconciliations"}.issubset(tables))
+                invoice_columns = {row[1] for row in connection.execute("PRAGMA table_info(supplier_invoices)")}
+                self.assertTrue({"purchase_order_id", "goods_receipt_id", "match_status", "tds_amount", "net_payable_amount"}.issubset(invoice_columns))
             finally:
                 connection.close()
 

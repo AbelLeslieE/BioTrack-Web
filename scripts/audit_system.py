@@ -41,6 +41,10 @@ REQUIRED_TABLES = {
     "supplier_invoices",
     "supplier_payments",
     "business_documents",
+    "purchase_orders",
+    "goods_receipts",
+    "business_contracts",
+    "supplier_tax_reconciliations",
 }
 REQUIRED_ROUTES = {
     "/api/assets/{asset_id}/documents",
@@ -58,6 +62,11 @@ REQUIRED_ROUTES = {
     "/api/business/vendors",
     "/api/business/purchases/{purchase_id}/quotations",
     "/api/business/invoices",
+    "/api/business/purchase-orders",
+    "/api/business/goods-receipts",
+    "/api/business/contracts",
+    "/api/business/invoices/{invoice_id}/match",
+    "/api/business/invoices/{invoice_id}/tax-reconciliation",
     "/api/business/invoices/{invoice_id}/payments",
     "/api/business/vendor-outstanding.csv",
     "/api/business/documents/{record_type}/{record_id}",
@@ -122,7 +131,7 @@ def main() -> int:
             row[1]: row[2] for row in connection.execute("PRAGMA table_info(supplier_invoices)")
         }
         check(
-            all("NUMERIC" in business_money_types.get(name, "") for name in ("subtotal_amount", "total_amount", "paid_amount")),
+            all("NUMERIC" in business_money_types.get(name, "") for name in ("subtotal_amount", "total_amount", "paid_amount", "tds_amount", "net_payable_amount")),
             "supplier accounting uses exact decimal currency columns",
             failures,
         )

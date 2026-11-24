@@ -638,6 +638,8 @@ CREATE TABLE IF NOT EXISTS supplier_invoices (
     purchase_id INTEGER NOT NULL,
     vendor_id INTEGER NOT NULL,
     quotation_id INTEGER,
+    purchase_order_id INTEGER,
+    goods_receipt_id INTEGER,
     invoice_number TEXT NOT NULL,
     invoice_date DATE NOT NULL,
     due_date DATE NOT NULL,
@@ -647,6 +649,12 @@ CREATE TABLE IF NOT EXISTS supplier_invoices (
     total_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
     approved_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
     paid_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    match_status TEXT NOT NULL DEFAULT 'Not Checked',
+    match_variance_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    tds_section TEXT NOT NULL DEFAULT '',
+    tds_rate NUMERIC(7,4) NOT NULL DEFAULT 0,
+    tds_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    net_payable_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'Submitted',
     notes TEXT NOT NULL DEFAULT '',
     created_by TEXT NOT NULL,
@@ -658,7 +666,95 @@ CREATE TABLE IF NOT EXISTS supplier_invoices (
     UNIQUE (vendor_id, invoice_number),
     FOREIGN KEY (purchase_id) REFERENCES purchase_requests(id) ON DELETE RESTRICT,
     FOREIGN KEY (vendor_id) REFERENCES business_vendors(id) ON DELETE RESTRICT,
-    FOREIGN KEY (quotation_id) REFERENCES supplier_quotations(id) ON DELETE SET NULL
+    FOREIGN KEY (quotation_id) REFERENCES supplier_quotations(id) ON DELETE SET NULL,
+    FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE SET NULL,
+    FOREIGN KEY (goods_receipt_id) REFERENCES goods_receipts(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS purchase_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_number TEXT NOT NULL UNIQUE,
+    purchase_id INTEGER NOT NULL UNIQUE,
+    vendor_id INTEGER NOT NULL,
+    quotation_id INTEGER NOT NULL,
+    order_date DATE NOT NULL,
+    expected_delivery_date DATE,
+    quantity NUMERIC(18,3) NOT NULL,
+    unit TEXT NOT NULL DEFAULT 'units',
+    subtotal_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    tax_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    discount_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    total_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    payment_terms TEXT NOT NULL DEFAULT '',
+    delivery_address TEXT NOT NULL DEFAULT '',
+    terms_and_conditions TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'Issued',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (purchase_id) REFERENCES purchase_requests(id) ON DELETE RESTRICT,
+    FOREIGN KEY (vendor_id) REFERENCES business_vendors(id) ON DELETE RESTRICT,
+    FOREIGN KEY (quotation_id) REFERENCES supplier_quotations(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS goods_receipts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    receipt_number TEXT NOT NULL UNIQUE,
+    purchase_order_id INTEGER NOT NULL,
+    received_date DATE NOT NULL,
+    delivery_note_number TEXT NOT NULL DEFAULT '',
+    quantity_received NUMERIC(18,3) NOT NULL,
+    quantity_accepted NUMERIC(18,3) NOT NULL,
+    quantity_rejected NUMERIC(18,3) NOT NULL DEFAULT 0,
+    inspection_status TEXT NOT NULL DEFAULT 'Accepted',
+    received_by TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS business_contracts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contract_number TEXT NOT NULL UNIQUE,
+    vendor_id INTEGER NOT NULL,
+    purchase_order_id INTEGER,
+    title TEXT NOT NULL,
+    contract_type TEXT NOT NULL DEFAULT 'AMC',
+    owner_department TEXT NOT NULL DEFAULT 'Hospital-wide',
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    total_value NUMERIC(18,2) NOT NULL DEFAULT 0,
+    billing_frequency TEXT NOT NULL DEFAULT 'Annual',
+    next_payment_date DATE,
+    next_payment_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    renewal_notice_days INTEGER NOT NULL DEFAULT 60,
+    response_sla_hours INTEGER NOT NULL DEFAULT 24,
+    service_obligations TEXT NOT NULL DEFAULT '',
+    payment_schedule TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'Active',
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (vendor_id) REFERENCES business_vendors(id) ON DELETE RESTRICT,
+    FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS supplier_tax_reconciliations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_id INTEGER NOT NULL UNIQUE,
+    return_period TEXT NOT NULL,
+    supplier_gstin TEXT NOT NULL DEFAULT '',
+    gstr2b_status TEXT NOT NULL DEFAULT 'Pending',
+    taxable_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    gst_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    eligible_itc_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    discrepancy_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    notes TEXT NOT NULL DEFAULT '',
+    reconciled_by TEXT NOT NULL,
+    reconciled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (invoice_id) REFERENCES supplier_invoices(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS supplier_payments (
@@ -963,6 +1059,13 @@ CREATE INDEX IF NOT EXISTS ix_supplier_quotations_purchase_id ON supplier_quotat
 CREATE INDEX IF NOT EXISTS ix_supplier_invoices_vendor_id ON supplier_invoices(vendor_id);
 CREATE INDEX IF NOT EXISTS ix_supplier_invoices_due_date ON supplier_invoices(due_date);
 CREATE INDEX IF NOT EXISTS ix_supplier_invoices_status ON supplier_invoices(status);
+CREATE INDEX IF NOT EXISTS ix_supplier_invoices_match_status ON supplier_invoices(match_status);
+CREATE INDEX IF NOT EXISTS ix_purchase_orders_status ON purchase_orders(status);
+CREATE INDEX IF NOT EXISTS ix_purchase_orders_vendor_id ON purchase_orders(vendor_id);
+CREATE INDEX IF NOT EXISTS ix_goods_receipts_purchase_order_id ON goods_receipts(purchase_order_id);
+CREATE INDEX IF NOT EXISTS ix_business_contracts_end_date ON business_contracts(end_date);
+CREATE INDEX IF NOT EXISTS ix_business_contracts_status ON business_contracts(status);
+CREATE INDEX IF NOT EXISTS ix_supplier_tax_reconciliations_status ON supplier_tax_reconciliations(gstr2b_status);
 CREATE INDEX IF NOT EXISTS ix_supplier_payments_invoice_id ON supplier_payments(invoice_id);
 CREATE INDEX IF NOT EXISTS ix_supplier_payments_status ON supplier_payments(status);
 CREATE INDEX IF NOT EXISTS ix_business_documents_record ON business_documents(record_type, record_id);

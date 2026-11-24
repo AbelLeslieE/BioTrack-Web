@@ -2,7 +2,7 @@
 
 import csv
 import io
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from urllib.parse import quote
@@ -18,25 +18,32 @@ from backend.auth import get_current_user, require_roles
 from backend.database import get_db
 from backend.models.asset import Asset
 from backend.models.business import (
+    BusinessContract,
     BusinessBudget,
     BusinessDocument,
     BusinessTransaction,
     BusinessVendor,
+    GoodsReceipt,
     InsuranceClaimBatch,
     InsurancePolicy,
+    PurchaseOrder,
     PurchaseRequest,
     SupplierInvoice,
     SupplierPayment,
     SupplierQuotation,
+    SupplierTaxReconciliation,
 )
+from backend.models.accounting import FinanceBankAccount, FinanceBankTransaction
 from backend.models.central_store import CentralStoreItem
 from backend.models.inventory import Inventory
 from backend.models.user import User
 from backend.models.vendor_contract import VendorServiceHistory
 from backend.schemas.business_schema import (
     BudgetInput,
+    BusinessContractInput,
     ClaimBatchInput,
     ClaimBatchUpdate,
+    GoodsReceiptInput,
     InvoiceDecision,
     InvoiceInput,
     PaymentCompletion,
@@ -45,8 +52,11 @@ from backend.schemas.business_schema import (
     PolicyInput,
     PurchaseDecision,
     PurchaseInput,
+    PurchaseOrderInput,
+    PurchaseOrderStatusInput,
     PurchaseStatusUpdate,
     QuotationInput,
+    TaxReconciliationInput,
     TransactionInput,
     VendorInput,
 )
@@ -299,7 +309,8 @@ def _quotation_row(row: SupplierQuotation, vendor: BusinessVendor | None = None,
 
 
 def _invoice_row(row: SupplierInvoice, vendor: BusinessVendor | None = None, purchase: PurchaseRequest | None = None) -> dict:
-    outstanding = max(_money(row.approved_amount) - _money(row.paid_amount), Decimal("0"))
+    approved_payable = _money(row.net_payable_amount) if _money(row.approved_amount) > 0 else Decimal("0")
+    outstanding = max(approved_payable - _money(row.paid_amount), Decimal("0"))
     status = "Overdue" if outstanding > 0 and row.due_date < date.today() and row.status in {"Approved", "Partially Paid"} else row.status
     return {
         "id": row.id,
@@ -308,6 +319,8 @@ def _invoice_row(row: SupplierInvoice, vendor: BusinessVendor | None = None, pur
         "vendor_id": row.vendor_id,
         "vendor_name": vendor.vendor_name if vendor else "Unknown vendor",
         "quotation_id": row.quotation_id,
+        "purchase_order_id": row.purchase_order_id,
+        "goods_receipt_id": row.goods_receipt_id,
         "invoice_number": row.invoice_number,
         "invoice_date": _iso(row.invoice_date),
         "due_date": _iso(row.due_date),
@@ -317,6 +330,12 @@ def _invoice_row(row: SupplierInvoice, vendor: BusinessVendor | None = None, pur
         "total_amount": _money(row.total_amount),
         "approved_amount": _money(row.approved_amount),
         "paid_amount": _money(row.paid_amount),
+        "match_status": row.match_status,
+        "match_variance_amount": _money(row.match_variance_amount),
+        "tds_section": row.tds_section,
+        "tds_rate": _money(row.tds_rate),
+        "tds_amount": _money(row.tds_amount),
+        "net_payable_amount": _money(row.net_payable_amount),
         "outstanding_amount": _money(outstanding),
         "status": status,
         "stored_status": row.status,
@@ -324,6 +343,209 @@ def _invoice_row(row: SupplierInvoice, vendor: BusinessVendor | None = None, pur
         "approval_note": row.approval_note,
         "approved_by": row.approved_by,
     }
+
+
+def _purchase_order_row(row: PurchaseOrder, vendor: BusinessVendor | None = None, purchase: PurchaseRequest | None = None) -> dict:
+    return {
+        "id": row.id,
+        "order_number": row.order_number,
+        "purchase_id": row.purchase_id,
+        "request_number": purchase.request_number if purchase else "",
+        "item_name": purchase.item_name if purchase else "",
+        "vendor_id": row.vendor_id,
+        "vendor_name": vendor.vendor_name if vendor else "Unknown vendor",
+        "quotation_id": row.quotation_id,
+        "order_date": _iso(row.order_date),
+        "expected_delivery_date": _iso(row.expected_delivery_date),
+        "quantity": row.quantity,
+        "unit": row.unit,
+        "subtotal_amount": _money(row.subtotal_amount),
+        "tax_amount": _money(row.tax_amount),
+        "discount_amount": _money(row.discount_amount),
+        "total_amount": _money(row.total_amount),
+        "payment_terms": row.payment_terms,
+        "delivery_address": row.delivery_address,
+        "terms_and_conditions": row.terms_and_conditions,
+        "status": row.status,
+        "created_by": row.created_by,
+    }
+
+
+def _goods_receipt_row(row: GoodsReceipt, order: PurchaseOrder | None = None) -> dict:
+    return {
+        "id": row.id,
+        "receipt_number": row.receipt_number,
+        "purchase_order_id": row.purchase_order_id,
+        "order_number": order.order_number if order else "",
+        "received_date": _iso(row.received_date),
+        "delivery_note_number": row.delivery_note_number,
+        "quantity_received": row.quantity_received,
+        "quantity_accepted": row.quantity_accepted,
+        "quantity_rejected": row.quantity_rejected,
+        "inspection_status": row.inspection_status,
+        "received_by": row.received_by,
+        "notes": row.notes,
+    }
+
+
+def _contract_row(row: BusinessContract, vendor: BusinessVendor | None = None) -> dict:
+    days_to_expiry = (row.end_date - date.today()).days
+    effective_status = "Expired" if row.status == "Active" and days_to_expiry < 0 else row.status
+    return {
+        "id": row.id,
+        "contract_number": row.contract_number,
+        "vendor_id": row.vendor_id,
+        "vendor_name": vendor.vendor_name if vendor else "Unknown vendor",
+        "purchase_order_id": row.purchase_order_id,
+        "title": row.title,
+        "contract_type": row.contract_type,
+        "owner_department": row.owner_department,
+        "start_date": _iso(row.start_date),
+        "end_date": _iso(row.end_date),
+        "days_to_expiry": days_to_expiry,
+        "total_value": _money(row.total_value),
+        "billing_frequency": row.billing_frequency,
+        "next_payment_date": _iso(row.next_payment_date),
+        "next_payment_amount": _money(row.next_payment_amount),
+        "renewal_notice_days": row.renewal_notice_days,
+        "response_sla_hours": row.response_sla_hours,
+        "service_obligations": row.service_obligations,
+        "payment_schedule": row.payment_schedule,
+        "status": effective_status,
+        "stored_status": row.status,
+    }
+
+
+def _tax_reconciliation_row(row: SupplierTaxReconciliation, invoice: SupplierInvoice | None = None) -> dict:
+    return {
+        "id": row.id,
+        "invoice_id": row.invoice_id,
+        "invoice_number": invoice.invoice_number if invoice else "",
+        "return_period": row.return_period,
+        "supplier_gstin": row.supplier_gstin,
+        "gstr2b_status": row.gstr2b_status,
+        "taxable_amount": _money(row.taxable_amount),
+        "gst_amount": _money(row.gst_amount),
+        "eligible_itc_amount": _money(row.eligible_itc_amount),
+        "discrepancy_amount": _money(row.discrepancy_amount),
+        "notes": row.notes,
+        "reconciled_by": row.reconciled_by,
+        "reconciled_at": _iso(row.reconciled_at),
+    }
+
+
+def _match_invoice(
+    row: SupplierInvoice,
+    order: PurchaseOrder | None,
+    receipt: GoodsReceipt | None,
+    accepted_quantity: Decimal | None = None,
+) -> None:
+    if not order:
+        row.match_status = "Purchase Order Missing"
+        row.match_variance_amount = _money(row.total_amount)
+        return
+    row.match_variance_amount = _money(row.total_amount - order.total_amount)
+    if row.vendor_id != order.vendor_id or row.purchase_id != order.purchase_id:
+        row.match_status = "Mismatch"
+    elif not receipt:
+        row.match_status = "Goods Receipt Missing"
+    elif receipt.purchase_order_id != order.id or receipt.inspection_status not in {"Accepted", "Partially Accepted"}:
+        row.match_status = "Mismatch"
+    elif _money(row.total_amount) > _money(order.total_amount) or Decimal(accepted_quantity if accepted_quantity is not None else receipt.quantity_accepted) < Decimal(order.quantity):
+        row.match_status = "Mismatch"
+    else:
+        row.match_status = "Matched"
+
+
+def _cashflow_forecast(
+    invoices: list[SupplierInvoice],
+    contracts: list[BusinessContract],
+    claims: list[InsuranceClaimBatch],
+    bank_accounts: list[FinanceBankAccount],
+    bank_transactions: list[FinanceBankTransaction],
+) -> dict:
+    today = date.today()
+    opening_balance = _money(
+        sum((row.opening_balance or 0 for row in bank_accounts if row.status == "Active"), Decimal("0"))
+        + sum(((row.deposit or 0) - (row.withdrawal or 0) for row in bank_transactions), Decimal("0"))
+    )
+    items: list[dict] = []
+    for row in invoices:
+        if row.status not in {"Approved", "Partially Paid"}:
+            continue
+        payable = _money(row.net_payable_amount or row.approved_amount)
+        outstanding = max(payable - _money(row.paid_amount), Decimal("0"))
+        if outstanding:
+            items.append({"date": max(row.due_date, today), "type": "Supplier invoice", "reference": row.invoice_number, "direction": "Outflow", "amount": outstanding})
+    for row in contracts:
+        if row.status == "Active" and row.next_payment_date and row.next_payment_amount > 0:
+            items.append({"date": max(row.next_payment_date, today), "type": f"{row.contract_type} payment", "reference": row.contract_number, "direction": "Outflow", "amount": _money(row.next_payment_amount)})
+    for row in claims:
+        outstanding = max(_money(row.approved_amount) - _money(row.received_amount), Decimal("0"))
+        if outstanding and row.status in {"Approved", "Partially Paid"} and row.expected_payment_date:
+            items.append({"date": max(row.expected_payment_date, today), "type": "Insurance receipt", "reference": row.batch_reference, "direction": "Inflow", "amount": outstanding})
+
+    buckets = [
+        {"label": "Next 30 days", "from_day": 0, "to_day": 30},
+        {"label": "Days 31–60", "from_day": 31, "to_day": 60},
+        {"label": "Days 61–90", "from_day": 61, "to_day": 90},
+    ]
+    projected = opening_balance
+    for bucket in buckets:
+        relevant = [item for item in items if bucket["from_day"] <= (item["date"] - today).days <= bucket["to_day"]]
+        inflow = _money(sum((item["amount"] for item in relevant if item["direction"] == "Inflow"), Decimal("0")))
+        outflow = _money(sum((item["amount"] for item in relevant if item["direction"] == "Outflow"), Decimal("0")))
+        projected = _money(projected + inflow - outflow)
+        bucket.update({"inflow": inflow, "outflow": outflow, "net": _money(inflow - outflow), "projected_balance": projected})
+    return {
+        "opening_balance": opening_balance,
+        "buckets": buckets,
+        "items": [
+            {**item, "date": _iso(item["date"]), "amount": _money(item["amount"])}
+            for item in sorted(items, key=lambda item: (item["date"], item["direction"], item["reference"]))
+            if (item["date"] - today).days <= 90
+        ],
+    }
+
+
+def _management_alerts(
+    budget_rows: list[dict],
+    purchases: list[PurchaseRequest],
+    invoices: list[SupplierInvoice],
+    contracts: list[BusinessContract],
+    claims: list[InsuranceClaimBatch],
+    bank_transactions: list[FinanceBankTransaction],
+) -> list[dict]:
+    today = date.today()
+    alerts: list[dict] = []
+    for row in budget_rows:
+        allocated = _money(row["allocated_amount"])
+        available = _money(row["available_amount"])
+        if allocated > 0 and available / allocated <= Decimal("0.10"):
+            alerts.append({"kind": "Budget", "severity": "Critical" if available <= 0 else "Warning", "title": f"{row['department']} budget nearly exhausted", "detail": f"{row['category']} has {_money(available)} remaining.", "amount": available, "date": None, "record_id": row["id"]})
+    for row in invoices:
+        payable = _money(row.net_payable_amount or row.approved_amount)
+        outstanding = max(payable - _money(row.paid_amount), Decimal("0"))
+        if outstanding > 0 and row.due_date < today and row.status in {"Approved", "Partially Paid"}:
+            alerts.append({"kind": "Invoice", "severity": "Critical", "title": f"Invoice {row.invoice_number} is overdue", "detail": f"Payment was due {(today - row.due_date).days} days ago.", "amount": outstanding, "date": _iso(row.due_date), "record_id": row.id})
+        if row.match_status in {"Mismatch", "Purchase Order Missing", "Goods Receipt Missing"} and row.status not in {"Paid", "Rejected"}:
+            alerts.append({"kind": "Three-way match", "severity": "Warning", "title": f"Invoice {row.invoice_number}: {row.match_status}", "detail": "Review the purchase order, receipt and invoice before payment.", "amount": _money(row.total_amount), "date": _iso(row.due_date), "record_id": row.id})
+    for row in contracts:
+        remaining = (row.end_date - today).days
+        if row.status == "Active" and remaining <= row.renewal_notice_days:
+            alerts.append({"kind": "Contract", "severity": "Critical" if remaining < 0 else "Warning", "title": f"{row.contract_number} {'expired' if remaining < 0 else 'is nearing renewal'}", "detail": f"{row.title} · {'expired' if remaining < 0 else str(remaining) + ' days remaining'}.", "amount": _money(row.total_value), "date": _iso(row.end_date), "record_id": row.id})
+    for row in bank_transactions:
+        if row.status == "Unmatched":
+            alerts.append({"kind": "Banking", "severity": "Warning", "title": "Unreconciled bank transaction", "detail": row.description or row.external_reference or "Imported bank entry needs review.", "amount": _money(row.withdrawal or row.deposit), "date": _iso(row.transaction_date), "record_id": row.id})
+    for row in claims:
+        outstanding = max(_money(row.approved_amount) - _money(row.received_amount), Decimal("0"))
+        if outstanding and row.expected_payment_date and row.expected_payment_date < today:
+            alerts.append({"kind": "Insurance", "severity": "Critical", "title": f"Claim {row.batch_reference} settlement is delayed", "detail": f"Expected {(today - row.expected_payment_date).days} days ago.", "amount": outstanding, "date": _iso(row.expected_payment_date), "record_id": row.id})
+    for row in purchases:
+        if _money(row.total_amount) >= Decimal("500000") and row.status in {"Submitted", "Approved", "Ordered"}:
+            alerts.append({"kind": "Purchase", "severity": "Info", "title": f"Large purchase {row.request_number}", "detail": f"{row.item_name} requires management visibility.", "amount": _money(row.total_amount), "date": _iso(row.requested_at.date()), "record_id": row.id})
+    priority = {"Critical": 0, "Warning": 1, "Info": 2}
+    return sorted(alerts, key=lambda item: (priority[item["severity"]], item["date"] or "9999-12-31", item["kind"]))[:100]
 
 
 def _payment_row(row: SupplierPayment, invoice: SupplierInvoice | None = None, vendor: BusinessVendor | None = None) -> dict:
@@ -455,17 +677,24 @@ def business_dashboard(fiscal_year: str | None = None, db: Session = Depends(get
     quotations = db.query(SupplierQuotation).order_by(SupplierQuotation.created_at.desc()).all()
     invoices = db.query(SupplierInvoice).order_by(SupplierInvoice.invoice_date.desc(), SupplierInvoice.id.desc()).all()
     payments = db.query(SupplierPayment).order_by(SupplierPayment.requested_at.desc()).all()
+    purchase_orders = db.query(PurchaseOrder).order_by(PurchaseOrder.order_date.desc(), PurchaseOrder.id.desc()).all()
+    goods_receipts = db.query(GoodsReceipt).order_by(GoodsReceipt.received_date.desc(), GoodsReceipt.id.desc()).all()
+    contracts = db.query(BusinessContract).order_by(BusinessContract.end_date, BusinessContract.contract_number).all()
+    tax_reconciliations = db.query(SupplierTaxReconciliation).order_by(SupplierTaxReconciliation.return_period.desc()).all()
+    bank_accounts = db.query(FinanceBankAccount).all()
+    bank_transactions = db.query(FinanceBankTransaction).all()
     policy_map = {policy.id: policy for policy in policies}
     vendor_map = {vendor.id: vendor for vendor in vendors}
     purchase_map = {purchase.id: purchase for purchase in purchases}
     invoice_map = {invoice.id: invoice for invoice in invoices}
+    purchase_order_map = {row.id: row for row in purchase_orders}
     paid_by_purchase: dict[int, Decimal] = {}
     for payment in payments:
         invoice = invoice_map.get(payment.invoice_id)
         if payment.status == "Paid" and invoice:
             paid_by_purchase[invoice.purchase_id] = _money(paid_by_purchase.get(invoice.purchase_id, Decimal("0")) + payment.amount)
     invoice_outstanding = {
-        invoice.id: max(_money(invoice.approved_amount) - _money(invoice.paid_amount), Decimal("0"))
+        invoice.id: max((_money(invoice.net_payable_amount) if _money(invoice.approved_amount) > 0 else Decimal("0")) - _money(invoice.paid_amount), Decimal("0"))
         for invoice in invoices
     }
     vendor_outstanding = {
@@ -480,6 +709,8 @@ def business_dashboard(fiscal_year: str | None = None, db: Session = Depends(get
     quote_evaluations = _quotation_evaluations(quotations, vendor_map)
 
     budget_rows = [_budget_row(row, purchases, transactions, paid_by_purchase) for row in budgets]
+    cashflow = _cashflow_forecast(invoices, contracts, claims, bank_accounts, bank_transactions)
+    alerts = _management_alerts(budget_rows, purchases, invoices, contracts, claims, bank_transactions)
     paid_expenses = [row for row in transactions if row.transaction_type == "Expense" and row.status == "Paid"]
     income = [row for row in transactions if row.transaction_type != "Expense" and row.status in {"Paid", "Received"}]
     total_approved = sum(row.approved_amount or 0 for row in claims)
@@ -507,6 +738,12 @@ def business_dashboard(fiscal_year: str | None = None, db: Session = Depends(get
             "overdue_supplier_amount": _money(sum((amount for invoice_id, amount in invoice_outstanding.items() if amount > 0 and invoice_map[invoice_id].due_date < date.today()), Decimal("0"))),
             "pending_payment_approvals": sum(row.status == "Pending Approval" for row in payments),
             "active_vendors": sum(row.status == "Active" for row in vendors),
+            "active_contracts": sum(row.status == "Active" and row.end_date >= date.today() for row in contracts),
+            "expiring_contracts": sum(row.status == "Active" and row.end_date <= date.today() + timedelta(days=row.renewal_notice_days) for row in contracts),
+            "open_purchase_orders": sum(row.status in {"Issued", "Partially Received"} for row in purchase_orders),
+            "unmatched_invoices": sum(row.match_status != "Matched" and row.status not in {"Paid", "Rejected"} for row in invoices),
+            "pending_gst_reconciliations": sum(row.gstr2b_status != "Matched" for row in tax_reconciliations),
+            "management_alerts": len(alerts),
         },
         "operational_values": {
             "registered_asset_value": _money(sum((row.net_value or row.purchase_value or 0) for row in db.query(Asset).all())),
@@ -523,6 +760,12 @@ def business_dashboard(fiscal_year: str | None = None, db: Session = Depends(get
         "quotations": [_quotation_row(row, vendor_map.get(row.vendor_id), quote_lowest.get(row.purchase_id), quote_evaluations.get(row.id)) for row in quotations[:250]],
         "invoices": [_invoice_row(row, vendor_map.get(row.vendor_id), purchase_map.get(row.purchase_id)) for row in invoices[:250]],
         "payments": [_payment_row(row, invoice_map.get(row.invoice_id), vendor_map.get(invoice_map[row.invoice_id].vendor_id) if row.invoice_id in invoice_map else None) for row in payments[:250]],
+        "purchase_orders": [_purchase_order_row(row, vendor_map.get(row.vendor_id), purchase_map.get(row.purchase_id)) for row in purchase_orders[:250]],
+        "goods_receipts": [_goods_receipt_row(row, purchase_order_map.get(row.purchase_order_id)) for row in goods_receipts[:250]],
+        "contracts": [_contract_row(row, vendor_map.get(row.vendor_id)) for row in contracts[:250]],
+        "tax_reconciliations": [_tax_reconciliation_row(row, invoice_map.get(row.invoice_id)) for row in tax_reconciliations[:250]],
+        "cashflow_forecast": cashflow,
+        "management_alerts": alerts,
         "document_counts": {
             f"{record_type}:{record_id}": count
             for record_type, record_id, count in db.query(
@@ -544,12 +787,18 @@ def admin_summary(db: Session = Depends(get_db)):
     invoices = db.query(SupplierInvoice).all()
     payments = db.query(SupplierPayment).all()
     budgets = db.query(BusinessBudget).filter(BusinessBudget.status == "Active").all()
+    contracts = db.query(BusinessContract).all()
+    bank_accounts = db.query(FinanceBankAccount).all()
+    bank_transactions = db.query(FinanceBankTransaction).all()
     allocated = sum(row.allocated_amount or 0 for row in budgets)
     paid = sum(row.amount or 0 for row in transactions if row.transaction_type == "Expense" and row.status == "Paid")
     approved_claims = sum(row.approved_amount or 0 for row in claims)
     received_claims = sum(row.received_amount or 0 for row in claims)
     invoice_map = {row.id: row for row in invoices}
     vendor_map = {row.id: row for row in db.query(BusinessVendor).all()}
+    budget_rows = [_budget_row(row, purchases, transactions) for row in budgets]
+    cashflow = _cashflow_forecast(invoices, contracts, claims, bank_accounts, bank_transactions)
+    alerts = _management_alerts(budget_rows, purchases, invoices, contracts, claims, bank_transactions)
     return {
         "allocated_budget": _money(allocated),
         "paid_spend": _money(paid),
@@ -557,8 +806,12 @@ def admin_summary(db: Session = Depends(get_db)):
         "pending_purchase_count": sum(row.status == "Submitted" for row in purchases),
         "pending_purchase_amount": _money(sum(row.total_amount or 0 for row in purchases if row.status == "Submitted")),
         "insurance_outstanding": _money(max(approved_claims - received_claims, 0)),
-        "supplier_outstanding": _money(sum((max(_money(row.approved_amount) - _money(row.paid_amount), Decimal("0")) for row in invoices), Decimal("0"))),
+        "supplier_outstanding": _money(sum((max(_money(row.net_payable_amount or row.approved_amount) - _money(row.paid_amount), Decimal("0")) for row in invoices), Decimal("0"))),
         "pending_payment_approvals": sum(row.status == "Pending Approval" for row in payments),
+        "management_alert_count": len(alerts),
+        "critical_alert_count": sum(row["severity"] == "Critical" for row in alerts),
+        "cashflow_30_day_projection": cashflow["buckets"][0]["projected_balance"],
+        "management_alerts": alerts[:8],
         "recent_pending": [_purchase_row(row) for row in sorted((item for item in purchases if item.status == "Submitted"), key=lambda item: item.requested_at, reverse=True)[:5]],
         "recent_pending_payments": [
             _payment_row(row, invoice_map.get(row.invoice_id), vendor_map.get(invoice_map[row.invoice_id].vendor_id) if row.invoice_id in invoice_map else None)
@@ -791,6 +1044,117 @@ def select_quotation(quotation_id: int, request: WebRequest, db: Session = Depen
     return _quotation_row(row, vendor, lowest, _quotation_evaluations(quotations, vendors).get(row.id))
 
 
+@router.post("/purchase-orders")
+def create_purchase_order(data: PurchaseOrderInput, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    purchase = db.get(PurchaseRequest, data.purchase_id)
+    quotation = db.get(SupplierQuotation, data.quotation_id)
+    if not purchase or purchase.status != "Approved":
+        raise HTTPException(status_code=409, detail="A purchase order requires an approved purchase request.")
+    if not quotation or quotation.purchase_id != purchase.id or quotation.status != "Selected":
+        raise HTTPException(status_code=422, detail="Select an approved quotation for this purchase before creating the order.")
+    if db.query(PurchaseOrder).filter(PurchaseOrder.purchase_id == purchase.id).first():
+        raise HTTPException(status_code=409, detail="This purchase request already has a purchase order.")
+    vendor = db.get(BusinessVendor, quotation.vendor_id)
+    subtotal = _money(quotation.quantity * quotation.unit_price + quotation.installation_amount + quotation.freight_amount + quotation.training_amount)
+    row = PurchaseOrder(
+        order_number=_reference("PO"), purchase_id=purchase.id, vendor_id=vendor.id, quotation_id=quotation.id,
+        order_date=data.order_date, expected_delivery_date=data.expected_delivery_date,
+        quantity=quotation.quantity, unit=purchase.unit, subtotal_amount=subtotal,
+        tax_amount=quotation.tax_amount, discount_amount=quotation.discount_amount,
+        total_amount=quotation.total_amount, payment_terms=quotation.payment_terms,
+        delivery_address=data.delivery_address, terms_and_conditions=data.terms_and_conditions,
+        status="Issued", created_by=current_user.username,
+    )
+    db.add(row)
+    purchase.status = "Ordered"
+    purchase.ordered_at = datetime.now()
+    purchase.vendor_name = vendor.vendor_name
+    record_security_event(db, "business.purchase_order.created", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="purchase_order", target_id=row.order_number, details={"purchase": purchase.request_number, "vendor": vendor.vendor_name, "total": row.total_amount}, commit=False)
+    db.commit()
+    db.refresh(row)
+    return _purchase_order_row(row, vendor, purchase)
+
+
+@router.patch("/purchase-orders/{order_id}/status")
+def update_purchase_order_status(order_id: int, data: PurchaseOrderStatusInput, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    row = db.get(PurchaseOrder, order_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Purchase order not found.")
+    allowed = {
+        "Issued": {"Partially Received", "Received", "Cancelled"},
+        "Partially Received": {"Received", "Cancelled"},
+        "Received": {"Closed"},
+    }
+    if data.status not in allowed.get(row.status, set()):
+        raise HTTPException(status_code=409, detail=f"A {row.status} order cannot move to {data.status}.")
+    row.status = data.status
+    record_security_event(db, "business.purchase_order.status", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="purchase_order", target_id=row.order_number, details={"status": row.status}, commit=False)
+    db.commit()
+    return _purchase_order_row(row, db.get(BusinessVendor, row.vendor_id), db.get(PurchaseRequest, row.purchase_id))
+
+
+@router.post("/goods-receipts")
+def create_goods_receipt(data: GoodsReceiptInput, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    order = db.get(PurchaseOrder, data.purchase_order_id)
+    if not order or order.status not in {"Issued", "Partially Received"}:
+        raise HTTPException(status_code=409, detail="Goods can only be received against an open purchase order.")
+    already_accepted = sum((item.quantity_accepted for item in db.query(GoodsReceipt).filter(GoodsReceipt.purchase_order_id == order.id).all()), Decimal("0"))
+    if Decimal(already_accepted) + data.quantity_accepted > Decimal(order.quantity):
+        raise HTTPException(status_code=422, detail="Accepted receipts cannot exceed the purchase-order quantity.")
+    row = GoodsReceipt(**data.model_dump(), receipt_number=_reference("GRN"), created_by=current_user.username)
+    db.add(row)
+    db.flush()
+    accepted_total = Decimal(already_accepted) + Decimal(row.quantity_accepted)
+    order.status = "Received" if accepted_total >= Decimal(order.quantity) else "Partially Received"
+    purchase = db.get(PurchaseRequest, order.purchase_id)
+    if order.status == "Received":
+        purchase.status = "Received"
+        purchase.received_at = datetime.now()
+    for invoice in db.query(SupplierInvoice).filter(SupplierInvoice.purchase_order_id == order.id).all():
+        if not invoice.goods_receipt_id:
+            invoice.goods_receipt_id = row.id
+        _match_invoice(invoice, order, db.get(GoodsReceipt, invoice.goods_receipt_id), accepted_total)
+    record_security_event(db, "business.goods_receipt.created", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="goods_receipt", target_id=row.receipt_number, details={"purchase_order": order.order_number, "accepted": row.quantity_accepted}, commit=False)
+    db.commit()
+    db.refresh(row)
+    return _goods_receipt_row(row, order)
+
+
+@router.post("/contracts")
+def create_business_contract(data: BusinessContractInput, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    vendor = db.get(BusinessVendor, data.vendor_id)
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found.")
+    if data.purchase_order_id and not db.get(PurchaseOrder, data.purchase_order_id):
+        raise HTTPException(status_code=404, detail="Linked purchase order not found.")
+    if db.query(BusinessContract).filter(BusinessContract.contract_number == data.contract_number).first():
+        raise HTTPException(status_code=409, detail="That contract number already exists.")
+    row = BusinessContract(**data.model_dump(), created_by=current_user.username)
+    db.add(row)
+    record_security_event(db, "business.contract.created", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="business_contract", target_id=row.contract_number, details={"vendor": vendor.vendor_name, "end_date": _iso(row.end_date)}, commit=False)
+    db.commit()
+    db.refresh(row)
+    return _contract_row(row, vendor)
+
+
+@router.put("/contracts/{contract_id}")
+def update_business_contract(contract_id: int, data: BusinessContractInput, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    row = db.get(BusinessContract, contract_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+    vendor = db.get(BusinessVendor, data.vendor_id)
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found.")
+    duplicate = db.query(BusinessContract).filter(BusinessContract.contract_number == data.contract_number, BusinessContract.id != row.id).first()
+    if duplicate:
+        raise HTTPException(status_code=409, detail="That contract number already exists.")
+    for key, value in data.model_dump().items():
+        setattr(row, key, value)
+    record_security_event(db, "business.contract.updated", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="business_contract", target_id=row.contract_number, details={"status": row.status, "end_date": _iso(row.end_date)}, commit=False)
+    db.commit()
+    return _contract_row(row, vendor)
+
+
 @router.post("/invoices")
 def create_supplier_invoice(data: InvoiceInput, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     purchase = db.get(PurchaseRequest, data.purchase_id)
@@ -804,13 +1168,31 @@ def create_supplier_invoice(data: InvoiceInput, request: WebRequest, db: Session
         raise HTTPException(status_code=422, detail="The selected quotation does not match this purchase and vendor.")
     if db.query(SupplierInvoice).filter(SupplierInvoice.vendor_id == vendor.id, SupplierInvoice.invoice_number == data.invoice_number).first():
         raise HTTPException(status_code=409, detail="That supplier invoice is already recorded for this vendor.")
+    order = db.get(PurchaseOrder, data.purchase_order_id) if data.purchase_order_id else None
+    receipt = db.get(GoodsReceipt, data.goods_receipt_id) if data.goods_receipt_id else None
+    if order and (order.purchase_id != purchase.id or order.vendor_id != vendor.id):
+        raise HTTPException(status_code=422, detail="The purchase order does not match this purchase and vendor.")
+    if receipt and (not order or receipt.purchase_order_id != order.id):
+        raise HTTPException(status_code=422, detail="The goods receipt must belong to the selected purchase order.")
     total = _money(data.subtotal_amount + data.tax_amount - data.discount_amount)
     if total < 0:
         raise HTTPException(status_code=422, detail="Invoice total cannot be negative.")
     existing_total = sum((item.total_amount for item in db.query(SupplierInvoice).filter(SupplierInvoice.purchase_id == purchase.id, SupplierInvoice.status.notin_(["Rejected", "Cancelled"])).all()), Decimal("0"))
     if _money(existing_total + total) > _money(purchase.total_amount):
         raise HTTPException(status_code=422, detail="Supplier invoices cannot exceed the approved purchase value.")
-    row = SupplierInvoice(**data.model_dump(), total_amount=total, created_by=current_user.username)
+    taxable_for_tds = max(_money(data.subtotal_amount - data.discount_amount), Decimal("0"))
+    tds_amount = _money(taxable_for_tds * data.tds_rate / Decimal("100"))
+    row = SupplierInvoice(
+        **data.model_dump(), total_amount=total, tds_amount=tds_amount,
+        net_payable_amount=_money(total - tds_amount), created_by=current_user.username,
+    )
+    accepted_total = None
+    if order and receipt:
+        accepted_total = sum(
+            (item.quantity_accepted for item in db.query(GoodsReceipt).filter(GoodsReceipt.purchase_order_id == order.id).all()),
+            Decimal("0"),
+        )
+    _match_invoice(row, order, receipt, accepted_total)
     db.add(row)
     record_security_event(db, "business.invoice.submitted", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="supplier_invoice", target_id=data.invoice_number, details={"purchase": purchase.request_number, "vendor": vendor.vendor_name, "total": total}, commit=False)
     db.commit()
@@ -825,11 +1207,16 @@ def decide_supplier_invoice(invoice_id: int, data: InvoiceDecision, request: Web
         raise HTTPException(status_code=404, detail="Supplier invoice not found.")
     if row.status != "Submitted":
         raise HTTPException(status_code=409, detail="Only submitted invoices can be reviewed.")
+    if data.decision == "Approved" and row.purchase_order_id and row.match_status != "Matched":
+        raise HTTPException(status_code=409, detail=f"Invoice approval is blocked until its three-way match is resolved ({row.match_status}).")
     approved = _money(data.approved_amount or row.total_amount) if data.decision == "Approved" else Decimal("0.00")
     if approved > _money(row.total_amount):
         raise HTTPException(status_code=422, detail="Approved amount cannot exceed the invoice total.")
     row.status = data.decision
     row.approved_amount = approved
+    approved_ratio = approved / _money(row.total_amount) if _money(row.total_amount) else Decimal("0")
+    row.tds_amount = _money(_money(row.tds_amount) * approved_ratio) if data.decision == "Approved" else Decimal("0.00")
+    row.net_payable_amount = _money(approved - row.tds_amount) if data.decision == "Approved" else Decimal("0.00")
     row.approved_by = current_user.username
     row.approval_note = data.note
     row.approved_at = datetime.now()
@@ -844,13 +1231,57 @@ def decide_supplier_invoice(invoice_id: int, data: InvoiceDecision, request: Web
     return _invoice_row(row, db.get(BusinessVendor, row.vendor_id), db.get(PurchaseRequest, row.purchase_id))
 
 
+@router.post("/invoices/{invoice_id}/match")
+def refresh_invoice_match(invoice_id: int, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    row = db.get(SupplierInvoice, invoice_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Supplier invoice not found.")
+    order = db.get(PurchaseOrder, row.purchase_order_id) if row.purchase_order_id else None
+    receipt = db.get(GoodsReceipt, row.goods_receipt_id) if row.goods_receipt_id else None
+    accepted_total = None
+    if order and receipt:
+        accepted_total = sum(
+            (item.quantity_accepted for item in db.query(GoodsReceipt).filter(GoodsReceipt.purchase_order_id == order.id).all()),
+            Decimal("0"),
+        )
+    _match_invoice(row, order, receipt, accepted_total)
+    record_security_event(db, "business.invoice.matched", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="supplier_invoice", target_id=row.invoice_number, details={"match_status": row.match_status, "variance": row.match_variance_amount}, commit=False)
+    db.commit()
+    return _invoice_row(row, db.get(BusinessVendor, row.vendor_id), db.get(PurchaseRequest, row.purchase_id))
+
+
+@router.put("/invoices/{invoice_id}/tax-reconciliation")
+def reconcile_supplier_tax(invoice_id: int, data: TaxReconciliationInput, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    invoice = db.get(SupplierInvoice, invoice_id)
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Supplier invoice not found.")
+    vendor = db.get(BusinessVendor, invoice.vendor_id)
+    if data.supplier_gstin and vendor and vendor.tax_identifier and data.supplier_gstin.casefold() != vendor.tax_identifier.casefold():
+        raise HTTPException(status_code=422, detail="The reconciliation GSTIN does not match the vendor master.")
+    row = db.query(SupplierTaxReconciliation).filter(SupplierTaxReconciliation.invoice_id == invoice.id).first()
+    values = data.model_dump()
+    values["discrepancy_amount"] = _money(data.gst_amount - data.eligible_itc_amount)
+    values["reconciled_by"] = current_user.username
+    values["reconciled_at"] = datetime.now()
+    if row:
+        for key, value in values.items():
+            setattr(row, key, value)
+    else:
+        row = SupplierTaxReconciliation(invoice_id=invoice.id, **values)
+        db.add(row)
+    record_security_event(db, "business.tax_reconciliation.saved", "success", request=request, actor_user_id=current_user.id, actor_username=current_user.username, target_type="supplier_invoice", target_id=invoice.invoice_number, details={"status": row.gstr2b_status, "period": row.return_period}, commit=False)
+    db.commit()
+    db.refresh(row)
+    return _tax_reconciliation_row(row, invoice)
+
+
 @router.post("/invoices/{invoice_id}/payments")
 def request_supplier_payment(invoice_id: int, data: PaymentRequestInput, request: WebRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     invoice = db.get(SupplierInvoice, invoice_id)
     if not invoice or invoice.status not in {"Approved", "Partially Paid"}:
         raise HTTPException(status_code=409, detail="Payments can only be requested for approved invoices.")
     reserved = sum((item.amount for item in db.query(SupplierPayment).filter(SupplierPayment.invoice_id == invoice.id, SupplierPayment.status.in_(["Pending Approval", "Approved"])).all()), Decimal("0"))
-    available = _money(invoice.approved_amount) - _money(invoice.paid_amount) - _money(reserved)
+    available = _money(invoice.net_payable_amount or invoice.approved_amount) - _money(invoice.paid_amount) - _money(reserved)
     if _money(data.amount) > available:
         raise HTTPException(status_code=422, detail=f"Payment exceeds the unreserved invoice balance of {available}.")
     row = SupplierPayment(**data.model_dump(), invoice_id=invoice.id, reference_number=_reference("PAYREQ"), requested_by=current_user.username)
@@ -895,7 +1326,7 @@ def complete_supplier_payment(payment_id: int, data: PaymentCompletion, request:
     row.completed_by = current_user.username
     row.completed_at = datetime.now()
     invoice.paid_amount = _money(invoice.paid_amount) + _money(row.amount)
-    invoice.status = "Paid" if _money(invoice.paid_amount) >= _money(invoice.approved_amount) else "Partially Paid"
+    invoice.status = "Paid" if _money(invoice.paid_amount) >= _money(invoice.net_payable_amount or invoice.approved_amount) else "Partially Paid"
     try:
         post_approved_supplier_invoice(db, invoice, purchase, vendor, current_user.username)
         journal = post_completed_supplier_payment(db, row, invoice, vendor, current_user.username)
@@ -1013,8 +1444,12 @@ BUSINESS_DOCUMENT_RECORDS = {
     "payment": SupplierPayment,
     "policy": InsurancePolicy,
     "claim": InsuranceClaimBatch,
+    "purchase_order": PurchaseOrder,
+    "goods_receipt": GoodsReceipt,
+    "contract": BusinessContract,
+    "tax_reconciliation": SupplierTaxReconciliation,
 }
-BUSINESS_DOCUMENT_TYPES = {"Quotation", "Invoice", "Purchase Order", "Delivery Note", "Receipt", "Contract", "Tax Document", "Other"}
+BUSINESS_DOCUMENT_TYPES = {"Quotation", "Invoice", "Purchase Order", "Delivery Note", "Receipt", "Contract", "Tax Document", "Service Report", "Other"}
 
 
 def _business_record(db: Session, record_type: str, record_id: int):
@@ -1119,12 +1554,12 @@ def export_vendor_outstanding(db: Session = Depends(get_db)):
     writer.writerow([])
     writer.writerow(["Vendor code", "Vendor", "Invoice", "Invoice date", "Due date", "Approved", "Paid", "Outstanding", "Status"])
     for row in db.query(SupplierInvoice).order_by(SupplierInvoice.due_date, SupplierInvoice.invoice_number).all():
-        outstanding = max(_money(row.approved_amount) - _money(row.paid_amount), Decimal("0"))
+        outstanding = max(_money(row.net_payable_amount or row.approved_amount) - _money(row.paid_amount), Decimal("0"))
         if outstanding <= 0:
             continue
         vendor = vendors.get(row.vendor_id)
         status = "Overdue" if row.due_date < date.today() else row.status
-        writer.writerow([vendor.vendor_code if vendor else "", vendor.vendor_name if vendor else "Unknown", row.invoice_number, _iso(row.invoice_date), _iso(row.due_date), _money(row.approved_amount), _money(row.paid_amount), outstanding, status])
+        writer.writerow([vendor.vendor_code if vendor else "", vendor.vendor_name if vendor else "Unknown", row.invoice_number, _iso(row.invoice_date), _iso(row.due_date), _money(row.net_payable_amount or row.approved_amount), _money(row.paid_amount), outstanding, status])
     filename = f"biotrack-vendor-outstanding-{date.today().isoformat()}.csv"
     return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
@@ -1146,9 +1581,22 @@ def export_report(fiscal_year: str | None = Query(default=None, max_length=20), 
     for row in db.query(SupplierQuotation).order_by(SupplierQuotation.quote_date.desc()).all():
         vendor = vendors.get(row.vendor_id)
         writer.writerow(["Quotation", row.quote_number, vendor.vendor_name if vendor else "Unknown", f"Purchase #{row.purchase_id}", _money(row.total_amount), row.status, _iso(row.quote_date)])
+    orders = {row.id: row for row in db.query(PurchaseOrder).all()}
+    for row in sorted(orders.values(), key=lambda item: (item.order_date, item.id), reverse=True):
+        vendor = vendors.get(row.vendor_id)
+        writer.writerow(["Purchase order", row.order_number, vendor.vendor_name if vendor else "Unknown", f"Purchase #{row.purchase_id}", _money(row.total_amount), row.status, _iso(row.order_date)])
+    for row in db.query(GoodsReceipt).order_by(GoodsReceipt.received_date.desc(), GoodsReceipt.id.desc()).all():
+        order = orders.get(row.purchase_order_id)
+        writer.writerow(["Goods receipt", row.receipt_number, order.order_number if order else f"PO #{row.purchase_order_id}", f"Accepted {row.quantity_accepted}; rejected {row.quantity_rejected}", Decimal("0.00"), row.inspection_status, _iso(row.received_date)])
     for row in db.query(SupplierInvoice).order_by(SupplierInvoice.invoice_date.desc()).all():
         vendor = vendors.get(row.vendor_id)
-        writer.writerow(["Supplier invoice", row.invoice_number, vendor.vendor_name if vendor else "Unknown", f"Outstanding {_money(row.approved_amount - row.paid_amount)}", _money(row.total_amount), row.status, _iso(row.invoice_date)])
+        writer.writerow(["Supplier invoice", row.invoice_number, vendor.vendor_name if vendor else "Unknown", f"{row.match_status}; TDS {_money(row.tds_amount)}; net {_money(row.net_payable_amount)}", _money(row.total_amount), row.status, _iso(row.invoice_date)])
+    invoice_numbers = {row.id: row.invoice_number for row in db.query(SupplierInvoice).all()}
+    for row in db.query(SupplierTaxReconciliation).order_by(SupplierTaxReconciliation.reconciled_at.desc()).all():
+        writer.writerow(["GST reconciliation", invoice_numbers.get(row.invoice_id, f"Invoice #{row.invoice_id}"), row.supplier_gstin, f"{row.return_period}; discrepancy {_money(row.discrepancy_amount)}", _money(row.eligible_itc_amount), row.gstr2b_status, _iso(row.reconciled_at)])
+    for row in db.query(BusinessContract).order_by(BusinessContract.end_date.desc()).all():
+        vendor = vendors.get(row.vendor_id)
+        writer.writerow(["Supplier contract", row.contract_number, vendor.vendor_name if vendor else "Unknown", f"{row.contract_type}; {row.billing_frequency}; SLA {row.response_sla_hours}h", _money(row.total_value), row.status, _iso(row.end_date)])
     for row in db.query(SupplierPayment).order_by(SupplierPayment.requested_at.desc()).all():
         writer.writerow(["Supplier payment", row.reference_number, f"Invoice #{row.invoice_id}", row.payment_method, _money(row.amount), row.status, _iso(row.paid_date or row.requested_payment_date)])
     for row in db.query(BusinessTransaction).order_by(BusinessTransaction.transaction_date.desc()).all():
@@ -1159,3 +1607,9 @@ def export_report(fiscal_year: str | None = Query(default=None, max_length=20), 
         writer.writerow(["Claim batch", row.batch_reference, policy.provider_name if policy else "Unknown", policy.policy_name if policy else "", _money(row.claimed_amount), row.status, _iso(row.service_period_end)])
     filename = f"biotrack-business-report-{date.today().isoformat()}.csv"
     return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+    GoodsReceipt,
+    PurchaseOrder,
+    GoodsReceiptInput,
+    PurchaseOrderInput,
+    PurchaseOrderStatusInput,
+    TaxReconciliationInput,

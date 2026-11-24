@@ -211,6 +211,8 @@ class SupplierInvoice(Base):
     purchase_id = Column(Integer, ForeignKey("purchase_requests.id", ondelete="RESTRICT"), nullable=False, index=True)
     vendor_id = Column(Integer, ForeignKey("business_vendors.id", ondelete="RESTRICT"), nullable=False, index=True)
     quotation_id = Column(Integer, ForeignKey("supplier_quotations.id", ondelete="SET NULL"), index=True)
+    purchase_order_id = Column(Integer, ForeignKey("purchase_orders.id", ondelete="SET NULL"), index=True)
+    goods_receipt_id = Column(Integer, ForeignKey("goods_receipts.id", ondelete="SET NULL"), index=True)
     invoice_number = Column(String(100), nullable=False, index=True)
     invoice_date = Column(Date, nullable=False, index=True)
     due_date = Column(Date, nullable=False, index=True)
@@ -220,6 +222,12 @@ class SupplierInvoice(Base):
     total_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
     approved_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
     paid_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    match_status = Column(String(30), nullable=False, default="Not Checked", index=True)
+    match_variance_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    tds_section = Column(String(30), nullable=False, default="")
+    tds_rate = Column(Numeric(7, 4), nullable=False, default=Decimal("0.0000"))
+    tds_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    net_payable_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
     status = Column(String(30), nullable=False, default="Submitted", index=True)
     notes = Column(Text, nullable=False, default="")
     created_by = Column(String(80), nullable=False)
@@ -227,6 +235,101 @@ class SupplierInvoice(Base):
     approval_note = Column(Text, nullable=False, default="")
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     approved_at = Column(DateTime)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+
+
+class PurchaseOrder(Base):
+    """A formal order raised from one approved request and selected quotation."""
+
+    __tablename__ = "purchase_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_number = Column(String(50), nullable=False, unique=True, index=True)
+    purchase_id = Column(Integer, ForeignKey("purchase_requests.id", ondelete="RESTRICT"), nullable=False, unique=True, index=True)
+    vendor_id = Column(Integer, ForeignKey("business_vendors.id", ondelete="RESTRICT"), nullable=False, index=True)
+    quotation_id = Column(Integer, ForeignKey("supplier_quotations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    order_date = Column(Date, nullable=False, index=True)
+    expected_delivery_date = Column(Date, index=True)
+    quantity = Column(Numeric(18, 3), nullable=False)
+    unit = Column(String(40), nullable=False, default="units")
+    subtotal_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    tax_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    discount_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    total_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    payment_terms = Column(String(500), nullable=False, default="")
+    delivery_address = Column(Text, nullable=False, default="")
+    terms_and_conditions = Column(Text, nullable=False, default="")
+    status = Column(String(30), nullable=False, default="Issued", index=True)
+    created_by = Column(String(80), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+
+
+class GoodsReceipt(Base):
+    """Inspection-backed receipt of goods or services against a purchase order."""
+
+    __tablename__ = "goods_receipts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    receipt_number = Column(String(50), nullable=False, unique=True, index=True)
+    purchase_order_id = Column(Integer, ForeignKey("purchase_orders.id", ondelete="RESTRICT"), nullable=False, index=True)
+    received_date = Column(Date, nullable=False, index=True)
+    delivery_note_number = Column(String(100), nullable=False, default="")
+    quantity_received = Column(Numeric(18, 3), nullable=False)
+    quantity_accepted = Column(Numeric(18, 3), nullable=False)
+    quantity_rejected = Column(Numeric(18, 3), nullable=False, default=Decimal("0.000"))
+    inspection_status = Column(String(30), nullable=False, default="Accepted", index=True)
+    received_by = Column(String(120), nullable=False, default="")
+    notes = Column(Text, nullable=False, default="")
+    created_by = Column(String(80), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+
+
+class BusinessContract(Base):
+    """Supplier agreement, AMC or CMC with payment and renewal obligations."""
+
+    __tablename__ = "business_contracts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    contract_number = Column(String(80), nullable=False, unique=True, index=True)
+    vendor_id = Column(Integer, ForeignKey("business_vendors.id", ondelete="RESTRICT"), nullable=False, index=True)
+    purchase_order_id = Column(Integer, ForeignKey("purchase_orders.id", ondelete="SET NULL"), index=True)
+    title = Column(String(240), nullable=False)
+    contract_type = Column(String(30), nullable=False, default="AMC", index=True)
+    owner_department = Column(String(160), nullable=False, default="Hospital-wide", index=True)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False, index=True)
+    total_value = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    billing_frequency = Column(String(30), nullable=False, default="Annual")
+    next_payment_date = Column(Date, index=True)
+    next_payment_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    renewal_notice_days = Column(Integer, nullable=False, default=60)
+    response_sla_hours = Column(Integer, nullable=False, default=24)
+    service_obligations = Column(Text, nullable=False, default="")
+    payment_schedule = Column(Text, nullable=False, default="")
+    status = Column(String(20), nullable=False, default="Active", index=True)
+    created_by = Column(String(80), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+
+
+class SupplierTaxReconciliation(Base):
+    """GSTR-2B and input-credit review for one supplier invoice."""
+
+    __tablename__ = "supplier_tax_reconciliations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("supplier_invoices.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    return_period = Column(String(7), nullable=False, index=True)
+    supplier_gstin = Column(String(15), nullable=False, default="")
+    gstr2b_status = Column(String(30), nullable=False, default="Pending", index=True)
+    taxable_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    gst_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    eligible_itc_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    discrepancy_amount = Column(Numeric(18, 2), nullable=False, default=Decimal("0.00"))
+    notes = Column(Text, nullable=False, default="")
+    reconciled_by = Column(String(80), nullable=False)
+    reconciled_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
 

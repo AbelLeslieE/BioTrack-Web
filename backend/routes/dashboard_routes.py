@@ -3,7 +3,7 @@
 # ==========================================
 
 from fastapi import APIRouter, HTTPException
-from sqlalchemy import func
+from sqlalchemy import func, inspect
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
@@ -610,6 +610,30 @@ def notification_feed(
                     "critical" if schedule.status == "Overdue" else "warning",
                     schedule.updated_at or schedule.scheduled_date,
                 )
+
+    if role in {"business", "manager", "admin"} and inspect(db.get_bind()).has_table("business_budgets"):
+        # Reuse the same calculated controls shown in the Business Office so
+        # notification reminders and dashboard alerts cannot disagree.
+        from backend.routes.business_routes import business_dashboard
+
+        financial_alerts = business_dashboard(None, db).get("management_alerts", [])
+        for alert in financial_alerts[:15]:
+            alert_date = None
+            if alert.get("date"):
+                try:
+                    alert_date = date.fromisoformat(alert["date"])
+                except (TypeError, ValueError):
+                    alert_date = None
+            kind = str(alert.get("kind") or "finance").strip().casefold().replace(" ", "-")
+            add_item(
+                f"business:{kind}:{alert.get('record_id', 'general')}:{alert.get('date') or 'active'}",
+                kind,
+                alert.get("title") or "Business Office alert",
+                alert.get("detail") or "Open the Business Office to review this item.",
+                "businessPortal",
+                str(alert.get("severity") or "Info").casefold(),
+                alert_date or datetime.now(),
+            )
 
     priority_order = {"critical": 0, "warning": 1, "info": 2}
     items.sort(

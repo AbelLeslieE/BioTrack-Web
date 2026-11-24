@@ -168,12 +168,16 @@ class InvoiceInput(TrimmedModel):
     purchase_id: int
     vendor_id: int
     quotation_id: int | None = None
+    purchase_order_id: int | None = None
+    goods_receipt_id: int | None = None
     invoice_number: str = Field(min_length=1, max_length=100)
     invoice_date: date
     due_date: date
     subtotal_amount: Decimal = Field(ge=0, le=10_000_000_000)
     tax_amount: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
     discount_amount: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
+    tds_section: str = Field(default="", max_length=30)
+    tds_rate: Decimal = Field(default=Decimal("0"), ge=0, le=100)
     notes: str = Field(default="", max_length=3000)
 
     @model_validator(mode="after")
@@ -187,6 +191,89 @@ class InvoiceDecision(TrimmedModel):
     decision: str = Field(pattern="^(Approved|Disputed|Rejected)$")
     approved_amount: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
     note: str = Field(default="", max_length=3000)
+
+
+class PurchaseOrderInput(TrimmedModel):
+    purchase_id: int
+    quotation_id: int
+    order_date: date
+    expected_delivery_date: date | None = None
+    delivery_address: str = Field(default="", max_length=3000)
+    terms_and_conditions: str = Field(default="", max_length=5000)
+
+    @model_validator(mode="after")
+    def valid_delivery_date(self):
+        if self.expected_delivery_date and self.expected_delivery_date < self.order_date:
+            raise ValueError("Expected delivery cannot be before the order date.")
+        return self
+
+
+class PurchaseOrderStatusInput(TrimmedModel):
+    status: str = Field(pattern="^(Issued|Partially Received|Received|Closed|Cancelled)$")
+
+
+class GoodsReceiptInput(TrimmedModel):
+    purchase_order_id: int
+    received_date: date
+    delivery_note_number: str = Field(default="", max_length=100)
+    quantity_received: Decimal = Field(gt=0, le=1_000_000)
+    quantity_accepted: Decimal = Field(ge=0, le=1_000_000)
+    quantity_rejected: Decimal = Field(default=Decimal("0"), ge=0, le=1_000_000)
+    inspection_status: str = Field(default="Accepted", pattern="^(Pending|Accepted|Partially Accepted|Rejected)$")
+    received_by: str = Field(default="", max_length=120)
+    notes: str = Field(default="", max_length=3000)
+
+    @model_validator(mode="after")
+    def valid_quantities(self):
+        if self.quantity_accepted + self.quantity_rejected > self.quantity_received:
+            raise ValueError("Accepted and rejected quantities cannot exceed the received quantity.")
+        if self.inspection_status == "Accepted" and self.quantity_accepted != self.quantity_received:
+            raise ValueError("An accepted receipt must accept the complete received quantity.")
+        return self
+
+
+class BusinessContractInput(TrimmedModel):
+    vendor_id: int
+    purchase_order_id: int | None = None
+    contract_number: str = Field(min_length=1, max_length=80)
+    title: str = Field(min_length=2, max_length=240)
+    contract_type: str = Field(default="AMC", pattern="^(AMC|CMC|Supply|Service|Lease|Other)$")
+    owner_department: str = Field(default="Hospital-wide", min_length=1, max_length=160)
+    start_date: date
+    end_date: date
+    total_value: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
+    billing_frequency: str = Field(default="Annual", pattern="^(One-time|Monthly|Quarterly|Half-yearly|Annual|Milestone)$")
+    next_payment_date: date | None = None
+    next_payment_amount: Decimal = Field(default=Decimal("0"), ge=0, le=10_000_000_000)
+    renewal_notice_days: int = Field(default=60, ge=0, le=365)
+    response_sla_hours: int = Field(default=24, ge=0, le=8760)
+    service_obligations: str = Field(default="", max_length=5000)
+    payment_schedule: str = Field(default="", max_length=5000)
+    status: str = Field(default="Active", pattern="^(Draft|Active|Expired|Renewed|Terminated)$")
+
+    @model_validator(mode="after")
+    def valid_contract_dates(self):
+        if self.end_date < self.start_date:
+            raise ValueError("Contract end date cannot be before its start date.")
+        if self.next_payment_date and not (self.start_date <= self.next_payment_date <= self.end_date):
+            raise ValueError("The next payment date must fall within the contract period.")
+        return self
+
+
+class TaxReconciliationInput(TrimmedModel):
+    return_period: str = Field(pattern=r"^\d{4}-\d{2}$")
+    supplier_gstin: str = Field(default="", max_length=15)
+    gstr2b_status: str = Field(pattern="^(Pending|Matched|Mismatch|Missing in GSTR-2B|Ineligible)$")
+    taxable_amount: Decimal = Field(ge=0, le=10_000_000_000)
+    gst_amount: Decimal = Field(ge=0, le=10_000_000_000)
+    eligible_itc_amount: Decimal = Field(ge=0, le=10_000_000_000)
+    notes: str = Field(default="", max_length=3000)
+
+    @model_validator(mode="after")
+    def valid_credit(self):
+        if self.eligible_itc_amount > self.gst_amount:
+            raise ValueError("Eligible input tax credit cannot exceed the invoice GST amount.")
+        return self
 
 
 class PaymentRequestInput(TrimmedModel):

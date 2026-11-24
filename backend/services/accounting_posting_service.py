@@ -102,7 +102,10 @@ def post_approved_supplier_invoice(db: Session, invoice, purchase, vendor, actor
     if not company:
         return None
     expense_key = "FIXED_ASSETS" if any(word in (purchase.category or "").casefold() for word in ("asset", "equipment", "capital")) else "PURCHASE_EXPENSE"
+    tds = money(getattr(invoice, "tds_amount", 0))
     required = {expense_key, "INPUT_GST", "ACCOUNTS_PAYABLE"}
+    if tds:
+        required.add("TDS_PAYABLE")
     accounts = _accounts(db, company.id, required)
     approved = money(invoice.approved_amount)
     ratio = approved / money(invoice.total_amount) if money(invoice.total_amount) else Decimal("0")
@@ -113,13 +116,23 @@ def post_approved_supplier_invoice(db: Session, invoice, purchase, vendor, actor
         lines.append({"account_id": accounts[expense_key].id, "debit": net, "description": purchase.item_name})
     if tax:
         lines.append({"account_id": accounts["INPUT_GST"].id, "debit": tax, "description": f"Input GST on {invoice.invoice_number}"})
+    vendor_payable = money(approved - tds)
     lines.append({
         "account_id": accounts["ACCOUNTS_PAYABLE"].id,
-        "credit": approved,
+        "credit": vendor_payable,
         "description": f"Payable to {vendor.vendor_name}",
         "party_type": "Vendor",
         "party_reference": vendor.vendor_code,
     })
+    if tds:
+        lines.append({
+            "account_id": accounts["TDS_PAYABLE"].id,
+            "credit": tds,
+            "description": f"TDS withheld under {getattr(invoice, 'tds_section', '') or 'applicable section'}",
+            "party_type": "Vendor",
+            "party_reference": vendor.vendor_code,
+            "tax_component": "TDS",
+        })
     return _post(
         db,
         company=company,

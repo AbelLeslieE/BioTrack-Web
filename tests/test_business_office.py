@@ -16,9 +16,12 @@ from backend.models.user import User
 from backend.routes.business_routes import (
     business_dashboard,
     complete_supplier_payment,
+    create_business_contract,
     create_claim,
+    create_goods_receipt,
     create_policy,
     create_purchase,
+    create_purchase_order,
     create_quotation,
     create_supplier_invoice,
     create_vendor,
@@ -27,6 +30,8 @@ from backend.routes.business_routes import (
     decide_purchase,
     download_business_document,
     request_supplier_payment,
+    reconcile_supplier_tax,
+    refresh_invoice_match,
     save_budget,
     select_quotation,
     update_claim,
@@ -37,8 +42,10 @@ from backend.routes.business_routes import (
 )
 from backend.schemas.business_schema import (
     BudgetInput,
+    BusinessContractInput,
     ClaimBatchInput,
     ClaimBatchUpdate,
+    GoodsReceiptInput,
     InvoiceDecision,
     InvoiceInput,
     PaymentCompletion,
@@ -47,8 +54,10 @@ from backend.schemas.business_schema import (
     PolicyInput,
     PurchaseDecision,
     PurchaseInput,
+    PurchaseOrderInput,
     PurchaseStatusUpdate,
     QuotationInput,
+    TaxReconciliationInput,
     VendorInput,
 )
 
@@ -192,6 +201,36 @@ class BusinessOfficeTests(unittest.TestCase):
         updated = update_vendor(vendor["id"], VendorInput(vendor_name="Renamed Supplier", payment_terms_days=45), None, self.db, self.business_user)
         self.assertEqual(updated["vendor_code"], "VEN-001")
         self.assertEqual(updated["vendor_name"], "Renamed Supplier")
+
+    def test_procure_to_pay_contract_forecast_gst_and_tds_controls(self):
+        today = date.today()
+        purchase = create_purchase(PurchaseInput(department="Biomedical", category="Equipment", item_name="Infusion pumps", quantity=Decimal("2"), unit="units", unit_cost=Decimal("0"), justification="Replace end-of-life pumps"), None, self.db, self.business_user)
+        vendor = create_vendor(VendorInput(vendor_name="Controlled Medical", tax_identifier="32ABCDE1234F1Z5", payment_terms_days=30), None, self.db, self.business_user)
+        quotation = create_quotation(purchase["id"], QuotationInput(vendor_id=vendor["id"], quote_number="QT-CONTROL-1", quote_date=today, quantity=Decimal("2"), unit_price=Decimal("500.00"), tax_amount=Decimal("180.00"), warranty_months=36), None, self.db, self.business_user)
+        select_quotation(quotation["id"], None, self.db, self.manager)
+        decide_purchase(purchase["id"], PurchaseDecision(decision="Approved", note="Approved after comparison"), None, self.db, self.manager)
+
+        order = create_purchase_order(PurchaseOrderInput(purchase_id=purchase["id"], quotation_id=quotation["id"], order_date=today, expected_delivery_date=today + timedelta(days=7), delivery_address="Little Flower Hospital central receiving"), None, self.db, self.business_user)
+        first_receipt = create_goods_receipt(GoodsReceiptInput(purchase_order_id=order["id"], received_date=today, quantity_received=Decimal("1"), quantity_accepted=Decimal("1"), inspection_status="Partially Accepted", received_by="Stores"), None, self.db, self.business_user)
+        self.assertEqual(first_receipt["quantity_accepted"], Decimal("1"))
+        invoice = create_supplier_invoice(InvoiceInput(purchase_id=purchase["id"], vendor_id=vendor["id"], quotation_id=quotation["id"], purchase_order_id=order["id"], goods_receipt_id=first_receipt["id"], invoice_number="INV-CONTROL-1", invoice_date=today, due_date=today + timedelta(days=30), subtotal_amount=Decimal("1000.00"), tax_amount=Decimal("180.00"), tds_section="194C", tds_rate=Decimal("2.00")), None, self.db, self.business_user)
+        self.assertEqual(invoice["match_status"], "Mismatch")
+        with self.assertRaises(HTTPException):
+            decide_supplier_invoice(invoice["id"], InvoiceDecision(decision="Approved", approved_amount=Decimal("1180.00")), None, self.db, self.manager)
+        create_goods_receipt(GoodsReceiptInput(purchase_order_id=order["id"], received_date=today, quantity_received=Decimal("1"), quantity_accepted=Decimal("1"), inspection_status="Accepted", received_by="Stores"), None, self.db, self.business_user)
+        self.assertEqual(invoice["tds_amount"], Decimal("20.00"))
+        self.assertEqual(invoice["net_payable_amount"], Decimal("1160.00"))
+        self.assertEqual(refresh_invoice_match(invoice["id"], None, self.db, self.business_user)["match_status"], "Matched")
+
+        tax = reconcile_supplier_tax(invoice["id"], TaxReconciliationInput(return_period=f"{today.year}-{today.month:02d}", supplier_gstin="32ABCDE1234F1Z5", gstr2b_status="Matched", taxable_amount=Decimal("1000.00"), gst_amount=Decimal("180.00"), eligible_itc_amount=Decimal("180.00")), None, self.db, self.business_user)
+        self.assertEqual(tax["discrepancy_amount"], Decimal("0.00"))
+
+        contract = create_business_contract(BusinessContractInput(vendor_id=vendor["id"], purchase_order_id=order["id"], contract_number="AMC-2026-001", title="Infusion pump comprehensive AMC", contract_type="AMC", owner_department="Biomedical", start_date=today, end_date=today + timedelta(days=20), total_value=Decimal("12000.00"), billing_frequency="Annual", next_payment_date=today + timedelta(days=10), next_payment_amount=Decimal("12000.00"), renewal_notice_days=60, response_sla_hours=8, service_obligations="Quarterly preventive maintenance and 8-hour breakdown response", payment_schedule="Annual payment after service verification"), None, self.db, self.business_user)
+        self.assertEqual(contract["days_to_expiry"], 20)
+        dashboard = business_dashboard(None, self.db)
+        self.assertTrue(any(item["kind"] == "Contract" for item in dashboard["management_alerts"]))
+        self.assertTrue(any(item["reference"] == "AMC-2026-001" for item in dashboard["cashflow_forecast"]["items"]))
+        self.assertEqual(dashboard["tax_reconciliations"][0]["gstr2b_status"], "Matched")
 
 
 if __name__ == "__main__":
